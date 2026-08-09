@@ -12,16 +12,19 @@ function round2(n) {
 function sumSpend(rows) {
   const byDay = {};
   const bySub = {};
+  const bySubDay = {};
   for (const r of rows || []) {
     const day = r.data;
     const sub = String(r.subid || "").trim().toLowerCase() || "semsubid";
     const g = Number(r.gasto || 0);
     if (day) {
       byDay[day] = (byDay[day] || 0) + g;
+      const sk = `${sub}|${day}`;
+      bySubDay[sk] = (bySubDay[sk] || 0) + g;
     }
     bySub[sub] = (bySub[sub] || 0) + g;
   }
-  return { byDay, bySub };
+  return { byDay, bySub, bySubDay };
 }
 
 /**
@@ -67,6 +70,23 @@ async function enrichDashboardWithAds(dash, userId = requireUserId()) {
     const comissao = Number(r.comissao || 0);
     const lucro = round2(comissao - invTotal);
     const roi = invTotal > 0 ? round2((lucro / invTotal) * 100) : null;
+    const dailyRows = (r.daily || []).map((d) => {
+      const sk = `${key}|${d.data}`;
+      const dInvMeta = round2(meta.bySubDay[sk] || 0);
+      const dInvPin = round2(pin.bySubDay[sk] || 0);
+      const dInvTotal = round2(dInvMeta + dInvPin);
+      const dCom = Number(d.comissao || 0);
+      const dLucro = round2(dCom - dInvTotal);
+      const dRoi = dInvTotal > 0 ? round2((dLucro / dInvTotal) * 100) : null;
+      return {
+        ...d,
+        inv_meta: dInvMeta,
+        inv_pin: dInvPin,
+        inv_total: dInvTotal,
+        lucro: dLucro,
+        roi: dRoi,
+      };
+    });
     return {
       ...r,
       inv_meta: invMeta,
@@ -74,6 +94,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId()) {
       inv_total: invTotal,
       lucro,
       roi,
+      daily: dailyRows,
     };
   });
 

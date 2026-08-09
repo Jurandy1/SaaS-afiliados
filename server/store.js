@@ -293,11 +293,56 @@ async function attachMenuPreviews(dash, startDate, endDate, userId = requireUser
   if (!dash) return dash;
   try {
     const [orders, products] = await Promise.all([
-      loadOrders({ startDate, endDate, limit: 200 }, userId),
+      loadOrders({ startDate, endDate, limit: 5000 }, userId),
       loadProducts({ limit: 100 }, userId),
     ]);
-    dash.ordersPreview = orders;
+    dash.ordersPreview = (orders || []).slice(0, 200);
     dash.productsPreview = products;
+
+    // Histórico diário por SubID (para expandir na tabela)
+    const bySubDay = {};
+    for (const o of orders || []) {
+      const sub = String(o.subid || "organico");
+      const day = o.data;
+      if (!day) continue;
+      if (!bySubDay[sub]) bySubDay[sub] = {};
+      if (!bySubDay[sub][day]) {
+        bySubDay[sub][day] = {
+          data: day,
+          faturamento: 0,
+          comissao: 0,
+          pedidos: 0,
+          concluidos: 0,
+          pendentes: 0,
+          cancelados: 0,
+        };
+      }
+      const row = bySubDay[sub][day];
+      row.pedidos += 1;
+      const st = String(o.status || "");
+      if (st === "cancelada") {
+        row.cancelados += 1;
+        continue;
+      }
+      if (st === "unpaid") continue;
+      row.faturamento += Number(o.faturamento || 0);
+      row.comissao += Number(o.comissao || 0);
+      if (st === "concluida") row.concluidos += 1;
+      else row.pendentes += 1;
+    }
+
+    dash.subIds = (dash.subIds || []).map((r) => {
+      if (Array.isArray(r.daily) && r.daily.length) return r;
+      const days = bySubDay[r.subid] || {};
+      const daily = Object.values(days)
+        .map((d) => ({
+          ...d,
+          faturamento: Math.round(d.faturamento * 100) / 100,
+          comissao: Math.round(d.comissao * 100) / 100,
+        }))
+        .sort((a, b) => String(a.data).localeCompare(String(b.data)));
+      return { ...r, daily };
+    });
   } catch (_) {
     dash.ordersPreview = dash.ordersPreview || [];
     dash.productsPreview = dash.productsPreview || [];

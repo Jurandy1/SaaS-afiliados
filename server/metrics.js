@@ -57,6 +57,18 @@ function aggregateReport(nodes) {
         pendentes: 0,
         cancelados: 0,
         itens: 0,
+        byDay: {},
+      };
+    }
+    if (!bySubId[subid].byDay[date]) {
+      bySubId[subid].byDay[date] = {
+        data: date,
+        faturamento: 0,
+        comissao: 0,
+        pedidos: 0,
+        concluidos: 0,
+        pendentes: 0,
+        cancelados: 0,
       };
     }
 
@@ -145,11 +157,13 @@ function aggregateReport(nodes) {
       byDay[date].pedidos += 1;
       bySubId[subid].pedidos += 1;
       bySubId[subid].itens += qty;
+      bySubId[subid].byDay[date].pedidos += 1;
 
       if (status === "cancelada") {
         cancelados += 1;
         byDay[date].cancelados += 1;
         bySubId[subid].cancelados += 1;
+        bySubId[subid].byDay[date].cancelados += 1;
         return;
       }
       if (status === "unpaid") {
@@ -164,27 +178,42 @@ function aggregateReport(nodes) {
       byDay[date].comissao += com;
       bySubId[subid].faturamento += fat;
       bySubId[subid].comissao += com;
+      bySubId[subid].byDay[date].faturamento += fat;
+      bySubId[subid].byDay[date].comissao += com;
 
       if (status === "concluida") {
         concluidos += 1;
         byDay[date].concluidos += 1;
         bySubId[subid].concluidos += 1;
+        bySubId[subid].byDay[date].concluidos += 1;
       } else {
         pendentes += 1;
         byDay[date].pendentes += 1;
         bySubId[subid].pendentes += 1;
+        bySubId[subid].byDay[date].pendentes += 1;
       }
     });
   }
 
   const daily = Object.values(byDay).sort((a, b) => a.data.localeCompare(b.data));
   const subIds = Object.values(bySubId)
-    .map((r) => ({
-      ...r,
-      faturamento: round2(r.faturamento),
-      comissao: round2(r.comissao),
-      abatimento: r.faturamento > 0 ? round2((r.comissao / r.faturamento) * 100) : 0,
-    }))
+    .map((r) => {
+      const { byDay: dayMap, ...rest } = r;
+      const dailyRows = Object.values(dayMap || {})
+        .map((d) => ({
+          ...d,
+          faturamento: round2(d.faturamento),
+          comissao: round2(d.comissao),
+        }))
+        .sort((a, b) => a.data.localeCompare(b.data));
+      return {
+        ...rest,
+        faturamento: round2(r.faturamento),
+        comissao: round2(r.comissao),
+        abatimento: r.faturamento > 0 ? round2((r.comissao / r.faturamento) * 100) : 0,
+        daily: dailyRows,
+      };
+    })
     .sort((a, b) => b.comissao - a.comissao);
 
   const productList = Object.values(products)

@@ -507,8 +507,8 @@ const server = http.createServer(async (req, res) => {
             if (!force) {
               let fromDb = await loadDashboardFromDb(startDate, endDate);
               if (fromDb) {
-                fromDb = await enrichDashboardWithAds(fromDb);
                 fromDb = await attachMenuPreviews(fromDb, startDate, endDate);
+                fromDb = await enrichDashboardWithAds(fromDb);
                 sendJson(res, 200, { success: true, cached: true, ...fromDb });
                 return;
               }

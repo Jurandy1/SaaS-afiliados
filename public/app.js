@@ -83,6 +83,7 @@
     settings: { metaBase: 863959, taxRate: 0, teamName: "SaaS SHOPPE", teamPlan: "Shopee · Meta" },
     subidPage: 1,
     subidPageFull: 1,
+    expandedSubIds: {},
     pageSize: 10,
     dataRows: [],
     dataHeaders: [],
@@ -381,6 +382,87 @@
     });
   }
 
+  function shortDayLabel(iso) {
+    if (!iso) return "—";
+    const [y, m, d] = String(iso).split("-");
+    const months = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+    const mi = Number(m) - 1;
+    return `${d} ${months[mi] || m}`;
+  }
+
+  function subIdDailyHistoryHtml(r, colSpan) {
+    const days = Array.isArray(r.daily) ? r.daily : [];
+    const key = String(r.subid || "");
+    if (!days.length) {
+      return `<tr class="subid-detail" data-parent="${escapeHtml(key)}">
+        <td colspan="${colSpan}">
+          <div class="subid-history">
+            <div class="subid-history-empty">Sem histórico diário para este SubID no período.</div>
+          </div>
+        </td>
+      </tr>`;
+    }
+    const totCom = days.reduce((a, d) => a + Number(d.comissao || 0), 0);
+    const totInv = days.reduce((a, d) => a + Number(d.inv_total || 0), 0);
+    const totLucro = days.reduce((a, d) => a + Number(d.lucro != null ? d.lucro : (d.comissao || 0) - (d.inv_total || 0)), 0);
+    const totRoi = totInv > 0 ? (totLucro / totInv) * 100 : null;
+    const rows = days.map((d) => {
+      const lucro = d.lucro != null ? Number(d.lucro) : Number(d.comissao || 0) - Number(d.inv_total || 0);
+      return `<tr>
+        <td>${escapeHtml(shortDayLabel(d.data))}</td>
+        <td class="num">${fmt(d.comissao)}</td>
+        <td class="num">${fmt(d.inv_total)}</td>
+        <td class="num ${lucro >= 0 ? "green" : ""}">${fmt(lucro)}</td>
+        <td class="num">${fmtPct(d.roi != null ? d.roi : (Number(d.inv_total || 0) > 0 ? (lucro / Number(d.inv_total)) * 100 : null))}</td>
+      </tr>`;
+    }).join("");
+    return `<tr class="subid-detail" data-parent="${escapeHtml(key)}">
+      <td colspan="${colSpan}">
+        <div class="subid-history">
+          <div class="subid-history-head">
+            <span>Historico diario</span>
+            <span class="muted">Ultimos ${days.length} dia(s) — ${escapeHtml(key)}</span>
+          </div>
+          <table class="subid-history-table">
+            <thead>
+              <tr>
+                <th>Dia</th>
+                <th class="num">Comissao</th>
+                <th class="num">Investim.</th>
+                <th class="num">Lucro</th>
+                <th class="num">ROI</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+              <tr class="subid-history-total">
+                <td>Total ${days.length}d</td>
+                <td class="num">${fmt(totCom)}</td>
+                <td class="num">${fmt(totInv)}</td>
+                <td class="num ${totLucro >= 0 ? "green" : ""}">${fmt(totLucro)}</td>
+                <td class="num">${fmtPct(totRoi)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </td>
+    </tr>`;
+  }
+
+  function wireSubIdExpand(tbodySel, renderFn) {
+    const tb = $(tbodySel);
+    if (!tb || tb.dataset.expandWired) return;
+    tb.dataset.expandWired = "1";
+    tb.addEventListener("click", (e) => {
+      const cell = e.target.closest("td.subid[data-subid]");
+      if (!cell) return;
+      e.preventDefault();
+      const id = cell.dataset.subid;
+      state.expandedSubIds[id] = !state.expandedSubIds[id];
+      renderFn();
+    });
+  }
+
   function renderSubIdsDash() {
     const all = filteredSubIds(state.dash?.subIds || [], $("#subid-search")?.value);
     const total = all.length;
@@ -391,9 +473,14 @@
     $("#nav-subid-count").textContent = fmtNum(state.dash?.subIds?.length || 0);
     const perfBadge = document.querySelector('.nav-item[data-view="performance"] .nav-badge');
     if (perfBadge) perfBadge.textContent = fmtNum((state.dash?.subIds || []).length);
-    $("#subid-tbody").innerHTML = slice.map((r) => `
-      <tr>
-        <td class="subid">${escapeHtml(r.subid)}</td>
+    $("#subid-tbody").innerHTML = slice.map((r) => {
+      const id = String(r.subid || "");
+      const open = Boolean(state.expandedSubIds[id]);
+      const main = `<tr class="subid-row ${open ? "is-open" : ""}" data-subid="${escapeHtml(id)}">
+        <td class="subid" data-subid="${escapeHtml(id)}" title="Clique para ver o historico diario">
+          <span class="subid-caret"></span>
+          ${escapeHtml(id)}
+        </td>
         <td class="num">${fmt(r.faturamento)}</td>
         <td class="num">${fmt(r.comissao)}</td>
         <td class="num">${fmt(r.inv_total)}</td>
@@ -403,8 +490,10 @@
         <td class="num">${fmtNum(r.concluidos)}</td>
         <td class="num">${fmtNum(r.pendentes)}</td>
         <td><span class="status-pill"><i></i>Ativa</span></td>
-      </tr>
-    `).join("") || `<tr><td colspan="10">Nenhum SubID neste período.</td></tr>`;
+      </tr>`;
+      return open ? main + subIdDailyHistoryHtml(r, 10) : main;
+    }).join("") || `<tr><td colspan="10">Nenhum SubID neste período.</td></tr>`;
+    wireSubIdExpand("#subid-tbody", renderSubIdsDash);
     renderPager($("#subid-pager"), state.subidPage, total, state.pageSize, (p) => {
       state.subidPage = p;
       renderSubIdsDash();
@@ -417,9 +506,14 @@
     const pages = Math.max(1, Math.ceil(total / state.pageSize));
     if (state.subidPageFull > pages) state.subidPageFull = pages;
     const slice = all.slice((state.subidPageFull - 1) * state.pageSize, state.subidPageFull * state.pageSize);
-    $("#subid-tbody-full").innerHTML = slice.map((r) => `
-      <tr>
-        <td class="subid">${escapeHtml(r.subid)}</td>
+    $("#subid-tbody-full").innerHTML = slice.map((r) => {
+      const id = String(r.subid || "");
+      const open = Boolean(state.expandedSubIds[id]);
+      const main = `<tr class="subid-row ${open ? "is-open" : ""}" data-subid="${escapeHtml(id)}">
+        <td class="subid" data-subid="${escapeHtml(id)}" title="Clique para ver o historico diario">
+          <span class="subid-caret"></span>
+          ${escapeHtml(id)}
+        </td>
         <td class="num">${fmt(r.faturamento)}</td>
         <td class="num">${fmt(r.comissao)}</td>
         <td class="num">${fmtPct(r.abatimento)}</td>
@@ -427,8 +521,10 @@
         <td class="num">${fmtNum(r.concluidos)}</td>
         <td class="num">${fmtNum(r.pendentes)}</td>
         <td class="num">${fmtNum(r.cancelados)}</td>
-      </tr>
-    `).join("") || `<tr><td colspan="8">Nenhum SubID.</td></tr>`;
+      </tr>`;
+      return open ? main + subIdDailyHistoryHtml(r, 8) : main;
+    }).join("") || `<tr><td colspan="8">Nenhum SubID.</td></tr>`;
+    wireSubIdExpand("#subid-tbody-full", renderSubIdsFull);
     renderPager($("#subid-pager-full"), state.subidPageFull, total, state.pageSize, (p) => {
       state.subidPageFull = p;
       renderSubIdsFull();
