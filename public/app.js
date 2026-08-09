@@ -247,11 +247,11 @@
     const invTotal = Number(k.inv_total || 0);
     const lucro = k.lucro != null ? Number(k.lucro) : Number(k.comissao || 0) - invTotal;
     const cards = [
-      { label: "Faturamento", value: fmt(k.faturamento), delta: "Shopee", on: true, color: "#16a34a", spark: SPARK.up, fill: SPARK.upFill },
-      { label: "Comissão", value: fmt(k.comissao), delta: "Shopee", on: true, color: "#15803d", spark: SPARK.up, fill: SPARK.upFill },
-      { label: "Investimento", value: fmt(invTotal), delta: invTotal ? "Meta + Pin" : "sem invest.", on: invTotal > 0, color: invTotal ? "#ca8a04" : "#a3a3a3", spark: SPARK.flat, fill: SPARK.flatFill },
-      { label: "Lucro", value: fmt(lucro), delta: invTotal ? "com − invest" : "≈ comissão", on: true, color: lucro >= 0 ? "#16a34a" : "#dc2626", spark: SPARK.up, fill: SPARK.upFill },
-      { label: "ROI", value: fmtPct(k.roi), delta: invTotal ? "lucro/invest" : "—", on: invTotal > 0, color: "#2563eb", spark: SPARK.up, fill: SPARK.upFill },
+      { label: "Faturamento", value: fmt(k.faturamento), delta: "Shopee", on: true, color: "#e4b84a", spark: SPARK.up, fill: SPARK.upFill, tone: "" },
+      { label: "Comissão", value: fmt(k.comissao), delta: "Shopee", on: true, color: "#86efac", spark: SPARK.up, fill: SPARK.upFill, tone: "" },
+      { label: "Investimento", value: fmt(invTotal), delta: invTotal ? "Meta + Pin" : "sem invest.", on: invTotal > 0, color: invTotal ? "#fbbf24" : "#71717a", spark: SPARK.flat, fill: SPARK.flatFill, tone: "" },
+      { label: "Lucro", value: fmt(lucro), delta: invTotal ? "com − invest" : "≈ comissão", on: true, color: lucro >= 0 ? "#4ade80" : "#f87171", spark: SPARK.up, fill: SPARK.upFill, tone: lucro >= 0 ? "pos" : "neg" },
+      { label: "ROI", value: fmtPct(k.roi), delta: invTotal ? "lucro/invest" : "—", on: invTotal > 0, color: "#60a5fa", spark: SPARK.up, fill: SPARK.upFill, tone: invTotal > 0 ? "pos" : "" },
     ];
     $("#kpi-grid").innerHTML = cards.map((c) => `
       <div class="kpi">
@@ -259,7 +259,7 @@
           <div class="kpi-label">${c.label}</div>
           <span class="kpi-delta ${c.on ? "on" : "off"}">${c.delta}</span>
         </div>
-        <div class="kpi-value">${c.value}</div>
+        <div class="kpi-value ${c.tone || ""}">${c.value}</div>
         <div class="kpi-spark">${sparkSvg(c.spark, c.fill, c.color)}</div>
       </div>
     `).join("");
@@ -300,7 +300,7 @@
     })).join("");
     const rowProg = [`<div class="c">Progresso da meta</div>`].concat(targets.map((t, i) => {
       const pct = Math.min(100, (fat / (base * t.mult)) * 100);
-      const bg = i === 0 ? "#16a34a" : i === 1 ? "#65a30d" : "#ca8a04";
+      const bg = i === 0 ? "#e87a7a" : i === 1 ? "#f0a0a0" : "#c45c5c";
       return `<div class="c r"><div class="prog-row"><div class="prog-bar"><i style="width:${pct.toFixed(1)}%;background:${bg}"></i></div><span class="prog-pct">${pct.toFixed(1).replace(".", ",")}%</span></div></div>`;
     })).join("");
     grid.innerHTML = headers + rowFat + rowBonus + rowDaily + rowProg;
@@ -399,7 +399,7 @@
     });
     btns.push(`<button type="button" data-p="${page + 1}" ${page >= pages ? "disabled" : ""}>Proximo</button>`);
     el.innerHTML = `
-      <div>Exibindo <strong style="color:#0a0a0a">${from}–${to}</strong> de <strong style="color:#0a0a0a">${fmtNum(total)}</strong></div>
+      <div>Exibindo <strong style="color:var(--text)">${from}–${to}</strong> de <strong style="color:var(--text)">${fmtNum(total)}</strong></div>
       <div class="pager-btns">${btns.join("")}</div>`;
     el.querySelectorAll("button[data-p]").forEach((b) => {
       b.addEventListener("click", () => {
