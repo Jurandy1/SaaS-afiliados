@@ -2,6 +2,32 @@
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => [...document.querySelectorAll(sel)];
 
+  const TOKEN_KEY = "metricly_access_token";
+  const USER_KEY = "metricly_user";
+
+  function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
+  function setSession(accessToken, user) {
+    localStorage.setItem(TOKEN_KEY, accessToken || "");
+    localStorage.setItem(USER_KEY, JSON.stringify(user || {}));
+  }
+  function clearSession() {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  }
+  function getStoredUser() {
+    try { return JSON.parse(localStorage.getItem(USER_KEY) || "{}"); } catch { return {}; }
+  }
+
+  function showApp(user) {
+    $("#auth-gate").classList.add("hidden");
+    $("#app-shell").classList.remove("hidden");
+    if (user?.email) $("#user-email-label").textContent = user.email;
+  }
+  function showAuth() {
+    $("#auth-gate").classList.remove("hidden");
+    $("#app-shell").classList.add("hidden");
+  }
+
   const DATA_VIEWS = new Set([
     "visao", "performance", "comparativos", "produtos", "campanhas",
     "pedidos", "comissoes", "investimentos", "metas", "impostos", "equipe",
@@ -88,11 +114,18 @@
   }
 
   async function api(path, opts = {}) {
-    const res = await fetch(path, {
-      headers: { "Content-Type": "application/json", ...(opts.headers || {}) },
-      ...opts,
-    });
+    const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+    const token = getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(path, { ...opts, headers });
     const json = await res.json().catch(() => ({}));
+    if (res.status === 401 || json.code === "UNAUTHORIZED") {
+      clearSession();
+      showAuth();
+      const err = new Error(json.error || "Faça login");
+      err.code = "UNAUTHORIZED";
+      throw err;
+    }
     if (!res.ok || json.success === false) {
       const err = new Error(json.error || `HTTP ${res.status}`);
       err.code = json.code;
@@ -652,6 +685,50 @@
     $("#start-date").value = daysAgoISO(6);
     $("#end-date").value = todayISO();
 
+    let authMode = "login";
+    $("#auth-tab-login")?.addEventListener("click", () => {
+      authMode = "login";
+      $("#auth-tab-login").classList.add("active");
+      $("#auth-tab-register").classList.remove("active");
+      $("#auth-submit").textContent = "Entrar";
+    });
+    $("#auth-tab-register")?.addEventListener("click", () => {
+      authMode = "register";
+      $("#auth-tab-register").classList.add("active");
+      $("#auth-tab-login").classList.remove("active");
+      $("#auth-submit").textContent = "Criar conta";
+    });
+    $("#auth-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const status = $("#auth-status");
+      status.className = "form-status";
+      status.textContent = authMode === "login" ? "Entrando…" : "Criando conta…";
+      try {
+        const path = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
+        const r = await fetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: $("#auth-email").value.trim(),
+            password: $("#auth-password").value,
+          }),
+        }).then((x) => x.json());
+        if (!r.success) throw new Error(r.error || "Falha");
+        setSession(r.access_token, r.user);
+        status.className = "form-status ok";
+        status.textContent = "OK";
+        showApp(r.user);
+        await bootApp();
+      } catch (err) {
+        status.className = "form-status err";
+        status.textContent = err.message;
+      }
+    });
+    $("#btn-logout")?.addEventListener("click", () => {
+      clearSession();
+      showAuth();
+    });
+
     $$(".nav-item").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
     document.body.addEventListener("click", (e) => {
       const t = e.target.closest("[data-goto]");
@@ -829,14 +906,30 @@
     });
   }
 
-  async function boot() {
-    wire();
+  async function bootApp() {
     await Promise.all([loadCredentials(), loadMetaCreds(), loadSettingsUi()]);
     if (state.configured) await loadDashboard({ force: false });
     else {
       renderKpis({});
       renderProjection({});
       renderInsight({}, []);
+    }
+  }
+
+  async function boot() {
+    wire();
+    const token = getToken();
+    if (!token) {
+      showAuth();
+      return;
+    }
+    try {
+      const me = await api("/api/auth/me");
+      showApp(me.user || getStoredUser());
+      await bootApp();
+    } catch {
+      clearSession();
+      showAuth();
     }
   }
 

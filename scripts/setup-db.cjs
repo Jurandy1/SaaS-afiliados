@@ -22,6 +22,7 @@ function loadEnv() {
 loadEnv();
 
 async function main() {
+  const migrate = fs.readFileSync(path.join(__dirname, "..", "sql", "migrate-multiuser.sql"), "utf8");
   const sql = fs.readFileSync(path.join(__dirname, "..", "sql", "schema.sql"), "utf8");
   const password = process.env.SUPABASE_DB_PASSWORD || "";
   const ref = (process.env.SUPABASE_URL || "")
@@ -38,30 +39,25 @@ async function main() {
     process.env.DATABASE_URL ||
     `postgresql://postgres.${ref}:${encodeURIComponent(password)}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`;
 
-  const client = new Client({
-    connectionString,
-    ssl: { rejectUnauthorized: false },
-  });
+  async function run(cs, label) {
+    const client = new Client({ connectionString: cs, ssl: { rejectUnauthorized: false } });
+    await client.connect();
+    console.log(`Aplicando migrate (${label})…`);
+    await client.query(migrate);
+    console.log(`Aplicando schema (${label})…`);
+    await client.query(sql);
+    await client.end();
+  }
 
   console.log("Conectando ao Supabase Postgres…");
   try {
-    await client.connect();
+    await run(connectionString, "pooler");
   } catch (err) {
-    // fallback host clássico
     const alt = `postgresql://postgres:${encodeURIComponent(password)}@db.${ref}.supabase.co:5432/postgres`;
-    console.log("Pooler falhou, tentando db.*.supabase.co…", err.message);
-    await client.end().catch(() => {});
-    const c2 = new Client({ connectionString: alt, ssl: { rejectUnauthorized: false } });
-    await c2.connect();
-    await c2.query(sql);
-    await c2.end();
-    console.log("Schema aplicado com sucesso (host direto).");
-    return;
+    console.log("Pooler falhou, tentando host direto…", err.message);
+    await run(alt, "direto");
   }
-
-  await client.query(sql);
-  await client.end();
-  console.log("Schema aplicado com sucesso.");
+  console.log("Schema multi-user aplicado com sucesso.");
 }
 
 main().catch((e) => {

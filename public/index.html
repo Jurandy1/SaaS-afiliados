@@ -10,7 +10,34 @@
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <div class="app">
+  <div id="auth-gate" class="auth-gate">
+    <div class="auth-card">
+      <div class="brand" style="border:0;padding:0 0 16px">
+        <div class="brand-mark"><span></span></div>
+        <div>
+          <div class="brand-name">Metricly</div>
+          <div class="brand-sub">Sua conta · Shopee + Meta isolados</div>
+        </div>
+      </div>
+      <div class="auth-tabs">
+        <button type="button" class="tab active" id="auth-tab-login">Entrar</button>
+        <button type="button" class="tab" id="auth-tab-register">Criar conta</button>
+      </div>
+      <form id="auth-form" class="form">
+        <label>Email
+          <input type="email" id="auth-email" required autocomplete="username" />
+        </label>
+        <label>Senha
+          <input type="password" id="auth-password" required minlength="6" autocomplete="current-password" />
+        </label>
+        <button type="submit" class="btn primary" id="auth-submit" style="width:100%;justify-content:center">Entrar</button>
+        <div id="auth-status" class="form-status"></div>
+      </form>
+      <p class="hint">Cada usuário coloca a própria API Shopee e o próprio Meta. Dados não se misturam.</p>
+    </div>
+  </div>
+
+  <div class="app hidden" id="app-shell">
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark"><span></span></div>
@@ -23,7 +50,7 @@
       <div class="account-pill">
         <div class="account-avatar">SH</div>
         <div class="account-meta">
-          <div class="account-title">Conta Shopee</div>
+          <div class="account-title" id="user-email-label">Conta</div>
           <div class="account-sub" id="sidebar-status">API não configurada</div>
         </div>
       </div>
@@ -61,9 +88,10 @@
       <div class="sidebar-user">
         <div class="user-avatar">MP</div>
         <div class="user-meta">
-          <div class="user-name" id="team-name">SaaS SHOPPE</div>
+          <div class="user-name" id="team-name">Minha conta</div>
           <div class="user-plan" id="team-plan">Shopee · Meta</div>
         </div>
+        <button type="button" class="btn ghost sm" id="btn-logout" title="Sair">Sair</button>
       </div>
     </aside>
 

@@ -2,6 +2,7 @@
 
 const { normalizeSubId } = require("./normalizeSubId");
 const { getSupabase } = require("./supabase");
+const { requireUserId } = require("./auth");
 
 function parseMoney(val) {
   if (val == null || val === "") return 0;
@@ -129,8 +130,8 @@ function parsePinterestCsv(text) {
   return parsed;
 }
 
-async function importPinterestCsv(text) {
-  const rows = parsePinterestCsv(text);
+async function importPinterestCsv(text, userId = requireUserId()) {
+  const rows = parsePinterestCsv(text).map((r) => ({ ...r, user_id: userId }));
   if (!rows.length) throw new Error("Nenhuma linha válida no CSV Pinterest");
   const supabase = getSupabase();
   let gravados = 0;
@@ -143,18 +144,15 @@ async function importPinterestCsv(text) {
   return { linhas: rows.length, gravados };
 }
 
-async function loadPinSpendByDay(startDate, endDate) {
+async function loadPinSpendByDay(startDate, endDate, userId = requireUserId()) {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("pinterest_ads_daily")
     .select("data, subid, gasto, ad_name, ad_id, cliques")
+    .eq("user_id", userId)
     .gte("data", startDate)
     .lte("data", endDate);
-  if (error) {
-    // table may be empty / date nulls
-    const { data: all } = await supabase.from("pinterest_ads_daily").select("*");
-    return (all || []).filter((r) => r.data && r.data >= startDate && r.data <= endDate);
-  }
+  if (error) throw new Error(error.message);
   return data || [];
 }
 

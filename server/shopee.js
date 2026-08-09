@@ -10,26 +10,28 @@ function getCreds() {
   throw new Error("Use getCredsAsync()");
 }
 
-let _credsCache = null;
-let _credsCacheAt = 0;
+let _credsCache = new Map();
 
 async function getCredsAsync() {
-  if (_credsCache && Date.now() - _credsCacheAt < 5000) return _credsCache;
+  const { requireUserId } = require("./auth");
+  const userId = requireUserId();
+  const cached = _credsCache.get(userId);
+  if (cached && Date.now() - cached.at < 5000) return cached.value;
   const { loadCredentials } = require("./store");
-  const c = await loadCredentials();
+  const c = await loadCredentials(userId);
   if (!c.appId || !c.secret) {
     const err = new Error("Configure SHOPEE_APP_ID e SHOPEE_SECRET em Configuração");
     err.code = "SHOPEE_CREDS_MISSING";
     throw err;
   }
-  _credsCache = { appId: c.appId, secret: c.secret };
-  _credsCacheAt = Date.now();
-  return _credsCache;
+  const value = { appId: c.appId, secret: c.secret };
+  _credsCache.set(userId, { at: Date.now(), value });
+  return value;
 }
 
-function clearCredsCache() {
-  _credsCache = null;
-  _credsCacheAt = 0;
+function clearCredsCache(userId) {
+  if (userId) _credsCache.delete(userId);
+  else _credsCache.clear();
 }
 
 function sign(appId, timestamp, payload, secret) {

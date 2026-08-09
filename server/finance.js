@@ -3,6 +3,7 @@
 const { getSupabase } = require("./supabase");
 const { loadMetaSpendByDay } = require("./meta");
 const { loadPinSpendByDay } = require("./pinterest");
+const { requireUserId } = require("./auth");
 
 function round2(n) {
   return Math.round(Number(n || 0) * 100) / 100;
@@ -27,7 +28,7 @@ function sumSpend(rows) {
  * Cruza comissão Shopee (daily/subid já no dash) com gasto Meta+Pin.
  * Atualiza colunas inv_* / lucro / roi no Supabase e devolve kpis enriquecidos.
  */
-async function enrichDashboardWithAds(dash) {
+async function enrichDashboardWithAds(dash, userId = requireUserId()) {
   const start = dash.range?.startDate;
   const end = dash.range?.endDate;
   if (!start || !end) return dash;
@@ -35,12 +36,12 @@ async function enrichDashboardWithAds(dash) {
   let metaRows = [];
   let pinRows = [];
   try {
-    metaRows = await loadMetaSpendByDay(start, end);
+    metaRows = await loadMetaSpendByDay(start, end, userId);
   } catch (e) {
     console.warn("[finance] meta:", e.message);
   }
   try {
-    pinRows = await loadPinSpendByDay(start, end);
+    pinRows = await loadPinSpendByDay(start, end, userId);
   } catch (e) {
     console.warn("[finance] pin:", e.message);
   }
@@ -99,6 +100,7 @@ async function enrichDashboardWithAds(dash) {
     if (daily.length) {
       await supabase.from("daily_metrics").upsert(
         daily.map((d) => ({
+          user_id: userId,
           data: d.data,
           faturamento: d.faturamento,
           comissao: d.comissao,
@@ -119,6 +121,7 @@ async function enrichDashboardWithAds(dash) {
     if (subIds.length) {
       for (let i = 0; i < subIds.length; i += 200) {
         const chunk = subIds.slice(i, i + 200).map((r) => ({
+          user_id: userId,
           subid: r.subid,
           faturamento: r.faturamento,
           comissao: r.comissao,

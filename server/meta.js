@@ -2,6 +2,7 @@
 
 const { normalizeSubId } = require("./normalizeSubId");
 const { getSupabase } = require("./supabase");
+const { requireUserId } = require("./auth");
 
 function maskToken(token) {
   const s = String(token || "");
@@ -24,39 +25,34 @@ function actId(id) {
   return `act_${d}`;
 }
 
-async function loadMetaCredentials() {
-  const envFallback = {
-    accessToken: String(process.env.META_ACCESS_TOKEN || "").trim(),
-    adAccountIds: String(process.env.META_AD_ACCOUNT_IDS || "").trim(),
-    apiVersion: String(process.env.META_API_VERSION || "v19.0").trim() || "v19.0",
+async function loadMetaCredentials(userId = requireUserId()) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("meta_credentials")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (data && (data.access_token || data.ad_account_ids)) {
+    return {
+      accessToken: String(data.access_token || "").trim(),
+      adAccountIds: String(data.ad_account_ids || "").trim(),
+      apiVersion: String(data.api_version || "v19.0").trim() || "v19.0",
+      lastSyncAt: data.last_sync_at || null,
+      lastSyncMeta: data.last_sync_meta || {},
+    };
+  }
+  return {
+    accessToken: "",
+    adAccountIds: "",
+    apiVersion: "v19.0",
     lastSyncAt: null,
     lastSyncMeta: {},
   };
-  try {
-    const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from("meta_credentials")
-      .select("*")
-      .eq("id", "default")
-      .maybeSingle();
-    if (error) throw error;
-    if (data && (data.access_token || data.ad_account_ids)) {
-      return {
-        accessToken: String(data.access_token || "").trim() || envFallback.accessToken,
-        adAccountIds: String(data.ad_account_ids || "").trim() || envFallback.adAccountIds,
-        apiVersion: String(data.api_version || "v19.0").trim() || "v19.0",
-        lastSyncAt: data.last_sync_at || null,
-        lastSyncMeta: data.last_sync_meta || {},
-      };
-    }
-  } catch (err) {
-    console.warn("[meta] loadCredentials:", err.message || err);
-  }
-  return envFallback;
 }
 
-async function saveMetaCredentials({ accessToken, adAccountIds, apiVersion }) {
-  const prev = await loadMetaCredentials();
+async function saveMetaCredentials({ accessToken, adAccountIds, apiVersion }, userId = requireUserId()) {
+  const prev = await loadMetaCredentials(userId);
   const next = {
     accessToken: accessToken != null && String(accessToken).trim()
       ? String(accessToken).trim()
@@ -73,7 +69,7 @@ async function saveMetaCredentials({ accessToken, adAccountIds, apiVersion }) {
 
   const supabase = getSupabase();
   const { error } = await supabase.from("meta_credentials").upsert({
-    id: "default",
+    user_id: userId,
     access_token: next.accessToken,
     ad_account_ids: next.adAccountIds,
     api_version: next.apiVersion,
@@ -81,11 +77,11 @@ async function saveMetaCredentials({ accessToken, adAccountIds, apiVersion }) {
   });
   if (error) throw new Error(error.message);
 
-  return metaCredentialsPublic();
+  return metaCredentialsPublic(userId);
 }
 
-async function metaCredentialsPublic() {
-  const c = await loadMetaCredentials();
+async function metaCredentialsPublic(userId = requireUserId()) {
+  const c = await loadMetaCredentials(userId);
   const ids = parseAccountIds(c.adAccountIds);
   return {
     configured: Boolean(c.accessToken && ids.length),
@@ -171,8 +167,8 @@ async function testMetaCredentials() {
   };
 }
 
-async function syncMetaDaily({ daysBack = 7 } = {}) {
-  const c = await loadMetaCredentials();
+async function syncMetaDaily({ daysBack = 7 } = {}, userId = requireUserId()) {
+  const c = await loadMetaCredentials(userId);
   const token = c.accessToken;
   const accountIds = parseAccountIds(c.adAccountIds);
   const apiVersion = c.apiVersion || "v19.0";
@@ -207,6 +203,7 @@ async function syncMetaDaily({ daysBack = 7 } = {}) {
         const date = String(row.date_start || "").trim();
         if (!adId || !date) continue;
         rowsOut.push({
+          user_id: userId,
           ad_id: adId,
           data: date,
           ad_name: String(row.ad_name || ""),
@@ -246,7 +243,7 @@ async function syncMetaDaily({ daysBack = 7 } = {}) {
   };
 
   await supabase.from("meta_credentials").upsert({
-    id: "default",
+    user_id: userId,
     access_token: token,
     ad_account_ids: c.adAccountIds,
     api_version: apiVersion,
@@ -258,19 +255,20 @@ async function syncMetaDaily({ daysBack = 7 } = {}) {
   return meta;
 }
 
-async function loadMetaSpendByDay(startDate, endDate) {
+async function loadMetaSpendByDay(startDate, endDate, userId = requireUserId()) {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("meta_ads_daily")
     .select("data, subid, gasto, campaign_name, ad_name, ad_id, cliques, impressoes")
+    .eq("user_id", userId)
     .gte("data", startDate)
     .lte("data", endDate);
   if (error) throw new Error(error.message);
   return data || [];
 }
 
-async function loadCampaigns(startDate, endDate) {
-  const rows = await loadMetaSpendByDay(startDate, endDate);
+async function loadCampaigns(startDate, endDate, userId = requireUserId()) {
+  const rows = await loadMetaSpendByDay(startDate, endDate, userId);
   const byCamp = {};
   for (const r of rows) {
     const key = r.campaign_name || "(sem campanha)";

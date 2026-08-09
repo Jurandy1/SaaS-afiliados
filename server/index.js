@@ -26,6 +26,13 @@ const {
   loadCampaigns,
 } = require("./meta");
 const { importPinterestCsv } = require("./pinterest");
+const {
+  runWithUser,
+  verifyAccessToken,
+  registerUser,
+  loginUser,
+  getUser,
+} = require("./auth");
 
 const PORT = Number(process.env.PORT || 3790);
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
@@ -86,9 +93,7 @@ async function readBody(req) {
   const raw = Buffer.concat(chunks).toString("utf8");
   if (!raw) return {};
   const ct = String(req.headers["content-type"] || "");
-  if (ct.includes("multipart/form-data")) {
-    return { _raw: raw, _ct: ct };
-  }
+  if (ct.includes("multipart/form-data")) return { _raw: raw, _ct: ct };
   try {
     return JSON.parse(raw);
   } catch {
@@ -122,6 +127,18 @@ function defaultRange() {
   return { startDate: fmt(start), endDate: fmt(end) };
 }
 
+function bearer(req) {
+  const h = String(req.headers.authorization || "");
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1].trim() : "";
+}
+
+const PUBLIC_API = new Set([
+  "/api/health",
+  "/api/auth/login",
+  "/api/auth/register",
+]);
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
@@ -131,41 +148,35 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(204, {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
       });
       res.end();
       return;
     }
 
     if (pathname === "/api/health") {
-      const [cred, meta] = await Promise.all([credentialsPublic(), metaCredentialsPublic()]);
       sendJson(res, 200, {
         ok: true,
-        shopeeConfigured: cred.configured,
-        metaConfigured: meta.configured,
+        multiUser: true,
         supabase: Boolean(process.env.SUPABASE_URL),
-        metaEnabled: meta.configured,
-        pinterestEnabled: true,
       });
       return;
     }
 
-    if (pathname === "/api/credentials" && req.method === "GET") {
-      sendJson(res, 200, await credentialsPublic());
-      return;
-    }
-
-    if (pathname === "/api/credentials" && req.method === "POST") {
+    if (pathname === "/api/auth/register" && req.method === "POST") {
       const body = await readBody(req);
       try {
-        const saved = await saveCredentials({ appId: body.appId, secret: body.secret });
-        clearCredsCache();
+        if (!body.email || !body.password || String(body.password).length < 6) {
+          sendJson(res, 400, { success: false, error: "Email e senha (mín. 6) obrigatórios" });
+          return;
+        }
+        const result = await registerUser(body.email, body.password);
         sendJson(res, 200, {
           success: true,
-          ...saved,
-          message: saved.reset
-            ? "API trocada — dados anteriores foram resetados. Sincronize de novo."
-            : "Credenciais salvas no Supabase.",
+          user: result.user,
+          access_token: result.session.access_token,
+          refresh_token: result.session.refresh_token,
+          expires_at: result.session.expires_at,
         });
       } catch (err) {
         sendJson(res, 400, { success: false, error: err.message });
@@ -173,162 +184,216 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (pathname === "/api/credentials/test" && req.method === "POST") {
-      try {
-        const { appId, secret } = await loadCredentials();
-        if (!appId || !secret) {
-          sendJson(res, 400, { success: false, error: "Credenciais não configuradas" });
-          return;
-        }
-        const result = await testCredentials();
-        sendJson(res, 200, { success: true, ...result });
-      } catch (err) {
-        sendJson(res, 400, { success: false, error: err.message || String(err) });
-      }
-      return;
-    }
-
-    // --- Meta ---
-    if (pathname === "/api/meta/credentials" && req.method === "GET") {
-      sendJson(res, 200, { success: true, ...(await metaCredentialsPublic()) });
-      return;
-    }
-
-    if (pathname === "/api/meta/credentials" && req.method === "POST") {
+    if (pathname === "/api/auth/login" && req.method === "POST") {
       const body = await readBody(req);
       try {
-        const saved = await saveMetaCredentials({
-          accessToken: body.accessToken,
-          adAccountIds: body.adAccountIds,
-          apiVersion: body.apiVersion,
+        const result = await loginUser(body.email, body.password);
+        sendJson(res, 200, {
+          success: true,
+          user: result.user,
+          access_token: result.session.access_token,
+          refresh_token: result.session.refresh_token,
+          expires_at: result.session.expires_at,
         });
-        sendJson(res, 200, { success: true, ...saved, message: "Credenciais Meta salvas." });
       } catch (err) {
-        sendJson(res, 400, { success: false, error: err.message });
+        sendJson(res, 401, { success: false, error: err.message });
       }
       return;
     }
 
-    if (pathname === "/api/meta/test" && req.method === "POST") {
-      try {
-        const result = await testMetaCredentials();
-        sendJson(res, 200, { success: true, ...result });
-      } catch (err) {
-        sendJson(res, 400, { success: false, error: err.message || String(err) });
-      }
-      return;
-    }
-
-    if (pathname === "/api/meta/sync" && req.method === "POST") {
-      const body = await readBody(req);
-      try {
-        const daysBack = Number(body.daysBack || url.searchParams.get("days") || 7);
-        const result = await syncMetaDaily({ daysBack });
-        sendJson(res, 200, { success: true, ...result });
-      } catch (err) {
-        sendJson(res, 500, { success: false, error: err.message || String(err) });
-      }
-      return;
-    }
-
-    if (pathname === "/api/pinterest/import" && req.method === "POST") {
-      const body = await readBody(req);
-      try {
-        let text = body.csv || body._text || "";
-        if (body._raw && body._ct) {
-          text = extractMultipartFile(body._raw, body._ct) || text;
-        }
-        if (!text.trim()) {
-          sendJson(res, 400, { success: false, error: "Envie o CSV (campo csv ou multipart file)" });
-          return;
-        }
-        const result = await importPinterestCsv(text);
-        sendJson(res, 200, { success: true, ...result });
-      } catch (err) {
-        sendJson(res, 400, { success: false, error: err.message || String(err) });
-      }
-      return;
-    }
-
-    if (pathname === "/api/settings" && req.method === "GET") {
-      sendJson(res, 200, { success: true, ...(await loadSettings()) });
-      return;
-    }
-
-    if (pathname === "/api/settings" && req.method === "POST") {
-      const body = await readBody(req);
-      try {
-        const s = await saveSettings(body);
-        sendJson(res, 200, { success: true, ...s });
-      } catch (err) {
-        sendJson(res, 400, { success: false, error: err.message });
-      }
-      return;
-    }
-
-    if (pathname === "/api/orders" && req.method === "GET") {
-      try {
-        const startDate = url.searchParams.get("start") || defaultRange().startDate;
-        const endDate = url.searchParams.get("end") || defaultRange().endDate;
-        const orders = await loadOrders({ startDate, endDate, limit: 500 });
-        sendJson(res, 200, { success: true, orders });
-      } catch (err) {
-        sendJson(res, 500, { success: false, error: err.message });
-      }
-      return;
-    }
-
-    if (pathname === "/api/products" && req.method === "GET") {
-      try {
-        const products = await loadProducts({ limit: 500 });
-        sendJson(res, 200, { success: true, products });
-      } catch (err) {
-        sendJson(res, 500, { success: false, error: err.message });
-      }
-      return;
-    }
-
-    if (pathname === "/api/campaigns" && req.method === "GET") {
-      try {
-        const startDate = url.searchParams.get("start") || defaultRange().startDate;
-        const endDate = url.searchParams.get("end") || defaultRange().endDate;
-        const campaigns = await loadCampaigns(startDate, endDate);
-        sendJson(res, 200, { success: true, campaigns });
-      } catch (err) {
-        sendJson(res, 500, { success: false, error: err.message });
-      }
-      return;
-    }
-
-    if (pathname === "/api/dashboard" && req.method === "GET") {
-      const startDate = url.searchParams.get("start") || defaultRange().startDate;
-      const endDate = url.searchParams.get("end") || defaultRange().endDate;
-      const force = url.searchParams.get("force") === "1";
-
-      const cred = await credentialsPublic();
-      if (!cred.configured) {
-        sendJson(res, 400, {
-          success: false,
-          error: "Configure a API Shopee em Configuração antes de sincronizar.",
-          code: "CREDS_MISSING",
-        });
+    if (pathname.startsWith("/api/") && !PUBLIC_API.has(pathname)) {
+      const token = bearer(req);
+      const user = await verifyAccessToken(token);
+      if (!user) {
+        sendJson(res, 401, { success: false, error: "Faça login para continuar", code: "UNAUTHORIZED" });
         return;
       }
 
-      try {
-        if (!force) {
-          let fromDb = await loadDashboardFromDb(startDate, endDate);
-          if (fromDb) {
-            fromDb = await enrichDashboardWithAds(fromDb);
-            sendJson(res, 200, { success: true, cached: true, ...fromDb });
+      await runWithUser(user, async () => {
+        if (pathname === "/api/auth/me" && req.method === "GET") {
+          sendJson(res, 200, { success: true, user: getUser() });
+          return;
+        }
+
+        if (pathname === "/api/credentials" && req.method === "GET") {
+          sendJson(res, 200, await credentialsPublic());
+          return;
+        }
+
+        if (pathname === "/api/credentials" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const saved = await saveCredentials({ appId: body.appId, secret: body.secret });
+            clearCredsCache(user.id);
+            sendJson(res, 200, {
+              success: true,
+              ...saved,
+              message: saved.reset
+                ? "Sua API Shopee trocou — só os seus dados foram resetados. Sincronize de novo."
+                : "Credenciais Shopee salvas na sua conta.",
+            });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/credentials/test" && req.method === "POST") {
+          try {
+            const { appId, secret } = await loadCredentials();
+            if (!appId || !secret) {
+              sendJson(res, 400, { success: false, error: "Credenciais não configuradas" });
+              return;
+            }
+            const result = await testCredentials();
+            sendJson(res, 200, { success: true, ...result });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message || String(err) });
+          }
+          return;
+        }
+
+        if (pathname === "/api/meta/credentials" && req.method === "GET") {
+          sendJson(res, 200, { success: true, ...(await metaCredentialsPublic()) });
+          return;
+        }
+
+        if (pathname === "/api/meta/credentials" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const saved = await saveMetaCredentials({
+              accessToken: body.accessToken,
+              adAccountIds: body.adAccountIds,
+              apiVersion: body.apiVersion,
+            });
+            sendJson(res, 200, { success: true, ...saved, message: "Credenciais Meta salvas na sua conta." });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/meta/test" && req.method === "POST") {
+          try {
+            const result = await testMetaCredentials();
+            sendJson(res, 200, { success: true, ...result });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message || String(err) });
+          }
+          return;
+        }
+
+        if (pathname === "/api/meta/sync" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const daysBack = Number(body.daysBack || url.searchParams.get("days") || 7);
+            const result = await syncMetaDaily({ daysBack });
+            sendJson(res, 200, { success: true, ...result });
+          } catch (err) {
+            sendJson(res, 500, { success: false, error: err.message || String(err) });
+          }
+          return;
+        }
+
+        if (pathname === "/api/pinterest/import" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            let text = body.csv || body._text || "";
+            if (body._raw && body._ct) text = extractMultipartFile(body._raw, body._ct) || text;
+            if (!text.trim()) {
+              sendJson(res, 400, { success: false, error: "Envie o CSV" });
+              return;
+            }
+            const result = await importPinterestCsv(text);
+            sendJson(res, 200, { success: true, ...result });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message || String(err) });
+          }
+          return;
+        }
+
+        if (pathname === "/api/settings" && req.method === "GET") {
+          sendJson(res, 200, { success: true, ...(await loadSettings()) });
+          return;
+        }
+
+        if (pathname === "/api/settings" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const s = await saveSettings(body);
+            sendJson(res, 200, { success: true, ...s });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/orders" && req.method === "GET") {
+          try {
+            const startDate = url.searchParams.get("start") || defaultRange().startDate;
+            const endDate = url.searchParams.get("end") || defaultRange().endDate;
+            const orders = await loadOrders({ startDate, endDate, limit: 500 });
+            sendJson(res, 200, { success: true, orders });
+          } catch (err) {
+            sendJson(res, 500, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/products" && req.method === "GET") {
+          try {
+            const products = await loadProducts({ limit: 500 });
+            sendJson(res, 200, { success: true, products });
+          } catch (err) {
+            sendJson(res, 500, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/campaigns" && req.method === "GET") {
+          try {
+            const startDate = url.searchParams.get("start") || defaultRange().startDate;
+            const endDate = url.searchParams.get("end") || defaultRange().endDate;
+            const campaigns = await loadCampaigns(startDate, endDate);
+            sendJson(res, 200, { success: true, campaigns });
+          } catch (err) {
+            sendJson(res, 500, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/dashboard" && req.method === "GET") {
+          const startDate = url.searchParams.get("start") || defaultRange().startDate;
+          const endDate = url.searchParams.get("end") || defaultRange().endDate;
+          const force = url.searchParams.get("force") === "1";
+          const cred = await credentialsPublic();
+          if (!cred.configured) {
+            sendJson(res, 400, {
+              success: false,
+              error: "Configure a sua API Shopee em Configuração.",
+              code: "CREDS_MISSING",
+            });
             return;
           }
+          try {
+            if (!force) {
+              let fromDb = await loadDashboardFromDb(startDate, endDate);
+              if (fromDb) {
+                fromDb = await enrichDashboardWithAds(fromDb);
+                sendJson(res, 200, { success: true, cached: true, ...fromDb });
+                return;
+              }
+            }
+            const dash = await buildDashboard({ startDate, endDate, persist: true });
+            sendJson(res, 200, { success: true, cached: false, ...dash });
+          } catch (err) {
+            sendJson(res, 500, { success: false, error: err.message || String(err) });
+          }
+          return;
         }
-        const dash = await buildDashboard({ startDate, endDate, persist: true });
-        sendJson(res, 200, { success: true, cached: false, ...dash });
-      } catch (err) {
-        sendJson(res, 500, { success: false, error: err.message || String(err) });
-      }
+
+        sendJson(res, 404, { error: "not_found" });
+      });
       return;
     }
 
@@ -343,19 +408,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, async () => {
-  let cred;
-  let meta;
-  try {
-    cred = await credentialsPublic();
-    meta = await metaCredentialsPublic();
-  } catch {
-    cred = { configured: false };
-    meta = { configured: false };
-  }
-  console.log(`\n  Metricly SaaS → http://localhost:${PORT}`);
-  console.log(`  Supabase: ${(process.env.SUPABASE_URL || "").replace(/https?:\/\//, "").slice(0, 40) || "NÃO"}`);
-  console.log(`  Shopee API: ${cred.configured ? "configurada" : "PENDENTE"}`);
-  console.log(`  Meta Ads: ${meta.configured ? "configurada" : "PENDENTE"}`);
-  console.log(`  Pinterest: CSV import\n`);
+server.listen(PORT, () => {
+  console.log(`\n  Metricly SaaS (multi-user) → http://localhost:${PORT}`);
+  console.log(`  Auth: login/registro por conta`);
+  console.log(`  Cada usuário: Shopee + Meta + dados isolados\n`);
 });

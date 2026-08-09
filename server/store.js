@@ -1,6 +1,7 @@
 "use strict";
 
 const { getSupabase } = require("./supabase");
+const { requireUserId } = require("./auth");
 
 function maskSecret(secret) {
   const s = String(secret || "");
@@ -8,50 +9,37 @@ function maskSecret(secret) {
   return `${s.slice(0, 4)}…${s.slice(-4)}`;
 }
 
-async function loadCredentials() {
-  const envFallback = {
-    appId: String(process.env.SHOPEE_APP_ID || "").trim(),
-    secret: String(process.env.SHOPEE_SECRET || "").trim(),
-    updatedAt: null,
-  };
-
-  try {
-    const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from("app_credentials")
-      .select("app_id, secret, updated_at")
-      .eq("id", "default")
-      .maybeSingle();
-    if (error) throw error;
-    if (data?.app_id && data?.secret) {
-      return {
-        appId: String(data.app_id).trim(),
-        secret: String(data.secret).trim(),
-        updatedAt: data.updated_at || null,
-      };
-    }
-  } catch (err) {
-    console.warn("[store] loadCredentials:", err.message || err);
-  }
-  return envFallback;
-}
-
-async function resetAllSyncedData() {
+async function loadCredentials(userId = requireUserId()) {
   const supabase = getSupabase();
-  const { error: rpcErr } = await supabase.rpc("reset_shopee_data");
-  if (!rpcErr) return;
-
-  // Fallback se a function ainda não existir
-  await supabase.from("sync_runs").delete().neq("id", 0);
-  await supabase.from("daily_metrics").delete().neq("data", "1900-01-01");
-  await supabase.from("subid_metrics").delete().neq("subid", "__never__");
+  const { data, error } = await supabase
+    .from("app_credentials")
+    .select("app_id, secret, updated_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (data?.app_id && data?.secret) {
+    return {
+      appId: String(data.app_id).trim(),
+      secret: String(data.secret).trim(),
+      updatedAt: data.updated_at || null,
+    };
+  }
+  return { appId: "", secret: "", updatedAt: null };
 }
 
-/**
- * Salva credenciais. Se o APP_ID mudar, zera métricas/sync
- * (cliente novo = dados novos).
- */
-async function saveCredentials({ appId, secret }) {
+async function resetAllSyncedData(userId = requireUserId()) {
+  const supabase = getSupabase();
+  const { error: rpcErr } = await supabase.rpc("reset_shopee_data_for_user", { p_user_id: userId });
+  if (!rpcErr) return;
+  await supabase.from("sync_runs").delete().eq("user_id", userId);
+  await supabase.from("daily_metrics").delete().eq("user_id", userId);
+  await supabase.from("subid_metrics").delete().eq("user_id", userId);
+  await supabase.from("order_items").delete().eq("user_id", userId);
+  await supabase.from("orders").delete().eq("user_id", userId);
+  await supabase.from("products").delete().eq("user_id", userId);
+}
+
+async function saveCredentials({ appId, secret }, userId = requireUserId()) {
   const payload = {
     appId: String(appId || "").trim(),
     secret: String(secret || "").trim(),
@@ -60,12 +48,12 @@ async function saveCredentials({ appId, secret }) {
     throw new Error("APP_ID e SECRET são obrigatórios");
   }
 
-  const prev = await loadCredentials();
+  const prev = await loadCredentials(userId);
   const appChanged = prev.appId && prev.appId !== payload.appId;
 
   const supabase = getSupabase();
   const { error } = await supabase.from("app_credentials").upsert({
-    id: "default",
+    user_id: userId,
     app_id: payload.appId,
     secret: payload.secret,
     updated_at: new Date().toISOString(),
@@ -74,7 +62,7 @@ async function saveCredentials({ appId, secret }) {
 
   let reset = false;
   if (appChanged) {
-    await resetAllSyncedData();
+    await resetAllSyncedData(userId);
     reset = true;
   }
 
@@ -87,8 +75,8 @@ async function saveCredentials({ appId, secret }) {
   };
 }
 
-async function credentialsPublic() {
-  const c = await loadCredentials();
+async function credentialsPublic(userId = requireUserId()) {
+  const c = await loadCredentials(userId);
   return {
     configured: Boolean(c.appId && c.secret),
     appId: c.appId || "",
@@ -97,11 +85,12 @@ async function credentialsPublic() {
   };
 }
 
-async function saveDashboardSnapshot(dash) {
+async function saveDashboardSnapshot(dash, userId = requireUserId()) {
   const supabase = getSupabase();
   const now = new Date().toISOString();
 
   const dailyRows = (dash.daily || []).map((d) => ({
+    user_id: userId,
     data: d.data,
     faturamento: d.faturamento,
     comissao: d.comissao,
@@ -122,8 +111,9 @@ async function saveDashboardSnapshot(dash) {
     if (error) throw new Error(`daily_metrics: ${error.message}`);
   }
 
-  await supabase.from("subid_metrics").delete().neq("subid", "__never__");
+  await supabase.from("subid_metrics").delete().eq("user_id", userId);
   const subRows = (dash.subIds || []).map((r) => ({
+    user_id: userId,
     subid: r.subid,
     faturamento: r.faturamento,
     comissao: r.comissao,
@@ -149,6 +139,7 @@ async function saveDashboardSnapshot(dash) {
   }
 
   const { error: runErr } = await supabase.from("sync_runs").insert({
+    user_id: userId,
     start_date: dash.range?.startDate,
     end_date: dash.range?.endDate,
     nodes: dash.nodes || 0,
@@ -159,84 +150,38 @@ async function saveDashboardSnapshot(dash) {
   if (runErr) throw new Error(`sync_runs: ${runErr.message}`);
 }
 
-async function persistOrdersAndProducts({ orders, orderItems, products }) {
+async function persistOrdersAndProducts({ orders, orderItems, products }, userId = requireUserId()) {
   const supabase = getSupabase();
   const now = new Date().toISOString();
   if (orders?.length) {
     for (let i = 0; i < orders.length; i += 200) {
-      const chunk = orders.slice(i, i + 200).map((o) => ({ ...o, updated_at: now }));
+      const chunk = orders.slice(i, i + 200).map((o) => ({ ...o, user_id: userId, updated_at: now }));
       const { error } = await supabase.from("orders").upsert(chunk);
       if (error) throw new Error(`orders: ${error.message}`);
     }
   }
   if (orderItems?.length) {
     for (let i = 0; i < orderItems.length; i += 200) {
-      const chunk = orderItems.slice(i, i + 200).map((o) => ({ ...o, updated_at: now }));
+      const chunk = orderItems.slice(i, i + 200).map((o) => ({ ...o, user_id: userId, updated_at: now }));
       const { error } = await supabase.from("order_items").upsert(chunk);
       if (error) throw new Error(`order_items: ${error.message}`);
     }
   }
   if (products?.length) {
     for (let i = 0; i < products.length; i += 200) {
-      const chunk = products.slice(i, i + 200).map((p) => ({ ...p, updated_at: now }));
+      const chunk = products.slice(i, i + 200).map((p) => ({ ...p, user_id: userId, updated_at: now }));
       const { error } = await supabase.from("products").upsert(chunk);
       if (error) throw new Error(`products: ${error.message}`);
     }
   }
 }
 
-async function loadOrders({ startDate, endDate, limit = 200 } = {}) {
-  const supabase = getSupabase();
-  let q = supabase.from("orders").select("*").order("data", { ascending: false }).limit(limit);
-  if (startDate) q = q.gte("data", startDate);
-  if (endDate) q = q.lte("data", endDate);
-  const { data, error } = await q;
-  if (error) throw new Error(error.message);
-  return data || [];
-}
-
-async function loadProducts({ limit = 200 } = {}) {
-  const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from("products")
-    .select("*")
-    .order("comissao", { ascending: false })
-    .limit(limit);
-  if (error) throw new Error(error.message);
-  return data || [];
-}
-
-async function loadSettings() {
-  const supabase = getSupabase();
-  const { data } = await supabase.from("app_settings").select("*").eq("id", "default").maybeSingle();
-  return {
-    metaBase: Number(data?.meta_base || process.env.META_BASE || 863959),
-    taxRate: Number(data?.tax_rate || 0),
-    teamName: data?.team_name || "SaaS SHOPPE",
-    teamPlan: data?.team_plan || "Shopee · Meta",
-  };
-}
-
-async function saveSettings(partial) {
-  const prev = await loadSettings();
-  const next = {
-    meta_base: partial.metaBase != null ? Number(partial.metaBase) : prev.metaBase,
-    tax_rate: partial.taxRate != null ? Number(partial.taxRate) : prev.taxRate,
-    team_name: partial.teamName != null ? String(partial.teamName) : prev.teamName,
-    team_plan: partial.teamPlan != null ? String(partial.teamPlan) : prev.teamPlan,
-    updated_at: new Date().toISOString(),
-  };
-  const supabase = getSupabase();
-  const { error } = await supabase.from("app_settings").upsert({ id: "default", ...next });
-  if (error) throw new Error(error.message);
-  return loadSettings();
-}
-
-async function loadDashboardFromDb(startDate, endDate) {
+async function loadDashboardFromDb(startDate, endDate, userId = requireUserId()) {
   const supabase = getSupabase();
   const { data: daily, error: dErr } = await supabase
     .from("daily_metrics")
     .select("*")
+    .eq("user_id", userId)
     .gte("data", startDate)
     .lte("data", endDate)
     .order("data", { ascending: true });
@@ -245,12 +190,14 @@ async function loadDashboardFromDb(startDate, endDate) {
   const { data: subIds, error: sErr } = await supabase
     .from("subid_metrics")
     .select("*")
+    .eq("user_id", userId)
     .order("comissao", { ascending: false });
   if (sErr) throw new Error(sErr.message);
 
   const { data: lastRun } = await supabase
     .from("sync_runs")
     .select("*")
+    .eq("user_id", userId)
     .order("synced_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -258,20 +205,9 @@ async function loadDashboardFromDb(startDate, endDate) {
   if ((!daily || !daily.length) && (!subIds || !subIds.length)) return null;
 
   const kpis = {
-    faturamento: 0,
-    comissao: 0,
-    pedidos: 0,
-    concluidos: 0,
-    pendentes: 0,
-    cancelados: 0,
-    unpaid: 0,
-    inv_meta: 0,
-    inv_pin: 0,
-    inv_total: 0,
-    lucro: 0,
-    roi: null,
-    abatimento: 0,
-    subIdsCount: (subIds || []).length,
+    faturamento: 0, comissao: 0, pedidos: 0, concluidos: 0, pendentes: 0,
+    cancelados: 0, unpaid: 0, inv_meta: 0, inv_pin: 0, inv_total: 0, lucro: 0,
+    roi: null, abatimento: 0, subIdsCount: (subIds || []).length,
   };
   for (const d of daily || []) {
     kpis.faturamento += Number(d.faturamento || 0);
@@ -292,9 +228,7 @@ async function loadDashboardFromDb(startDate, endDate) {
   kpis.inv_pin = Math.round(kpis.inv_pin * 100) / 100;
   kpis.inv_total = Math.round(kpis.inv_total * 100) / 100;
   kpis.lucro = Math.round(kpis.lucro * 100) / 100;
-  kpis.roi = kpis.inv_total > 0
-    ? Math.round((kpis.lucro / kpis.inv_total) * 10000) / 100
-    : null;
+  kpis.roi = kpis.inv_total > 0 ? Math.round((kpis.lucro / kpis.inv_total) * 10000) / 100 : null;
   kpis.abatimento = kpis.faturamento > 0
     ? Math.round((kpis.comissao / kpis.faturamento) * 10000) / 100
     : 0;
@@ -338,6 +272,55 @@ async function loadDashboardFromDb(startDate, endDate) {
     syncedAt: lastRun?.synced_at || null,
     fromDb: true,
   };
+}
+
+async function loadOrders({ startDate, endDate, limit = 200 } = {}, userId = requireUserId()) {
+  const supabase = getSupabase();
+  let q = supabase.from("orders").select("*").eq("user_id", userId).order("data", { ascending: false }).limit(limit);
+  if (startDate) q = q.gte("data", startDate);
+  if (endDate) q = q.lte("data", endDate);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function loadProducts({ limit = 200 } = {}, userId = requireUserId()) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("user_id", userId)
+    .order("comissao", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function loadSettings(userId = requireUserId()) {
+  const supabase = getSupabase();
+  const { data } = await supabase.from("app_settings").select("*").eq("user_id", userId).maybeSingle();
+  return {
+    metaBase: Number(data?.meta_base || 863959),
+    taxRate: Number(data?.tax_rate || 0),
+    teamName: data?.team_name || "Minha conta",
+    teamPlan: data?.team_plan || "Shopee · Meta",
+  };
+}
+
+async function saveSettings(partial, userId = requireUserId()) {
+  const prev = await loadSettings(userId);
+  const next = {
+    user_id: userId,
+    meta_base: partial.metaBase != null ? Number(partial.metaBase) : prev.metaBase,
+    tax_rate: partial.taxRate != null ? Number(partial.taxRate) : prev.taxRate,
+    team_name: partial.teamName != null ? String(partial.teamName) : prev.teamName,
+    team_plan: partial.teamPlan != null ? String(partial.teamPlan) : prev.teamPlan,
+    updated_at: new Date().toISOString(),
+  };
+  const supabase = getSupabase();
+  const { error } = await supabase.from("app_settings").upsert(next);
+  if (error) throw new Error(error.message);
+  return loadSettings(userId);
 }
 
 module.exports = {
