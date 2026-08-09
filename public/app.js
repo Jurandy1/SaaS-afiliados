@@ -244,20 +244,14 @@
   }
 
   function renderKpis(k) {
-    const ped = fmtNum(k.pedidos);
-    const invMeta = Number(k.inv_meta || 0);
-    const invPin = Number(k.inv_pin || 0);
     const invTotal = Number(k.inv_total || 0);
     const lucro = k.lucro != null ? Number(k.lucro) : Number(k.comissao || 0) - invTotal;
     const cards = [
-      { label: "Faturamento Total", value: fmt(k.faturamento), delta: "Shopee", on: true, color: "#15803d", spark: SPARK.up, fill: SPARK.upFill },
-      { label: "Comissão Total", value: fmt(k.comissao), delta: "Shopee", on: true, color: "#15803d", spark: SPARK.up, fill: SPARK.upFill },
-      { label: "Invest. Meta", value: fmt(invMeta), delta: invMeta ? "Meta API" : "sem sync", on: invMeta > 0, color: invMeta ? "#15803d" : "#525252", spark: SPARK.flat, fill: SPARK.flatFill },
-      { label: "Invest. Pinterest", value: fmt(invPin), delta: invPin ? "CSV" : "sem CSV", on: invPin > 0, color: invPin ? "#15803d" : "#525252", spark: SPARK.flat, fill: SPARK.flatFill },
-      { label: "Invest. Total", value: fmt(invTotal), delta: k.faturamento ? `${fmtPct((invTotal / k.faturamento) * 100)} do fat.` : "—", on: invTotal > 0, color: "#525252", spark: SPARK.flat, fill: SPARK.flatFill },
-      { label: "Lucro Acumulado", value: fmt(lucro), delta: invTotal ? "com − invest" : "≈ comissão", on: true, color: lucro >= 0 ? "#15803d" : "#b91c1c", spark: SPARK.up, fill: SPARK.upFill },
-      { label: "ROI Médio", value: fmtPct(k.roi), delta: invTotal ? "lucro/invest" : "sem invest.", on: invTotal > 0, color: "#15803d", spark: SPARK.up, fill: SPARK.upFill },
-      { label: "Abatimento Médio", value: fmtPct(k.abatimento), delta: `${ped} ped.`, on: true, color: "#525252", spark: SPARK.flat, fill: SPARK.flatFill },
+      { label: "Faturamento", value: fmt(k.faturamento), delta: "Shopee", on: true, color: "#16a34a", spark: SPARK.up, fill: SPARK.upFill },
+      { label: "Comissão", value: fmt(k.comissao), delta: "Shopee", on: true, color: "#15803d", spark: SPARK.up, fill: SPARK.upFill },
+      { label: "Investimento", value: fmt(invTotal), delta: invTotal ? "Meta + Pin" : "sem invest.", on: invTotal > 0, color: invTotal ? "#ca8a04" : "#a3a3a3", spark: SPARK.flat, fill: SPARK.flatFill },
+      { label: "Lucro", value: fmt(lucro), delta: invTotal ? "com − invest" : "≈ comissão", on: true, color: lucro >= 0 ? "#16a34a" : "#dc2626", spark: SPARK.up, fill: SPARK.upFill },
+      { label: "ROI", value: fmtPct(k.roi), delta: invTotal ? "lucro/invest" : "—", on: invTotal > 0, color: "#2563eb", spark: SPARK.up, fill: SPARK.upFill },
     ];
     $("#kpi-grid").innerHTML = cards.map((c) => `
       <div class="kpi">
@@ -271,6 +265,21 @@
     `).join("");
   }
 
+  function renderMetaStrip(k) {
+    const fat = Number(k.faturamento || 0);
+    const base = Number(state.settings.metaBase || 863959);
+    const pct = base > 0 ? Math.min(100, (fat / base) * 100) : 0;
+    const left = daysLeftInMonth();
+    const sub = $("#proj-sub");
+    if (sub) {
+      sub.innerHTML = `Faturamento <strong class="mono">${fmt(fat)}</strong> de <strong class="mono">${fmt(base)}</strong> · ${left} dias restantes`;
+    }
+    const fill = $("#meta-strip-fill");
+    if (fill) fill.style.width = `${pct.toFixed(1)}%`;
+    const pctEl = $("#meta-strip-pct");
+    if (pctEl) pctEl.textContent = `${pct.toFixed(1).replace(".", ",")}%`;
+  }
+
   function renderProjection(k) {
     const fat = Number(k.faturamento || 0);
     const base = Number(state.settings.metaBase || 863959);
@@ -280,7 +289,8 @@
       { label: "Meta 150% · 3%", mult: 1.5, bonusPct: 0.03 },
     ];
     const left = daysLeftInMonth();
-    $("#proj-sub").innerHTML = `Faturamento até agora <strong class="mono">${fmt(fat)}</strong> · ${left} dias restantes`;
+    const grid = $("#proj-grid");
+    if (!grid) return;
     const headers = [`<div class="h">% Bônus s/ faturamento</div>`].concat(targets.map((t) => `<div class="h r">${t.label}</div>`)).join("");
     const rowFat = [`<div class="c">Faturamento para atingir</div>`].concat(targets.map((t) => `<div class="c r mono">${fmt(base * t.mult)}</div>`)).join("");
     const rowBonus = [`<div class="c hi">Valor do bônus meta</div>`].concat(targets.map((t) => `<div class="c r green">${fmt(base * t.mult * t.bonusPct)}</div>`)).join("");
@@ -290,29 +300,10 @@
     })).join("");
     const rowProg = [`<div class="c">Progresso da meta</div>`].concat(targets.map((t, i) => {
       const pct = Math.min(100, (fat / (base * t.mult)) * 100);
-      const bg = i === 0 ? "#0a0a0a" : i === 1 ? "#404040" : "#737373";
+      const bg = i === 0 ? "#16a34a" : i === 1 ? "#65a30d" : "#ca8a04";
       return `<div class="c r"><div class="prog-row"><div class="prog-bar"><i style="width:${pct.toFixed(1)}%;background:${bg}"></i></div><span class="prog-pct">${pct.toFixed(1).replace(".", ",")}%</span></div></div>`;
     })).join("");
-    $("#proj-grid").innerHTML = headers + rowFat + rowBonus + rowDaily + rowProg;
-  }
-
-  function renderInsight(k, subIds) {
-    const n = (subIds || []).length;
-    const ativos = (subIds || []).filter((s) => Number(s.pedidos) > 0).length;
-    const ped = Number(k.pedidos || 0);
-    const inv = Number(k.inv_total || 0);
-    $("#insight-title").textContent = ped
-      ? `${fmtNum(ped)} pedidos · invest ${fmt(inv)}`
-      : "Aguardando sync…";
-    $("#insight-body").textContent = ped
-      ? `Comissão ${fmt(k.comissao)} · lucro ${fmt(k.lucro)} · ROI ${fmtPct(k.roi)}.`
-      : "Sincronize Shopee (e Meta) ou ajuste as datas.";
-    $("#insight-stats").innerHTML = `
-      <div><div class="l">SubIDs com venda</div><div class="v">${fmtNum(ativos)} <span>/ ${fmtNum(n)}</span></div></div>
-      <div><div class="l">Classificados</div><div class="v">${fmtNum(n)}</div></div>
-      <div><div class="l">Inv. Meta</div><div class="v">${fmt(k.inv_meta)}</div></div>
-      <div><div class="l">Inv. Pin</div><div class="v">${fmt(k.inv_pin)}</div></div>
-    `;
+    grid.innerHTML = headers + rowFat + rowBonus + rowDaily + rowProg;
   }
 
   function renderChart(daily) {
@@ -321,19 +312,16 @@
       $("#daily-chart").innerHTML = `<div class="panel-sub" style="padding:8px 0">Sem dados no período.</div>`;
       return;
     }
-    const max = Math.max(...rows.map((d) => Math.max(Number(d.comissao || 0), Number(d.inv_total || 0))), 1);
+    const max = Math.max(...rows.map((d) => Number(d.faturamento || 0)), 1);
     const n = rows.length;
     const cols = rows.map((d) => {
-      const com = Number(d.comissao || 0);
-      const inv = Number(d.inv_total || 0);
-      const hCom = Math.max(2, Math.round((com / max) * 100));
-      const hInv = Math.max(inv > 0 ? 2 : 0, Math.round((inv / max) * 100));
+      const fat = Number(d.faturamento || 0);
+      const h = Math.max(fat > 0 ? 4 : 2, Math.round((fat / max) * 100));
       return `
-        <div class="chart-col" title="${d.data}: com ${fmt(com)} · inv ${fmt(inv)}">
-          <div class="chart-val">${fmt(com).replace("R$ ", "R$")}</div>
+        <div class="chart-col" title="${d.data}: ${fmt(fat)}">
+          <div class="chart-val">${fmt(fat).replace("R$ ", "R$")}</div>
           <div class="chart-pair">
-            <div class="chart-bar com" style="height:${hCom}%"></div>
-            <div class="chart-bar inv" style="height:${hInv || 2}%"></div>
+            <div class="chart-bar fat" style="height:${h}%"></div>
           </div>
         </div>`;
     }).join("");
@@ -876,8 +864,8 @@
     state.subidPageFull = 1;
     const k = dash.kpis || {};
     renderKpis(k);
+    renderMetaStrip(k);
     renderProjection(k);
-    renderInsight(k, dash.subIds || []);
     renderChart(dash.daily || []);
     renderDailyTable(dash.daily || [], k);
     renderSubIdsDash();
@@ -1107,24 +1095,11 @@
     });
 
     $$(".chip-btn").forEach((b) => b.addEventListener("click", () => setRange(b.dataset.range)));
-    $$("#channel-tabs .tab").forEach((t) => {
-      t.addEventListener("click", () => {
-        const tab = t.dataset.tab;
-        state.tab = tab;
-        $$("#channel-tabs .tab").forEach((x) => x.classList.toggle("active", x === t));
-        if (tab === "Meta") setView("investimentos");
-        else if (tab === "Pinterest") setView("investimentos");
-        else if (tab === "SubID") {
-          setView("dashboard");
-          document.getElementById("dash-subids-panel")?.scrollIntoView({ behavior: "smooth" });
-        }
-      });
-    });
 
     $("#btn-load").addEventListener("click", () => loadDashboard({ force: false }));
     $("#btn-sync").addEventListener("click", () => loadDashboard({ force: true }));
     $("#btn-export").addEventListener("click", exportCsv);
-    $("#btn-edit-meta").addEventListener("click", () => setView("config"));
+    $("#btn-edit-meta")?.addEventListener("click", () => setView("config"));
 
     $("#subid-search")?.addEventListener("input", () => { state.subidPage = 1; renderSubIdsDash(); });
     $("#subid-search-full")?.addEventListener("input", () => { state.subidPageFull = 1; renderSubIdsFull(); });
@@ -1277,7 +1252,10 @@
         $("#set-tax").value = formatBrPctInput(s.taxRate);
         $("#team-name").textContent = s.teamName;
         $("#team-plan").textContent = s.teamPlan;
-        if (state.dash) renderProjection(state.dash.kpis || {});
+        if (state.dash) {
+          renderMetaStrip(state.dash.kpis || {});
+          renderProjection(state.dash.kpis || {});
+        }
         status.className = "form-status ok";
         status.textContent = "Ajustes salvos.";
       } catch (err) {
@@ -1301,8 +1279,9 @@
     if (state.configured) await loadDashboard({ force: false });
     else {
       renderKpis({});
+      renderMetaStrip({});
       renderProjection({});
-      renderInsight({}, []);
+      renderChart([]);
     }
   }
 

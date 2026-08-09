@@ -159,11 +159,11 @@
           <div class="page-head">
             <div>
               <div class="page-tags">
-                <span>SUBID · META · PINTEREST · ORGÂNICO</span>
+                <span>SHOPEE · META</span>
                 <span class="live-pill" id="live-pill"><span class="live-dot"></span>AO VIVO</span>
               </div>
               <h1>Painel de Lucro</h1>
-              <p class="page-sub" id="page-sub">Sincronize Shopee e Meta para comissão, investimento e ROI.</p>
+              <p class="page-sub" id="page-sub">Visão rápida: KPIs, SubIDs e resumo do período.</p>
             </div>
             <div class="page-actions">
               <button type="button" class="btn ghost" data-goto="config">Configurações</button>
@@ -173,14 +173,6 @@
           </div>
 
           <div class="filter-bar">
-            <div class="tabs" id="channel-tabs">
-              <button type="button" class="tab active" data-tab="Geral">Geral</button>
-              <button type="button" class="tab" data-tab="Meta" title="Meta Ads off">Meta <span class="off">off</span></button>
-              <button type="button" class="tab" data-tab="Pinterest" title="Pinterest off">Pinterest <span class="off">off</span></button>
-              <button type="button" class="tab" data-tab="Organico">Orgânico</button>
-              <button type="button" class="tab" data-tab="SubID">Por SubID</button>
-            </div>
-            <div class="filter-sep"></div>
             <div class="date-range">
               <input type="date" id="start-date" />
               <span class="date-sep">a</span>
@@ -195,48 +187,61 @@
 
           <div class="banner" id="sync-banner">Configure a API Shopee em <button type="button" class="linkish" data-goto="config">Configurações</button>.</div>
 
-          <div class="kpi-grid" id="kpi-grid"></div>
+          <div class="kpi-grid kpi-grid-core" id="kpi-grid"></div>
 
-          <div class="two-col">
-            <div class="panel">
-              <div class="panel-head">
-                <div>
-                  <div class="panel-title">Projeção de Metas e Bônus</div>
-                  <div class="panel-sub" id="proj-sub">Faturamento até agora —</div>
-                </div>
-                <button type="button" class="btn ghost sm" id="btn-edit-meta">Editar meta</button>
-              </div>
-              <div class="proj-grid" id="proj-grid"></div>
+          <div class="meta-strip" id="meta-strip">
+            <div class="meta-strip-main">
+              <div class="meta-strip-label">Meta do mês</div>
+              <div class="meta-strip-sub" id="proj-sub">Faturamento até agora —</div>
+              <div class="meta-strip-bar"><i id="meta-strip-fill" style="width:0%"></i></div>
             </div>
-
-            <div class="insight-card">
-              <div class="insight-label"><span class="live-dot"></span>Diagnóstico da conta</div>
-              <div class="insight-title" id="insight-title">Aguardando sync…</div>
-              <div class="insight-body" id="insight-body">Puxe a conversionReport da Shopee para gerar o diagnóstico.</div>
-              <div class="insight-stats" id="insight-stats"></div>
-              <button type="button" class="btn light" data-goto="subids">Ver todos os SubIDs</button>
+            <div class="meta-strip-side">
+              <div class="meta-strip-pct" id="meta-strip-pct">0%</div>
+              <button type="button" class="btn ghost sm" id="btn-edit-meta">Metas e bônus</button>
             </div>
           </div>
 
-          <div class="panel">
+          <div class="panel" id="dash-subids-panel">
             <div class="panel-head">
               <div>
-                <div class="panel-title">Comissão por dia</div>
-                <div class="panel-sub">Shopee real · investimento Meta/Pin = R$ 0 (off)</div>
+                <div class="panel-title-row">
+                  <div class="panel-title">SubIDs</div>
+                  <span class="count-pill" id="subid-count-pill">0</span>
+                </div>
+                <div class="panel-sub">Clique no SubID para abrir o histórico diário · comissão, invest, lucro e ROI</div>
               </div>
-              <div class="legend">
-                <span><i class="swatch dark"></i>Comissão</span>
-                <span><i class="swatch gray"></i>Investimento</span>
+              <div class="panel-tools">
+                <input type="search" id="subid-search" class="search" placeholder="Buscar SubID…" />
+                <button type="button" class="btn ghost sm" data-goto="subids">Ver todos</button>
               </div>
             </div>
-            <div class="chart" id="daily-chart"></div>
+            <div class="table-wrap">
+              <table class="data-table" id="subid-table">
+                <thead>
+                  <tr>
+                    <th>SubID</th>
+                    <th class="num">Faturamento</th>
+                    <th class="num">Comissão</th>
+                    <th class="num">Investimento</th>
+                    <th class="num">Lucro</th>
+                    <th class="num">ROI</th>
+                    <th class="num">Ped.</th>
+                    <th class="num">Conc.</th>
+                    <th class="num">Pend.</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="subid-tbody"></tbody>
+              </table>
+            </div>
+            <div class="pager" id="subid-pager"></div>
           </div>
 
           <div class="panel">
             <div class="panel-head">
               <div>
                 <div class="panel-title">Resumo diário</div>
-                <div class="panel-sub">Faturamento e comissão Shopee · invest/lucro/ROI aguardam Meta</div>
+                <div class="panel-sub">Faturamento, comissão, invest, lucro e ROI por dia</div>
               </div>
               <div class="panel-meta" id="sync-meta">—</div>
             </div>
@@ -261,39 +266,17 @@
             </div>
           </div>
 
-          <div class="panel" id="dash-subids-panel">
+          <div class="panel chart-panel">
             <div class="panel-head">
               <div>
-                <div class="panel-title-row">
-                  <div class="panel-title">SubIDs</div>
-                  <span class="count-pill" id="subid-count-pill">0</span>
-                </div>
-                <div class="panel-sub">Clique no SubID para abrir o historico diario · comissao, invest, lucro e ROI</div>
+                <div class="panel-title">Faturamento por dia</div>
+                <div class="panel-sub">Shopee · período selecionado</div>
               </div>
-              <div class="panel-tools">
-                <input type="search" id="subid-search" class="search" placeholder="Buscar SubID…" />
+              <div class="legend">
+                <span><i class="swatch green"></i>Faturamento</span>
               </div>
             </div>
-            <div class="table-wrap">
-              <table class="data-table" id="subid-table">
-                <thead>
-                  <tr>
-                    <th>SubID</th>
-                    <th class="num">Faturamento</th>
-                    <th class="num">Comissão</th>
-                    <th class="num">Investimento</th>
-                    <th class="num">Lucro</th>
-                    <th class="num">ROI</th>
-                    <th class="num">Ped.</th>
-                    <th class="num">Conc.</th>
-                    <th class="num">Pend.</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="subid-tbody"></tbody>
-              </table>
-            </div>
-            <div class="pager" id="subid-pager"></div>
+            <div class="chart chart-compact" id="daily-chart"></div>
           </div>
 
           <footer class="page-foot">
@@ -438,6 +421,17 @@
               </div>
               <div id="settings-status" class="form-status"></div>
             </form>
+          </div>
+
+          <div class="panel config-panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">Projeção de metas e bônus</div>
+                <div class="panel-sub">Detalhe completo · base configurada acima</div>
+              </div>
+              <button type="button" class="btn ghost sm" data-goto="metas">Abrir Metas</button>
+            </div>
+            <div class="proj-grid" id="proj-grid"></div>
           </div>
         </section>
 
