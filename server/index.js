@@ -14,6 +14,7 @@ const {
   loadProducts,
   loadSettings,
   saveSettings,
+  attachMenuPreviews,
 } = require("./store");
 const { testCredentials, clearCredsCache } = require("./shopee");
 const { buildDashboard } = require("./metrics");
@@ -33,6 +34,17 @@ const {
   loginUser,
   getUser,
 } = require("./auth");
+const {
+  requireApprovedUser,
+  requireAdmin,
+  listProfiles,
+  getUserDetail,
+  setProfileStatus,
+  deleteUserAccount,
+  adminStats,
+  profilePublic,
+  ADMIN_EMAIL,
+} = require("./profiles");
 
 const PORT = Number(process.env.PORT || 3790);
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
@@ -77,6 +89,7 @@ function contentType(filePath) {
 
 function serveStatic(req, res, pathname) {
   let rel = pathname === "/" ? "/index.html" : pathname;
+  if (rel === "/admin" || rel === "/admin/") rel = "/admin.html";
   rel = decodeURIComponent(rel).replace(/\.\./g, "");
   const filePath = path.join(PUBLIC_DIR, rel);
   if (!filePath.startsWith(PUBLIC_DIR) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
@@ -170,9 +183,36 @@ const server = http.createServer(async (req, res) => {
           sendJson(res, 400, { success: false, error: "Email e senha (mín. 6) obrigatórios" });
           return;
         }
-        const result = await registerUser(body.email, body.password);
+        const result = await registerUser(body.email, body.password, {
+          displayName: body.displayName || body.name,
+          company: body.company,
+          shopee: {
+            appId: body.appId || body.shopeeAppId,
+            secret: body.secret || body.shopeeSecret,
+          },
+          meta: {
+            accessToken: body.metaToken || body.accessToken,
+            adAccountIds: body.metaAccounts || body.adAccountIds,
+            apiVersion: body.metaVersion || body.apiVersion || "v19.0",
+          },
+        });
+        if (result.pendingApproval) {
+          sendJson(res, 200, {
+            success: true,
+            pendingApproval: true,
+            user: result.user,
+            shopeeOk: Boolean(result.shopeeTest?.ok),
+            metaOk: Boolean(result.metaTest?.ok),
+            metaWarning: result.metaTest?.warning || null,
+            message: result.metaTest?.ok
+              ? "Conta criada com Shopee e Meta validados. Aguarde a aprovação do administrador para entrar."
+              : "Conta criada com Shopee validada. Aguarde a aprovação do administrador para entrar.",
+          });
+          return;
+        }
         sendJson(res, 200, {
           success: true,
+          pendingApproval: false,
           user: result.user,
           access_token: result.session.access_token,
           refresh_token: result.session.refresh_token,
@@ -196,7 +236,14 @@ const server = http.createServer(async (req, res) => {
           expires_at: result.session.expires_at,
         });
       } catch (err) {
-        sendJson(res, 401, { success: false, error: err.message });
+        const code = err.code || "UNAUTHORIZED";
+        const status = code === "PENDING_APPROVAL" || code === "ACCOUNT_BLOCKED" ? 403 : 401;
+        sendJson(res, status, {
+          success: false,
+          error: err.message,
+          code,
+          profile: err.profile || null,
+        });
       }
       return;
     }
@@ -212,6 +259,87 @@ const server = http.createServer(async (req, res) => {
       await runWithUser(user, async () => {
         if (pathname === "/api/auth/me" && req.method === "GET") {
           sendJson(res, 200, { success: true, user: getUser() });
+          return;
+        }
+
+        // Admin APIs
+        if (pathname.startsWith("/api/admin/")) {
+          try {
+            await requireAdmin();
+          } catch (err) {
+            sendJson(res, err.code === "FORBIDDEN" ? 403 : 403, {
+              success: false,
+              error: err.message,
+              code: err.code || "FORBIDDEN",
+            });
+            return;
+          }
+
+          if (pathname === "/api/admin/overview" && req.method === "GET") {
+            const overview = await adminStats();
+            sendJson(res, 200, { success: true, adminEmail: ADMIN_EMAIL, ...overview });
+            return;
+          }
+
+          if (pathname === "/api/admin/users" && req.method === "GET") {
+            const status = url.searchParams.get("status") || "all";
+            const q = url.searchParams.get("q") || "";
+            const users = await listProfiles({ status, q });
+            sendJson(res, 200, { success: true, users });
+            return;
+          }
+
+          if (pathname.startsWith("/api/admin/users/") && req.method === "GET") {
+            const userId = pathname.replace("/api/admin/users/", "").split("/")[0];
+            const detail = await getUserDetail(userId);
+            if (!detail) {
+              sendJson(res, 404, { success: false, error: "Usuário não encontrado" });
+              return;
+            }
+            sendJson(res, 200, { success: true, ...detail });
+            return;
+          }
+
+          if (pathname.startsWith("/api/admin/users/") && pathname.endsWith("/status") && req.method === "POST") {
+            const userId = pathname.replace("/api/admin/users/", "").replace("/status", "");
+            const body = await readBody(req);
+            try {
+              const updated = await setProfileStatus(userId, body.status, {
+                notes: body.notes,
+                adminId: user.id,
+              });
+              sendJson(res, 200, { success: true, user: profilePublic(updated) });
+            } catch (err) {
+              sendJson(res, 400, { success: false, error: err.message });
+            }
+            return;
+          }
+
+          if (pathname.startsWith("/api/admin/users/") && pathname.endsWith("/delete") && req.method === "POST") {
+            const userId = pathname.replace("/api/admin/users/", "").replace("/delete", "");
+            try {
+              const result = await deleteUserAccount(userId, user.id);
+              sendJson(res, 200, { success: true, ...result });
+            } catch (err) {
+              sendJson(res, 400, { success: false, error: err.message });
+            }
+            return;
+          }
+
+          sendJson(res, 404, { error: "not_found" });
+          return;
+        }
+
+        // Demais APIs exigem conta aprovada
+        try {
+          await requireApprovedUser();
+        } catch (err) {
+          sendJson(res, 403, {
+            success: false,
+            error: err.message,
+            code: err.code || "ACCOUNT_BLOCKED",
+            profile: err.profile || null,
+          });
           return;
         }
 
@@ -380,6 +508,7 @@ const server = http.createServer(async (req, res) => {
               let fromDb = await loadDashboardFromDb(startDate, endDate);
               if (fromDb) {
                 fromDb = await enrichDashboardWithAds(fromDb);
+                fromDb = await attachMenuPreviews(fromDb, startDate, endDate);
                 sendJson(res, 200, { success: true, cached: true, ...fromDb });
                 return;
               }
@@ -409,7 +538,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`\n  Metricly SaaS (multi-user) → http://localhost:${PORT}`);
+  console.log(`\n  Teste de Sistema de afiliados - http://localhost:${PORT}`);
   console.log(`  Auth: login/registro por conta`);
   console.log(`  Cada usuário: Shopee + Meta + dados isolados\n`);
 });

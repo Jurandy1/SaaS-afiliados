@@ -86,9 +86,66 @@ async function shopeeGraphql(query, variables = null, { retries = 3 } = {}) {
   throw lastErr || new Error("Falha na API Shopee");
 }
 
-/** Teste rápido de credencial. */
+async function shopeeGraphqlWithCreds(appId, secret, query, variables = null, { retries = 2 } = {}) {
+  const id = String(appId || "").trim();
+  const sec = String(secret || "").trim();
+  if (!id || !sec) throw new Error("Informe APP_ID e SECRET da Shopee");
+  const bodyObj = variables ? { query, variables } : { query };
+  const body = JSON.stringify(bodyObj);
+  let lastErr = null;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const signature = sign(id, timestamp, body, sec);
+    try {
+      const res = await fetch(SHOPEE_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `SHA256 Credential=${id}, Timestamp=${timestamp}, Signature=${signature}`,
+        },
+        body,
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        lastErr = new Error(`Shopee HTTP ${res.status}`);
+        if (res.status === 429 && attempt < retries) {
+          await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));
+          continue;
+        }
+        throw lastErr;
+      }
+      if (json.errors?.length) {
+        const msg = json.errors.map((e) => e.message || String(e)).join("; ");
+        throw new Error(`Shopee: ${msg}`);
+      }
+      return json.data || {};
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+        continue;
+      }
+    }
+  }
+  throw lastErr || new Error("Falha ao validar API Shopee");
+}
+
+/** Teste rápido de credencial (conta logada). */
 async function testCredentials() {
   const data = await shopeeGraphql(`{
+    productOfferV2(page: 1, limit: 1, listType: 0, sortType: 2) {
+      nodes { itemId productName priceMin commissionRate }
+      pageInfo { hasNextPage }
+    }
+  }`);
+  const node = data?.productOfferV2?.nodes?.[0] || null;
+  return { ok: true, sample: node };
+}
+
+/** Valida APP_ID + SECRET sem precisar de sessão. */
+async function testCredentialsPair(appId, secret) {
+  const data = await shopeeGraphqlWithCreds(appId, secret, `{
     productOfferV2(page: 1, limit: 1, listType: 0, sortType: 2) {
       nodes { itemId productName priceMin commissionRate }
       pageInfo { hasNextPage }
@@ -205,6 +262,7 @@ async function pullConversionReport(startDate, endDate) {
 
 module.exports = {
   testCredentials,
+  testCredentialsPair,
   pullConversionReport,
   classifyStatus,
   parseMoney,

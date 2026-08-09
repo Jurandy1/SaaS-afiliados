@@ -4,8 +4,8 @@
 
 Após deploy / `npm run seed:demo`:
 
-- Email: `demo@metricly.app`
-- Senha: `DemoMetricly2026`
+- Email: `teste@gmail.com`
+- Senha: `123456789`
 
 Essa conta recebe Shopee + Meta do `.env` local (não versionado). Novos usuários criam conta própria com APIs vazias.
 

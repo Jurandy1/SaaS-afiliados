@@ -153,23 +153,38 @@ async function saveDashboardSnapshot(dash, userId = requireUserId()) {
 async function persistOrdersAndProducts({ orders, orderItems, products }, userId = requireUserId()) {
   const supabase = getSupabase();
   const now = new Date().toISOString();
-  if (orders?.length) {
-    for (let i = 0; i < orders.length; i += 200) {
-      const chunk = orders.slice(i, i + 200).map((o) => ({ ...o, user_id: userId, updated_at: now }));
+
+  function dedupeBy(rows, keyFn) {
+    const map = new Map();
+    for (const row of rows || []) {
+      const k = keyFn(row);
+      if (!k) continue;
+      map.set(k, row);
+    }
+    return [...map.values()];
+  }
+
+  const ordersUnique = dedupeBy(orders, (o) => String(o.order_id || ""));
+  const itemsUnique = dedupeBy(orderItems, (o) => String(o.id || `${o.order_id}_${o.item_id}`));
+  const productsUnique = dedupeBy(products, (p) => String(p.item_id || ""));
+
+  if (ordersUnique.length) {
+    for (let i = 0; i < ordersUnique.length; i += 200) {
+      const chunk = ordersUnique.slice(i, i + 200).map((o) => ({ ...o, user_id: userId, updated_at: now }));
       const { error } = await supabase.from("orders").upsert(chunk);
       if (error) throw new Error(`orders: ${error.message}`);
     }
   }
-  if (orderItems?.length) {
-    for (let i = 0; i < orderItems.length; i += 200) {
-      const chunk = orderItems.slice(i, i + 200).map((o) => ({ ...o, user_id: userId, updated_at: now }));
+  if (itemsUnique.length) {
+    for (let i = 0; i < itemsUnique.length; i += 200) {
+      const chunk = itemsUnique.slice(i, i + 200).map((o) => ({ ...o, user_id: userId, updated_at: now }));
       const { error } = await supabase.from("order_items").upsert(chunk);
       if (error) throw new Error(`order_items: ${error.message}`);
     }
   }
-  if (products?.length) {
-    for (let i = 0; i < products.length; i += 200) {
-      const chunk = products.slice(i, i + 200).map((p) => ({ ...p, user_id: userId, updated_at: now }));
+  if (productsUnique.length) {
+    for (let i = 0; i < productsUnique.length; i += 200) {
+      const chunk = productsUnique.slice(i, i + 200).map((p) => ({ ...p, user_id: userId, updated_at: now }));
       const { error } = await supabase.from("products").upsert(chunk);
       if (error) throw new Error(`products: ${error.message}`);
     }
@@ -274,6 +289,22 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
   };
 }
 
+async function attachMenuPreviews(dash, startDate, endDate, userId = requireUserId()) {
+  if (!dash) return dash;
+  try {
+    const [orders, products] = await Promise.all([
+      loadOrders({ startDate, endDate, limit: 200 }, userId),
+      loadProducts({ limit: 100 }, userId),
+    ]);
+    dash.ordersPreview = orders;
+    dash.productsPreview = products;
+  } catch (_) {
+    dash.ordersPreview = dash.ordersPreview || [];
+    dash.productsPreview = dash.productsPreview || [];
+  }
+  return dash;
+}
+
 async function loadOrders({ startDate, endDate, limit = 200 } = {}, userId = requireUserId()) {
   const supabase = getSupabase();
   let q = supabase.from("orders").select("*").eq("user_id", userId).order("data", { ascending: false }).limit(limit);
@@ -293,7 +324,42 @@ async function loadProducts({ limit = 200 } = {}, userId = requireUserId()) {
     .order("comissao", { ascending: false })
     .limit(limit);
   if (error) throw new Error(error.message);
-  return data || [];
+  if (data?.length) return data;
+
+  // Fallback: agrega order_items se a tabela products estiver vazia
+  const { data: rows, error: iErr } = await supabase
+    .from("order_items")
+    .select("item_id,item_name,shop_name,qty,faturamento,comissao")
+    .eq("user_id", userId)
+    .limit(5000);
+  if (iErr) throw new Error(iErr.message);
+  const map = {};
+  for (const r of rows || []) {
+    const id = String(r.item_id || "unknown");
+    if (!map[id]) {
+      map[id] = {
+        item_id: id,
+        item_name: r.item_name || "",
+        shop_name: r.shop_name || "",
+        faturamento: 0,
+        comissao: 0,
+        pedidos: 0,
+        qty: 0,
+      };
+    }
+    map[id].faturamento += Number(r.faturamento || 0);
+    map[id].comissao += Number(r.comissao || 0);
+    map[id].qty += Number(r.qty || 0);
+    map[id].pedidos += 1;
+  }
+  return Object.values(map)
+    .map((p) => ({
+      ...p,
+      faturamento: Math.round(p.faturamento * 100) / 100,
+      comissao: Math.round(p.comissao * 100) / 100,
+    }))
+    .sort((a, b) => b.comissao - a.comissao)
+    .slice(0, limit);
 }
 
 async function loadSettings(userId = requireUserId()) {
@@ -328,8 +394,9 @@ module.exports = {
   saveCredentials,
   credentialsPublic,
   saveDashboardSnapshot,
-  loadDashboardFromDb,
   persistOrdersAndProducts,
+  loadDashboardFromDb,
+  attachMenuPreviews,
   loadOrders,
   loadProducts,
   loadSettings,

@@ -22,6 +22,22 @@
     $("#auth-gate").classList.add("hidden");
     $("#app-shell").classList.remove("hidden");
     if (user?.email) $("#user-email-label").textContent = user.email;
+    const isAdmin = user?.role === "admin" || user?.profile?.role === "admin";
+    let adminLink = $("#admin-entry");
+    if (isAdmin) {
+      if (!adminLink) {
+        adminLink = document.createElement("a");
+        adminLink.id = "admin-entry";
+        adminLink.href = "/admin";
+        adminLink.className = "btn ghost sm";
+        adminLink.textContent = "Admin";
+        adminLink.style.marginRight = "8px";
+        $("#btn-logout")?.parentElement?.insertBefore(adminLink, $("#btn-logout"));
+      }
+      adminLink.classList.remove("hidden");
+    } else if (adminLink) {
+      adminLink.classList.add("hidden");
+    }
   }
   function showAuth() {
     $("#auth-gate").classList.remove("hidden");
@@ -69,7 +85,11 @@
     subidPageFull: 1,
     pageSize: 10,
     dataRows: [],
+    dataHeaders: [],
     dataKind: null,
+    dataPage: 1,
+    dataPageSize: 10,
+    dataColFilters: {},
   };
 
   function fmt(v) {
@@ -80,7 +100,26 @@
   }
   function fmtPct(v) {
     if (v == null || Number.isNaN(Number(v))) return "—";
-    return Number(v).toFixed(1).replace(".", ",") + "%";
+    return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
+  }
+  /** Aceita "R$ 1.234.567,89" / "1234567.89" / "1234567,89" */
+  function parseBrNumber(raw) {
+    let s = String(raw ?? "").trim();
+    if (!s) return 0;
+    s = s.replace(/[R$\s]/gi, "");
+    if (s.includes(",") && s.includes(".")) {
+      s = s.replace(/\./g, "").replace(",", ".");
+    } else if (s.includes(",")) {
+      s = s.replace(",", ".");
+    }
+    const n = Number(s);
+    return Number.isFinite(n) ? n : 0;
+  }
+  function formatBrMoneyInput(v) {
+    return Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function formatBrPctInput(v) {
+    return Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function escapeHtml(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -319,18 +358,18 @@
     const from = total ? (page - 1) * pageSize + 1 : 0;
     const to = Math.min(total, page * pageSize);
     const btns = [];
-    btns.push(`<button type="button" data-p="${page - 1}" ${page <= 1 ? "disabled" : ""}>← Anterior</button>`);
+    btns.push(`<button type="button" data-p="${page - 1}" ${page <= 1 ? "disabled" : ""}>Anterior</button>`);
     const window = [];
     for (let i = 1; i <= pages && window.length < 5; i++) {
       if (i === 1 || i === pages || Math.abs(i - page) <= 1) window.push(i);
     }
     let last = 0;
     window.forEach((i) => {
-      if (last && i - last > 1) btns.push(`<span style="padding:5px 4px;color:#a3a3a3">…</span>`);
+      if (last && i - last > 1) btns.push(`<span style="padding:5px 4px;color:#a3a3a3">...</span>`);
       btns.push(`<button type="button" class="${i === page ? "active" : ""}" data-p="${i}">${i}</button>`);
       last = i;
     });
-    btns.push(`<button type="button" data-p="${page + 1}" ${page >= pages ? "disabled" : ""}>Próximo →</button>`);
+    btns.push(`<button type="button" data-p="${page + 1}" ${page >= pages ? "disabled" : ""}>Proximo</button>`);
     el.innerHTML = `
       <div>Exibindo <strong style="color:#0a0a0a">${from}–${to}</strong> de <strong style="color:#0a0a0a">${fmtNum(total)}</strong></div>
       <div class="pager-btns">${btns.join("")}</div>`;
@@ -350,6 +389,8 @@
     const slice = all.slice((state.subidPage - 1) * state.pageSize, state.subidPage * state.pageSize);
     $("#subid-count-pill").textContent = fmtNum(total);
     $("#nav-subid-count").textContent = fmtNum(state.dash?.subIds?.length || 0);
+    const perfBadge = document.querySelector('.nav-item[data-view="performance"] .nav-badge');
+    if (perfBadge) perfBadge.textContent = fmtNum((state.dash?.subIds || []).length);
     $("#subid-tbody").innerHTML = slice.map((r) => `
       <tr>
         <td class="subid">${escapeHtml(r.subid)}</td>
@@ -395,36 +436,104 @@
   }
 
   function paintDataTable(headers, rows) {
-    state.dataRows = rows;
+    state.dataHeaders = headers;
+    state.dataRows = rows || [];
+    state.dataPage = 1;
+    state.dataColFilters = {};
     $("#data-thead").innerHTML = `<tr>${headers.map((h) => `<th class="${h.num ? "num" : ""}">${h.label}</th>`).join("")}</tr>`;
-    renderDataBody(headers);
+    const filters = $("#data-col-filters");
+    if (filters) {
+      filters.innerHTML = headers.map((h, i) => {
+        const key = h.key || `col_${i}`;
+        return `<input type="search" data-key="${escapeHtml(key)}" data-idx="${i}" placeholder="Filtrar ${escapeHtml(h.label)}…" />`;
+      }).join("");
+      filters.style.gridTemplateColumns = `repeat(${Math.min(headers.length, 6)}, minmax(110px, 1fr))`;
+      filters.querySelectorAll("input").forEach((inp) => {
+        inp.addEventListener("input", () => {
+          state.dataColFilters[inp.dataset.key] = inp.value;
+          state.dataPage = 1;
+          renderDataBody();
+        });
+      });
+    }
+    const sizeSel = $("#data-page-size");
+    if (sizeSel) state.dataPageSize = Number(sizeSel.value) || 10;
+    renderDataBody();
   }
 
-  function renderDataBody(headers) {
+  function rowCellText(headers, row, key, idx) {
+    const h = headers[idx] || headers.find((x) => x.key === key);
+    if (!h) return "";
+    if (h.render) {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = String(h.render(row) ?? "");
+      return tmp.textContent || "";
+    }
+    return String(row[h.key] ?? "");
+  }
+
+  function filteredDataRows() {
+    const headers = state.dataHeaders || [];
     const q = ($("#data-search")?.value || "").trim().toLowerCase();
-    const filtered = state.dataRows.filter((r) => {
-      if (!q) return true;
-      return Object.values(r).some((v) => String(v).toLowerCase().includes(q));
+    return (state.dataRows || []).filter((r) => {
+      if (q) {
+        const blob = headers.map((h, i) => rowCellText(headers, r, h.key || `col_${i}`, i)).join(" ").toLowerCase();
+        if (!blob.includes(q)) return false;
+      }
+      for (const [key, val] of Object.entries(state.dataColFilters || {})) {
+        const needle = String(val || "").trim().toLowerCase();
+        if (!needle) continue;
+        const idx = headers.findIndex((h, i) => (h.key || `col_${i}`) === key);
+        const text = rowCellText(headers, r, key, idx >= 0 ? idx : 0).toLowerCase();
+        if (!text.includes(needle)) return false;
+      }
+      return true;
     });
-    $("#data-tbody").innerHTML = filtered.map((r) => `
+  }
+
+  function renderDataBody() {
+    const headers = state.dataHeaders || [];
+    const filtered = filteredDataRows();
+    const pageSize = state.dataPageSize || 10;
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    if (state.dataPage > pages) state.dataPage = pages;
+    const slice = filtered.slice((state.dataPage - 1) * pageSize, state.dataPage * pageSize);
+    $("#data-tbody").innerHTML = slice.map((r) => `
       <tr>${headers.map((h) => `<td class="${h.num ? "num" : ""}">${h.render ? h.render(r) : escapeHtml(r[h.key] ?? "—")}</td>`).join("")}</tr>
-    `).join("") || `<tr><td colspan="${headers.length}">Sem dados. Sincronize Shopee/Meta.</td></tr>`;
+    `).join("") || `<tr><td colspan="${Math.max(headers.length, 1)}">Sem dados para os filtros atuais. Sincronize Shopee/Meta ou limpe os filtros.</td></tr>`;
+    renderPager($("#data-pager"), state.dataPage, filtered.length, pageSize, (p) => {
+      state.dataPage = p;
+      renderDataBody();
+    });
   }
 
   async function loadDataView(view) {
     $("#data-title").textContent = VIEW_LABELS[view] || view;
-    $("#data-sub").textContent = "Dados do período selecionado no Painel (ou sync completo).";
+    $("#data-sub").textContent = "Dados reais da sua conta no período selecionado.";
     $("#data-panel-title").textContent = VIEW_LABELS[view];
     state.dataKind = view;
     const start = $("#start-date")?.value || daysAgoISO(6);
     const end = $("#end-date")?.value || todayISO();
+
+    // Garante painel carregado para menus derivados (visão, performance, etc.)
+    if (!state.dash && state.configured) {
+      try {
+        await loadDashboard({ force: false });
+      } catch (_) { /* ignore */ }
+    }
+
     const k = state.dash?.kpis || {};
     const daily = state.dash?.daily || [];
     const subIds = state.dash?.subIds || [];
 
     try {
       if (view === "pedidos") {
-        const r = await api(`/api/orders?start=${start}&end=${end}`);
+        let orders = [];
+        try {
+          const r = await api(`/api/orders?start=${start}&end=${end}`);
+          orders = r.orders || [];
+        } catch (_) {}
+        if (!orders.length && state.dash?.ordersPreview) orders = state.dash.ordersPreview;
         paintDataTable(
           [
             { label: "Data", key: "data" },
@@ -434,10 +543,38 @@
             { label: "Faturamento", num: true, render: (x) => fmt(x.faturamento) },
             { label: "Comissão", num: true, render: (x) => fmt(x.comissao) },
           ],
-          r.orders || [],
+          orders,
         );
+        $("#data-sub").textContent = `${orders.length} pedidos no período ${start} a ${end}`;
       } else if (view === "produtos") {
-        const r = await api("/api/products");
+        let products = [];
+        try {
+          const r = await api("/api/products");
+          products = r.products || [];
+        } catch (_) {}
+        if (!products.length && state.dash?.productsPreview) products = state.dash.productsPreview;
+        // Último recurso: agrupa pedidos recentes como linhas de produto
+        if (!products.length && (state.dash?.ordersPreview || []).length) {
+          const map = {};
+          for (const o of state.dash.ordersPreview) {
+            const id = o.order_id || o.subid || "—";
+            if (!map[id]) {
+              map[id] = {
+                item_name: `Pedido ${id}`,
+                shop_name: o.subid || "—",
+                pedidos: 0,
+                qty: 0,
+                faturamento: 0,
+                comissao: 0,
+              };
+            }
+            map[id].pedidos += 1;
+            map[id].qty += 1;
+            map[id].faturamento += Number(o.faturamento || 0);
+            map[id].comissao += Number(o.comissao || 0);
+          }
+          products = Object.values(map).sort((a, b) => b.comissao - a.comissao);
+        }
         paintDataTable(
           [
             { label: "Item", key: "item_name" },
@@ -447,10 +584,14 @@
             { label: "Faturamento", num: true, render: (x) => fmt(x.faturamento) },
             { label: "Comissão", num: true, render: (x) => fmt(x.comissao) },
           ],
-          r.products || [],
+          products,
         );
+        $("#data-sub").textContent = products.length
+          ? `${products.length} produtos com venda`
+          : "Sem produtos — sincronize a Shopee no Painel.";
       } else if (view === "campanhas") {
         const r = await api(`/api/campaigns?start=${start}&end=${end}`);
+        const campaigns = r.campaigns || [];
         paintDataTable(
           [
             { label: "Campanha", key: "campaign" },
@@ -459,11 +600,11 @@
             { label: "Cliques", num: true, render: (x) => fmtNum(x.cliques) },
             { label: "Impressões", num: true, render: (x) => fmtNum(x.impressoes) },
           ],
-          r.campaigns || [],
+          campaigns,
         );
-        if (!(r.campaigns || []).length) {
-          $("#data-sub").textContent = "Sem campanhas — configure Meta e clique em Sincronizar Meta.";
-        }
+        $("#data-sub").textContent = campaigns.length
+          ? `${campaigns.length} campanhas Meta no período`
+          : "Sem campanhas — em Configurações, Sincronizar Meta.";
       } else if (view === "investimentos") {
         paintDataTable(
           [
@@ -477,6 +618,7 @@
           ],
           daily,
         );
+        $("#data-sub").textContent = `Invest total ${fmt(k.inv_total)} · ROI ${fmtPct(k.roi)}`;
       } else if (view === "performance") {
         paintDataTable(
           [
@@ -489,6 +631,7 @@
           ],
           subIds,
         );
+        $("#data-sub").textContent = `${subIds.length} SubIDs ranqueados por comissão`;
       } else if (view === "comissoes") {
         paintDataTable(
           [
@@ -497,14 +640,34 @@
           ],
           [
             { label: "Comissão total", value: fmt(k.comissao) },
+            { label: "Faturamento", value: fmt(k.faturamento) },
             { label: "Concluídos", value: fmtNum(k.concluidos) },
             { label: "Pendentes", value: fmtNum(k.pendentes) },
             { label: "Cancelados", value: fmtNum(k.cancelados) },
             { label: "Não pagos", value: fmtNum(k.unpaid) },
             { label: "Abatimento médio", value: fmtPct(k.abatimento) },
+            { label: "Lucro (com − invest)", value: fmt(k.lucro) },
           ],
         );
-      } else if (view === "visao" || view === "comparativos") {
+      } else if (view === "visao") {
+        paintDataTable(
+          [
+            { label: "KPI", key: "label" },
+            { label: "Valor", num: true, key: "value" },
+          ],
+          [
+            { label: "Faturamento", value: fmt(k.faturamento) },
+            { label: "Comissão", value: fmt(k.comissao) },
+            { label: "Invest. Meta", value: fmt(k.inv_meta) },
+            { label: "Invest. Pin", value: fmt(k.inv_pin) },
+            { label: "Lucro", value: fmt(k.lucro) },
+            { label: "ROI", value: fmtPct(k.roi) },
+            { label: "Pedidos", value: fmtNum(k.pedidos) },
+            { label: "SubIDs", value: fmtNum(k.subIdsCount || subIds.length) },
+          ],
+        );
+        $("#data-sub").textContent = `Resumo ${start} a ${end}`;
+      } else if (view === "comparativos") {
         paintDataTable(
           [
             { label: "Dia", key: "data", render: (x) => shortDay(x.data) },
@@ -513,20 +676,25 @@
             { label: "Pedidos", num: true, render: (x) => fmtNum(x.pedidos) },
             { label: "Invest.", num: true, render: (x) => fmt(x.inv_total) },
             { label: "Lucro", num: true, render: (x) => fmt(x.lucro) },
+            { label: "ROI", num: true, render: (x) => fmtPct(x.roi) },
           ],
           daily,
         );
+        $("#data-sub").textContent = "Comparativo dia a dia do período";
       } else if (view === "metas") {
-        const base = state.settings.metaBase;
+        const base = Number(state.settings.metaBase || 0);
         paintDataTable(
           [{ label: "Campo", key: "label" }, { label: "Valor", num: true, key: "value" }],
           [
             { label: "Meta base", value: fmt(base) },
-            { label: "Faturamento período", value: fmt(k.faturamento) },
-            { label: "Progresso meta 100%", value: fmtPct(base ? (k.faturamento / base) * 100 : 0) },
-            { label: "Bônus 1% se atingir", value: fmt(base * 0.01) },
+            { label: "Faturamento do período", value: fmt(k.faturamento) },
+            { label: "Progresso da meta (100%)", value: fmtPct(base ? (Number(k.faturamento || 0) / base) * 100 : 0) },
+            { label: "Bônus 1% ao atingir 100%", value: fmt(base * 0.01) },
+            { label: "Bônus 2% ao atingir 125%", value: fmt(base * 1.25 * 0.02) },
+            { label: "Bônus 3% ao atingir 150%", value: fmt(base * 1.5 * 0.03) },
           ],
         );
+        $("#data-sub").textContent = `Meta base ${fmt(base)} · faturamento ${fmt(k.faturamento)}`;
       } else if (view === "impostos") {
         const tax = Number(state.settings.taxRate || 0);
         const imposto = (Number(k.comissao || 0) * tax) / 100;
@@ -537,18 +705,30 @@
             { label: "Base (comissão)", value: fmt(k.comissao) },
             { label: "Imposto estimado", value: fmt(imposto) },
             { label: "Líquido após imposto", value: fmt(Number(k.comissao || 0) - imposto) },
+            { label: "Lucro após imposto", value: fmt(Number(k.lucro || 0) - imposto) },
           ],
         );
+        $("#data-sub").textContent = `Alíquota ${fmtPct(tax)} · imposto ${fmt(imposto)}`;
       } else if (view === "equipe") {
         paintDataTable(
-          [{ label: "Campo", key: "label" }, { label: "Valor", key: "value" }],
+          [{ label: "Campo", key: "label" }, { label: "Valor", num: true, key: "value" }],
           [
-            { label: "Nome", value: state.settings.teamName },
-            { label: "Plano", value: state.settings.teamPlan },
-            { label: "Shopee", value: state.configured ? "OK" : "pendente" },
-            { label: "Meta", value: state.metaConfigured ? "OK" : "pendente" },
+            { label: "Nome da equipe", value: state.settings.teamName || "—" },
+            { label: "Plano", value: state.settings.teamPlan || "—" },
+            { label: "Email", value: getStoredUser().email || "—" },
+            { label: "Meta base", value: fmt(state.settings.metaBase) },
+            { label: "Alíquota de imposto", value: fmtPct(state.settings.taxRate) },
+            { label: "Comissão do período", value: fmt(k.comissao) },
+            { label: "Faturamento do período", value: fmt(k.faturamento) },
+            { label: "Lucro do período", value: fmt(k.lucro) },
+            { label: "Investimento total", value: fmt(k.inv_total) },
+            { label: "SubIDs ativos", value: fmtNum(subIds.length) },
+            { label: "Pedidos no período", value: fmtNum(k.pedidos || 0) },
+            { label: "Shopee", value: state.configured ? "Configurada" : "Pendente" },
+            { label: "Meta Ads", value: state.metaConfigured ? "Configurada" : "Pendente" },
           ],
         );
+        $("#data-sub").textContent = `Equipe · comissão ${fmt(k.comissao)} · lucro ${fmt(k.lucro)}`;
       }
     } catch (err) {
       $("#data-tbody").innerHTML = `<tr><td>${escapeHtml(err.message)}</td></tr>`;
@@ -617,8 +797,8 @@
         teamName: s.teamName,
         teamPlan: s.teamPlan,
       };
-      $("#set-meta-base").value = s.metaBase;
-      $("#set-tax").value = s.taxRate;
+      $("#set-meta-base").value = formatBrMoneyInput(s.metaBase);
+      $("#set-tax").value = formatBrPctInput(s.taxRate);
       $("#set-team-name").value = s.teamName;
       $("#set-team-plan").value = s.teamPlan;
       $("#team-name").textContent = s.teamName;
@@ -643,7 +823,7 @@
       applyDash(dash, { cached: dash.cached });
       const banner = $("#sync-banner");
       banner.className = "banner ok";
-      banner.textContent = `${start}→${end}: ${fmt(dash.kpis.comissao)} comissão · ${fmt(dash.kpis.inv_total)} invest · ROI ${fmtPct(dash.kpis.roi)}`;
+      banner.textContent = `${start} a ${end}: ${fmt(dash.kpis.comissao)} comissão · ${fmt(dash.kpis.inv_total)} invest · ROI ${fmtPct(dash.kpis.roi)}`;
     } catch (err) {
       const banner = $("#sync-banner");
       banner.className = "banner err";
@@ -686,34 +866,80 @@
     $("#end-date").value = todayISO();
 
     let authMode = "login";
-    $("#auth-tab-login")?.addEventListener("click", () => {
-      authMode = "login";
-      $("#auth-tab-login").classList.add("active");
-      $("#auth-tab-register").classList.remove("active");
-      $("#auth-submit").textContent = "Entrar";
-    });
-    $("#auth-tab-register")?.addEventListener("click", () => {
-      authMode = "register";
-      $("#auth-tab-register").classList.add("active");
-      $("#auth-tab-login").classList.remove("active");
-      $("#auth-submit").textContent = "Criar conta";
-    });
+    function setAuthMode(mode) {
+      authMode = mode;
+      const isReg = mode === "register";
+      $("#auth-tab-login")?.classList.toggle("active", !isReg);
+      $("#auth-tab-register")?.classList.toggle("active", isReg);
+      $("#auth-submit").textContent = isReg ? "Validar APIs e criar conta" : "Entrar";
+      $("#register-extra")?.classList.toggle("hidden", !isReg);
+      $("#auth-card")?.classList.toggle("register-mode", isReg);
+      if (isReg) {
+        if ($("#auth-email").value === "teste@gmail.com") $("#auth-email").value = "";
+        if ($("#auth-password").value === "123456789") $("#auth-password").value = "";
+        $("#auth-email").placeholder = "seu@email.com";
+      } else {
+        if (!$("#auth-email").value) $("#auth-email").value = "teste@gmail.com";
+        if (!$("#auth-password").value) $("#auth-password").value = "123456789";
+      }
+    }
+    $("#auth-tab-login")?.addEventListener("click", () => setAuthMode("login"));
+    $("#auth-tab-register")?.addEventListener("click", () => setAuthMode("register"));
     $("#auth-form")?.addEventListener("submit", async (e) => {
       e.preventDefault();
       const status = $("#auth-status");
       status.className = "form-status";
-      status.textContent = authMode === "login" ? "Entrando…" : "Criando conta…";
+      status.textContent = authMode === "login" ? "Entrando…" : "Validando Shopee…";
       try {
         const path = authMode === "login" ? "/api/auth/login" : "/api/auth/register";
-        const r = await fetch(path, {
+        const payload = {
+          email: $("#auth-email").value.trim(),
+          password: $("#auth-password").value,
+        };
+        if (authMode === "register") {
+          const appId = $("#reg-app-id")?.value.trim() || "";
+          const secret = $("#reg-app-secret")?.value.trim() || "";
+          const metaToken = $("#reg-meta-token")?.value.trim() || "";
+          const metaAccounts = $("#reg-meta-accounts")?.value.trim() || "";
+          const metaVersion = $("#reg-meta-version")?.value.trim() || "v19.0";
+          if (!$("#auth-name")?.value.trim()) throw new Error("Informe seu nome");
+          if (!appId || !secret) throw new Error("Informe APP_ID e SECRET da Shopee");
+          if (!/^\d{6,}$/.test(appId)) throw new Error("SHOPEE_APP_ID deve ser numérico (ex: 18108270013)");
+          if (secret.length < 16) throw new Error("SHOPEE_SECRET parece incompleto");
+          if (metaToken || metaAccounts) {
+            if (!metaToken || metaToken.length < 20) throw new Error("META_ACCESS_TOKEN incompleto");
+            if (!metaAccounts || !/\d{5,}/.test(metaAccounts)) {
+              throw new Error("Informe ao menos um META_AD_ACCOUNT_ID numérico");
+            }
+          }
+          payload.displayName = $("#auth-name")?.value.trim() || "";
+          payload.company = $("#auth-company")?.value.trim() || "";
+          payload.appId = appId;
+          payload.secret = secret;
+          if (metaToken && metaAccounts) {
+            payload.metaToken = metaToken;
+            payload.metaAccounts = metaAccounts;
+            payload.metaVersion = metaVersion;
+          }
+          status.textContent = metaToken
+            ? "Testando Shopee e Meta e criando conta…"
+            : "Testando Shopee e criando conta…";
+        }
+        const http = await fetch(path, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: $("#auth-email").value.trim(),
-            password: $("#auth-password").value,
-          }),
-        }).then((x) => x.json());
+          body: JSON.stringify(payload),
+        });
+        const r = await http.json();
         if (!r.success) throw new Error(r.error || "Falha");
+        if (r.pendingApproval || !r.access_token) {
+          status.className = "form-status ok";
+          let msg = r.message || "Conta criada. Aguarde aprovação do administrador.";
+          if (r.metaWarning) msg += ` (aviso Meta: ${r.metaWarning})`;
+          status.textContent = msg;
+          setAuthMode("login");
+          return;
+        }
         setSession(r.access_token, r.user);
         status.className = "form-status ok";
         status.textContent = "OK";
@@ -758,7 +984,13 @@
     $("#subid-search")?.addEventListener("input", () => { state.subidPage = 1; renderSubIdsDash(); });
     $("#subid-search-full")?.addEventListener("input", () => { state.subidPageFull = 1; renderSubIdsFull(); });
     $("#data-search")?.addEventListener("input", () => {
-      if (state.dataKind) loadDataView(state.dataKind);
+      state.dataPage = 1;
+      renderDataBody();
+    });
+    $("#data-page-size")?.addEventListener("change", () => {
+      state.dataPageSize = Number($("#data-page-size").value) || 10;
+      state.dataPage = 1;
+      renderDataBody();
     });
 
     $("#cred-form").addEventListener("submit", async (e) => {
@@ -843,7 +1075,7 @@
       try {
         const r = await api("/api/meta/sync", { method: "POST", body: JSON.stringify({ daysBack: 7 }) });
         status.className = "form-status ok";
-        status.textContent = `Meta sync: ${r.gravados} linhas (${r.range?.since}→${r.range?.until})` +
+        status.textContent = `Meta sync: ${r.gravados} linhas (${r.range?.since} a ${r.range?.until})` +
           (r.erros?.length ? ` · avisos: ${r.erros.join("; ")}` : "");
         await loadMetaCreds();
         await loadDashboard({ force: false });
@@ -884,16 +1116,20 @@
       e.preventDefault();
       const status = $("#settings-status");
       try {
+        const metaBase = parseBrNumber($("#set-meta-base").value);
+        const taxRate = parseBrNumber($("#set-tax").value);
         const s = await api("/api/settings", {
           method: "POST",
           body: JSON.stringify({
-            metaBase: Number($("#set-meta-base").value),
-            taxRate: Number($("#set-tax").value),
+            metaBase,
+            taxRate,
             teamName: $("#set-team-name").value.trim(),
             teamPlan: $("#set-team-plan").value.trim(),
           }),
         });
         state.settings = s;
+        $("#set-meta-base").value = formatBrMoneyInput(s.metaBase);
+        $("#set-tax").value = formatBrPctInput(s.taxRate);
         $("#team-name").textContent = s.teamName;
         $("#team-plan").textContent = s.teamPlan;
         if (state.dash) renderProjection(state.dash.kpis || {});
@@ -903,6 +1139,15 @@
         status.className = "form-status err";
         status.textContent = err.message;
       }
+    });
+
+    const moneyInput = $("#set-meta-base");
+    moneyInput?.addEventListener("blur", () => {
+      moneyInput.value = formatBrMoneyInput(parseBrNumber(moneyInput.value));
+    });
+    const taxInput = $("#set-tax");
+    taxInput?.addEventListener("blur", () => {
+      taxInput.value = formatBrPctInput(parseBrNumber(taxInput.value));
     });
   }
 

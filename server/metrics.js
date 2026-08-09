@@ -67,7 +67,18 @@ function aggregateReport(nodes) {
       orderSeen.add(orderId);
 
       const status = classifyStatus(order.orderStatus);
-      const orderItems = Array.isArray(order.items) ? order.items : [];
+      let orderItems = Array.isArray(order.items) ? order.items : [];
+      // Se a API não trouxer items, monta um item sintético pelo nó da conversão
+      if (!orderItems.length) {
+        orderItems = [{
+          itemId: `conv_${node.conversionId || orderId}`,
+          itemName: `Pedido ${orderId}`,
+          shopName: "",
+          qty: 1,
+          actualAmount: 0,
+          itemTotalCommission: node.netCommission || node.totalCommission || 0,
+        }];
+      }
       let fat = 0;
       let com = 0;
       let qty = 0;
@@ -79,12 +90,14 @@ function aggregateReport(nodes) {
         com += itCom;
         qty += itQty;
         const itemId = String(it.itemId || "").trim() || `unknown_${orderId}`;
+        const itemName = String(it.itemName || "").slice(0, 200) || `Pedido ${orderId}`;
+        const shopName = String(it.shopName || "").slice(0, 120);
         items.push({
           id: `${orderId}_${itemId}`,
           order_id: orderId,
           item_id: itemId,
-          item_name: String(it.itemName || "").slice(0, 200),
-          shop_name: String(it.shopName || "").slice(0, 120),
+          item_name: itemName,
+          shop_name: shopName,
           qty: itQty,
           faturamento: itFat,
           comissao: itCom,
@@ -94,8 +107,8 @@ function aggregateReport(nodes) {
         if (!products[itemId]) {
           products[itemId] = {
             item_id: itemId,
-            item_name: String(it.itemName || "").slice(0, 200),
-            shop_name: String(it.shopName || "").slice(0, 120),
+            item_name: itemName,
+            shop_name: shopName,
             faturamento: 0,
             comissao: 0,
             pedidos: 0,
@@ -108,6 +121,15 @@ function aggregateReport(nodes) {
         products[itemId].pedidos += 1;
       }
       if (com <= 0) com = parseMoney(node.netCommission || node.totalCommission);
+      if (fat <= 0 && com > 0) {
+        // redistribui comissão no único item quando amount veio zerado
+        const only = items.filter((x) => x.order_id === orderId);
+        if (only.length === 1) {
+          only[0].comissao = com;
+          const pid = only[0].item_id;
+          if (products[pid] && products[pid].comissao <= 0) products[pid].comissao = com;
+        }
+      }
 
       orders.push({
         order_id: orderId,

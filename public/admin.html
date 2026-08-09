@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin · Controle de acessos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/admin.css" />
+</head>
+<body>
+  <div id="admin-auth" class="admin-auth">
+    <div class="auth-shell">
+      <div class="auth-brand">
+        <div class="mark">TS</div>
+        <div class="brand-kicker">Administração</div>
+        <h1>Controle de acessos</h1>
+        <p>Aprove cadastros, revise integrações e gerencie contas do sistema.</p>
+      </div>
+      <form id="admin-login" class="auth-form">
+        <label>Email
+          <input type="email" id="admin-email" required value="teste@gmail.com" autocomplete="username" />
+        </label>
+        <label>Senha
+          <input type="password" id="admin-password" required value="123456789" autocomplete="current-password" />
+        </label>
+        <button type="submit" class="btn solid">Entrar</button>
+        <div id="admin-login-status" class="status"></div>
+        <a class="back-link" href="/">Voltar ao aplicativo</a>
+      </form>
+    </div>
+  </div>
+
+  <div id="admin-app" class="admin-app hidden">
+    <aside class="rail">
+      <div class="rail-brand">
+        <div class="mark sm">TS</div>
+        <div>
+          <div class="rail-title">Admin</div>
+          <div class="rail-sub">Gestão de contas</div>
+        </div>
+      </div>
+      <nav class="rail-nav">
+        <button type="button" class="rail-item active" data-panel="overview">Resumo</button>
+        <button type="button" class="rail-item" data-panel="pending">Pendentes<span class="badge" id="badge-pending">0</span></button>
+        <button type="button" class="rail-item" data-panel="users">Usuários</button>
+      </nav>
+      <div class="rail-foot">
+        <div class="rail-user" id="admin-user-label">—</div>
+        <a href="/" class="rail-link">Abrir aplicativo</a>
+        <button type="button" class="btn ghost" id="admin-logout">Sair</button>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow" id="panel-eyebrow">Gestão</div>
+          <h2 id="panel-title">Resumo</h2>
+          <p class="page-desc" id="panel-desc">Visão operacional das contas do sistema.</p>
+        </div>
+        <div class="topbar-actions">
+          <div id="users-filters" class="filters-inline hidden">
+            <input type="search" id="users-q" class="search" placeholder="Buscar email, empresa…" />
+            <select id="users-status">
+              <option value="all">Todos</option>
+              <option value="pending">Pendentes</option>
+              <option value="approved">Aprovados</option>
+              <option value="rejected">Recusados</option>
+              <option value="suspended">Suspensos</option>
+            </select>
+          </div>
+          <button type="button" class="btn solid" id="btn-refresh">Atualizar</button>
+        </div>
+      </header>
+
+      <section id="panel-overview" class="panel-block">
+        <div class="stat-grid" id="stat-grid"></div>
+
+        <div class="overview-grid">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h3>Contas recentes</h3>
+                <span class="hint">Últimos cadastros no sistema</span>
+              </div>
+              <button type="button" class="btn ghost tiny" data-goto-panel="users">Ver todos</button>
+            </div>
+            <div class="table-wrap">
+              <table class="grid">
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Empresa</th>
+                    <th>Criado</th>
+                    <th class="num">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-accounts"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="side-stack">
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h3>Fila de aprovação</h3>
+                  <span class="hint" id="queue-hint">0 aguardando</span>
+                </div>
+              </div>
+              <div id="queue-box" class="queue-box"></div>
+            </div>
+            <div class="card">
+              <div class="card-head">
+                <div>
+                  <h3>Últimos acessos</h3>
+                  <span class="hint">Quem entrou recentemente</span>
+                </div>
+              </div>
+              <div id="logins-box" class="queue-box"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-pending" class="panel-block hidden">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h3>Fila de aprovação</h3>
+              <span class="hint">Liberar ou recusar acesso</span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="grid">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Nome</th>
+                  <th>Empresa</th>
+                  <th>Criado em</th>
+                  <th class="num">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="pending-tbody"></tbody>
+            </table>
+          </div>
+          <div class="pager" id="pending-pager"></div>
+        </div>
+      </section>
+
+      <section id="panel-users" class="panel-block hidden">
+        <div class="layout-split">
+          <div class="card grow">
+            <div class="card-head">
+              <div>
+                <h3>Contas</h3>
+                <span class="hint" id="users-count">0</span>
+              </div>
+            </div>
+            <div class="col-filters" id="users-col-filters"></div>
+            <div class="table-wrap">
+              <table class="grid">
+                <thead>
+                  <tr>
+                    <th data-col="email">Email</th>
+                    <th data-col="displayName">Nome</th>
+                    <th data-col="company">Empresa</th>
+                    <th data-col="role">Perfil</th>
+                    <th data-col="status">Status</th>
+                    <th data-col="createdAt">Criado</th>
+                    <th data-col="lastLoginAt">Último acesso</th>
+                  </tr>
+                </thead>
+                <tbody id="users-tbody"></tbody>
+              </table>
+            </div>
+            <div class="pager" id="users-pager"></div>
+          </div>
+          <aside class="card detail" id="user-detail">
+            <div class="card-head">
+              <div>
+                <h3>Detalhe da conta</h3>
+                <span class="hint">Selecione na lista</span>
+              </div>
+            </div>
+            <div id="detail-body" class="detail-empty">Selecione um usuário para ver integrações e ações.</div>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/admin.js"></script>
+</body>
+</html>

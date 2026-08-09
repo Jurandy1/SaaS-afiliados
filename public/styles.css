@@ -14,6 +14,65 @@
   border: 1px solid #e5e5e2;
   border-radius: 12px;
   padding: 24px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+.auth-card.register-mode {
+  max-width: 560px;
+}
+.auth-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 560px) {
+  .auth-grid { grid-template-columns: 1fr; }
+}
+.register-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 4px 0 8px;
+  padding-top: 4px;
+  border-top: 1px solid #ecece9;
+}
+.auth-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #404040;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.auth-section-title .req {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.auth-section-title .opt {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #525252;
+  background: #f5f5f4;
+  border: 1px solid #e5e5e2;
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.hint.tight {
+  margin: -4px 0 0;
+  font-size: 12px;
+  color: #737373;
 }
 .auth-tabs {
   display: flex;
@@ -100,7 +159,13 @@ button, input { font: inherit; }
   border-radius: 50%;
   border: 2px solid #fff;
 }
-.brand-name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+.brand-name {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  max-width: 160px;
+}
 .brand-sub { font-size: 10px; color: var(--muted); }
 
 .account-pill {
@@ -377,6 +442,11 @@ button, input { font: inherit; }
   font-size: 9px;
   color: var(--gray);
   text-transform: uppercase;
+}
+.date-sep {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 0 2px;
 }
 .filter-sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
 .date-range {
@@ -854,6 +924,30 @@ button, input { font: inherit; }
 .pager-btns button:disabled {
   color: var(--gray);
   cursor: default;
+}
+
+.col-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--soft2);
+}
+.col-filters:empty { display: none; }
+.col-filters input {
+  width: 100%;
+  border: 1px solid var(--line2);
+  background: #fff;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--text);
+}
+.col-filters input:focus {
+  outline: none;
+  border-color: #0a0a0a;
 }
 
 .page-foot {

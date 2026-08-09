@@ -129,41 +129,48 @@ function rangeDaysBack(daysBack) {
 
 async function testMetaCredentials() {
   const c = await loadMetaCredentials();
-  if (!c.accessToken) throw new Error("Token Meta não configurado");
-  const ver = c.apiVersion || "v19.0";
-  const url = `https://graph.facebook.com/${ver}/me?fields=id,name&access_token=${encodeURIComponent(c.accessToken)}`;
+  return testMetaCredentialsPair(c);
+}
+
+/** Valida token + contas Meta sem sessão. */
+async function testMetaCredentialsPair({ accessToken, adAccountIds, apiVersion } = {}) {
+  const token = String(accessToken || "").trim();
+  if (!token) throw new Error("Informe o META_ACCESS_TOKEN");
+  const accounts = parseAccountIds(adAccountIds);
+  if (!accounts.length) throw new Error("Informe ao menos um META_AD_ACCOUNT_ID (números, separados por vírgula)");
+  const ver = String(apiVersion || "v19.0").trim() || "v19.0";
+  if (!/^v\d+\.\d+$/.test(ver)) throw new Error("META_API_VERSION inválida (ex: v19.0)");
+
+  const url = `https://graph.facebook.com/${ver}/me?fields=id,name&access_token=${encodeURIComponent(token)}`;
   const res = await fetch(url);
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.error) throw new Error(json.error?.message || "Falha no teste Meta");
-
-  const accounts = parseAccountIds(c.adAccountIds);
-  let sampleSpend = null;
-  if (accounts[0]) {
-    const params = new URLSearchParams({
-      access_token: c.accessToken,
-      fields: "spend",
-      date_preset: "yesterday",
-      level: "account",
-    });
-    try {
-      const insights = await metaFetchAll(
-        `https://graph.facebook.com/${ver}/${actId(accounts[0])}/insights?${params}`,
-      );
-      sampleSpend = insights[0]?.spend ?? null;
-    } catch (e) {
-      return {
-        ok: true,
-        user: { id: json.id, name: json.name },
-        accounts: accounts.length,
-        warning: `Token OK, mas insights da conta ${accounts[0]}: ${e.message}`,
-      };
-    }
+  if (!res.ok || json.error) {
+    throw new Error(`Meta: ${json.error?.message || "token inválido ou sem permissão"}`);
   }
+
+  let sampleSpend = null;
+  let warning = null;
+  const params = new URLSearchParams({
+    access_token: token,
+    fields: "spend",
+    date_preset: "yesterday",
+    level: "account",
+  });
+  try {
+    const insights = await metaFetchAll(
+      `https://graph.facebook.com/${ver}/${actId(accounts[0])}/insights?${params}`,
+    );
+    sampleSpend = insights[0]?.spend ?? null;
+  } catch (e) {
+    warning = `Token OK, mas insights da conta ${accounts[0]}: ${e.message}`;
+  }
+
   return {
     ok: true,
     user: { id: json.id, name: json.name },
     accounts: accounts.length,
     sampleSpend,
+    warning,
   };
 }
 
@@ -288,6 +295,7 @@ module.exports = {
   saveMetaCredentials,
   metaCredentialsPublic,
   testMetaCredentials,
+  testMetaCredentialsPair,
   syncMetaDaily,
   loadMetaSpendByDay,
   loadCampaigns,

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Metricly — Painel de Lucro</title>
+  <title>Teste de Sistema de afiliados</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -11,12 +11,12 @@
 </head>
 <body>
   <div id="auth-gate" class="auth-gate">
-    <div class="auth-card">
+    <div class="auth-card" id="auth-card">
       <div class="brand" style="border:0;padding:0 0 16px">
         <div class="brand-mark"><span></span></div>
         <div>
-          <div class="brand-name">Metricly</div>
-          <div class="brand-sub">Sua conta · Shopee + Meta isolados</div>
+          <div class="brand-name">Teste de Sistema de afiliados</div>
+          <div class="brand-sub">Shopee + Meta · multi-conta</div>
         </div>
       </div>
       <div class="auth-tabs">
@@ -24,17 +24,57 @@
         <button type="button" class="tab" id="auth-tab-register">Criar conta</button>
       </div>
       <form id="auth-form" class="form">
-        <label>Email
-          <input type="email" id="auth-email" required autocomplete="username" />
-        </label>
-        <label>Senha
-          <input type="password" id="auth-password" required minlength="6" autocomplete="current-password" />
-        </label>
+        <div class="auth-grid">
+          <label>Email
+            <input type="email" id="auth-email" required autocomplete="username" value="teste@gmail.com" />
+          </label>
+          <label>Senha
+            <input type="password" id="auth-password" required minlength="6" autocomplete="current-password" value="123456789" />
+          </label>
+        </div>
+
+        <div id="register-extra" class="hidden register-block">
+          <div class="auth-section-title">Dados da conta</div>
+          <div class="auth-grid">
+            <label>Nome completo
+              <input type="text" id="auth-name" autocomplete="name" placeholder="Seu nome" />
+            </label>
+            <label>Empresa / operação
+              <input type="text" id="auth-company" autocomplete="organization" placeholder="Nome da operação" />
+            </label>
+          </div>
+
+          <div class="auth-section-title">API Shopee Affiliate <span class="req">obrigatório</span></div>
+          <p class="hint tight">Painel Open API da Shopee · APP_ID e SECRET da sua conta</p>
+          <div class="auth-grid">
+            <label>SHOPEE_APP_ID
+              <input type="text" id="reg-app-id" autocomplete="off" placeholder="Ex: 18108270013" inputmode="numeric" />
+            </label>
+            <label>SHOPEE_SECRET
+              <input type="password" id="reg-app-secret" autocomplete="off" placeholder="Cole o secret" />
+            </label>
+          </div>
+
+          <div class="auth-section-title">Meta Ads (Facebook) <span class="opt">opcional</span></div>
+          <p class="hint tight">Pode preencher agora ou depois em Configurações. Se informar, será validado.</p>
+          <label>META_ACCESS_TOKEN
+            <input type="password" id="reg-meta-token" autocomplete="off" placeholder="Access token Marketing API" />
+          </label>
+          <label>META_AD_ACCOUNT_IDS
+            <input type="text" id="reg-meta-accounts" autocomplete="off" placeholder="1396814339172082, 3872115821005137" />
+          </label>
+          <label>META_API_VERSION
+            <input type="text" id="reg-meta-version" value="v19.0" autocomplete="off" />
+          </label>
+          <p class="hint tight">A Shopee é testada de verdade. Meta só é testada se você preencher os campos.</p>
+        </div>
+
         <button type="submit" class="btn primary" id="auth-submit" style="width:100%;justify-content:center">Entrar</button>
         <div id="auth-status" class="form-status"></div>
       </form>
-      <p class="hint">Cada usuário coloca a própria API Shopee e o próprio Meta. Dados não se misturam.</p>
-      <p class="hint" style="margin-top:8px">Demonstração: <code>demo@metricly.app</code> / <code>DemoMetricly2026</code></p>
+      <p class="hint">Cada conta usa a própria Shopee e o próprio Meta. Novos cadastros passam por aprovação do admin.</p>
+      <p class="hint" style="margin-top:8px">Demonstração: <code>teste@gmail.com</code> / <code>123456789</code></p>
+      <p class="hint" style="margin-top:12px"><a href="/admin" style="color:inherit;font-weight:600">Area Admin</a></p>
     </div>
   </div>
 
@@ -43,8 +83,8 @@
       <div class="brand">
         <div class="brand-mark"><span></span></div>
         <div>
-          <div class="brand-name">Metricly</div>
-          <div class="brand-sub">Affiliate Analytics</div>
+          <div class="brand-name">Teste de Sistema de afiliados</div>
+          <div class="brand-sub">Painel de afiliados</div>
         </div>
       </div>
 
@@ -139,7 +179,7 @@
             <div class="filter-sep"></div>
             <div class="date-range">
               <input type="date" id="start-date" />
-              <span>→</span>
+              <span class="date-sep">a</span>
               <input type="date" id="end-date" />
             </div>
             <button type="button" class="chip-btn" data-range="7d">Últimos 7d</button>
@@ -253,7 +293,7 @@
           </div>
 
           <footer class="page-foot">
-            <div>Metricly · Affiliate Analytics · SaaS SHOPPE</div>
+            <div>Teste de Sistema de afiliados</div>
             <div class="mono" id="footer-sync">Última sincronização —</div>
           </footer>
         </section>
@@ -377,11 +417,11 @@
               </div>
             </div>
             <form id="settings-form" class="form">
-              <label>Meta base de faturamento (R$)
-                <input type="number" id="set-meta-base" step="0.01" />
+              <label>Meta base de faturamento
+                <input type="text" id="set-meta-base" inputmode="decimal" placeholder="R$ 0,00" />
               </label>
               <label>Alíquota de imposto sobre comissão (%)
-                <input type="number" id="set-tax" step="0.01" min="0" max="100" />
+                <input type="text" id="set-tax" inputmode="decimal" placeholder="0,00" />
               </label>
               <label>Nome da equipe
                 <input type="text" id="set-team-name" />
@@ -409,14 +449,24 @@
           <div class="panel">
             <div class="panel-head">
               <div class="panel-title" id="data-panel-title">Dados</div>
-              <input type="search" id="data-search" class="search" placeholder="Filtrar…" />
+              <div class="panel-tools">
+                <select id="data-page-size" class="search" style="min-width:110px">
+                  <option value="10">10 / pág</option>
+                  <option value="25">25 / pág</option>
+                  <option value="50">50 / pág</option>
+                  <option value="100">100 / pág</option>
+                </select>
+                <input type="search" id="data-search" class="search" placeholder="Busca geral…" />
+              </div>
             </div>
+            <div class="col-filters" id="data-col-filters"></div>
             <div class="table-wrap">
               <table class="data-table">
                 <thead id="data-thead"></thead>
                 <tbody id="data-tbody"></tbody>
               </table>
             </div>
+            <div class="pager" id="data-pager"></div>
           </div>
         </section>
       </div>

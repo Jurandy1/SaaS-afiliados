@@ -24,8 +24,8 @@ function loadEnv() {
 }
 loadEnv();
 
-const DEMO_EMAIL = (process.env.DEMO_EMAIL || "demo@metricly.app").trim().toLowerCase();
-const DEMO_PASSWORD = process.env.DEMO_PASSWORD || "DemoMetricly2026";
+const DEMO_EMAIL = (process.env.DEMO_EMAIL || "teste@gmail.com").trim().toLowerCase();
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD || "123456789";
 
 async function main() {
   const { getSupabaseAdmin, runWithUser } = require("../server/auth");
@@ -74,6 +74,10 @@ async function main() {
     await saveCredentials({ appId: shopeeApp, secret: shopeeSecret }, userId);
     console.log("Shopee demo gravada:", shopeeApp);
 
+    const { ensureProfile } = require("../server/profiles");
+    const profile = await ensureProfile({ id: userId, email: DEMO_EMAIL });
+    console.log("Perfil admin:", profile.role, profile.status);
+
     if (metaToken && metaAccounts) {
       await saveMetaCredentials({
         accessToken: metaToken,
@@ -92,18 +96,19 @@ async function main() {
     }
 
     await saveSettings({
-      teamName: "Conta demonstração",
-      teamPlan: "Exemplo · Shopee + Meta",
+      teamName: "Teste de Sistema de afiliados",
+      teamPlan: "Conta demonstração",
       metaBase: 863959,
       taxRate: 0,
     }, userId);
   });
 
-  console.log("\n=== CONTA DEMONSTRAÇÃO ===");
+  console.log("\n=== CONTA ADMIN / DEMONSTRAÇÃO ===");
   console.log("Email:   ", DEMO_EMAIL);
   console.log("Senha:   ", DEMO_PASSWORD);
-  console.log("Entre nessa conta para ver o exemplo com suas APIs.");
-  console.log("Novos usuários criam conta própria (APIs vazias).\n");
+  console.log("Admin:   ", "http://localhost:3790/admin");
+  console.log("App:     ", "http://localhost:3790/");
+  console.log("Novos usuários ficam pendentes até aprovação no Admin.\n");
 }
 
 main().catch((e) => {
