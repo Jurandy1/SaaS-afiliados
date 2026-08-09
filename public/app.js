@@ -153,12 +153,39 @@
     return Math.max(1, end.getDate() - now.getDate());
   }
 
+  async function readJsonResponse(res) {
+    const text = await res.text();
+    const trimmed = (text || "").trim();
+    if (!trimmed) {
+      throw new Error(`Resposta vazia do servidor (HTTP ${res.status}). Confirme que o app está em http://localhost:3790`);
+    }
+    if (trimmed[0] === "<" || trimmed.startsWith("<!")) {
+      throw new Error(
+        `O servidor devolveu HTML em vez de JSON (HTTP ${res.status}). Abra http://localhost:3790 e use npm start — hosting estático/Vercel sem Node não serve /api.`,
+      );
+    }
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      throw new Error(`Resposta inválida do servidor (HTTP ${res.status}): ${trimmed.slice(0, 120)}`);
+    }
+  }
+
   async function api(path, opts = {}) {
     const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
     const res = await fetch(path, { ...opts, headers });
-    const json = await res.json().catch(() => ({}));
+    let json = {};
+    try {
+      json = await readJsonResponse(res);
+    } catch (err) {
+      if (res.status === 401) {
+        clearSession();
+        showAuth();
+      }
+      throw err;
+    }
     if (res.status === 401 || json.code === "UNAUTHORIZED") {
       clearSession();
       showAuth();
@@ -1026,7 +1053,7 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        const r = await http.json();
+        const r = await readJsonResponse(http);
         if (!r.success) throw new Error(r.error || "Falha");
         if (r.pendingApproval || !r.access_token) {
           status.className = "form-status ok";
@@ -1043,7 +1070,7 @@
         await bootApp();
       } catch (err) {
         status.className = "form-status err";
-        status.textContent = err.message;
+        status.textContent = err.message || String(err);
       }
     });
     $("#btn-logout")?.addEventListener("click", () => {

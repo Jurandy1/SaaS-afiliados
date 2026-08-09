@@ -45,15 +45,33 @@
     return `<span class="pill ${escapeHtml(status)}">${escapeHtml(statusLabel(status))}</span>`;
   }
 
+  async function readJsonResponse(res) {
+    const text = await res.text();
+    const trimmed = (text || "").trim();
+    if (!trimmed) {
+      throw new Error(`Resposta vazia (HTTP ${res.status}). Use http://localhost:3790 com o servidor Node ligado.`);
+    }
+    if (trimmed[0] === "<" || trimmed.startsWith("<!")) {
+      throw new Error(
+        `Servidor devolveu HTML em vez de JSON (HTTP ${res.status}). Abra http://localhost:3790 (npm start).`,
+      );
+    }
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      throw new Error(`Resposta inválida (HTTP ${res.status}): ${trimmed.slice(0, 120)}`);
+    }
+  }
+
   async function api(path, opts = {}) {
     const headers = { ...(opts.headers || {}) };
     if (!(opts.body instanceof FormData)) headers["Content-Type"] = "application/json";
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
     const res = await fetch(path, { ...opts, headers });
-    const data = await res.json().catch(() => ({}));
+    const data = await readJsonResponse(res);
     if (!res.ok) {
-      const err = new Error(data.error || res.statusText);
+      const err = new Error(data.error || res.statusText || `HTTP ${res.status}`);
       err.code = data.code;
       err.data = data;
       throw err;

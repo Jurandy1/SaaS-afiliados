@@ -1,30 +1,47 @@
 # Deploy
 
-## Conta demonstração (exemplo com APIs reais)
+## Conta demonstração
 
-Após deploy / `npm run seed:demo`:
+Após `npm run seed:demo` (local) ou seed no ambiente:
 
 - Email: `teste@gmail.com`
 - Senha: `123456789`
+- Admin: `/admin`
 
-Essa conta recebe Shopee + Meta do `.env` local (não versionado). Novos usuários criam conta própria com APIs vazias.
+## Vercel (passo a passo)
 
-
-## Vercel — Environment Variables (só infraestrutura)
+1. Abra [vercel.com](https://vercel.com) e importe o repo **Jurandy1/SaaS-afiliados**.
+2. Framework Preset: **Other**.
+3. Em **Environment Variables**, configure:
 
 ```
 SUPABASE_URL=https://tirvmswpccejqasmauug.supabase.co
 SUPABASE_ANON_KEY=<anon jwt>
 SUPABASE_SERVICE_ROLE_KEY=<service_role jwt>
+ADMIN_EMAIL=teste@gmail.com
 ```
 
-**Não** coloque `SHOPEE_*` nem `META_*` no Vercel como “padrão do sistema” — cada usuário configura na tela após login.
+4. Deploy. A URL ficará tipo `https://saas-afiliados-xxx.vercel.app`.
+5. No Supabase Auth → URL Configuration, adicione a URL do Vercel em Site URL / Redirect URLs se precisar.
 
-## Host
-App Node (`server/index.js`). Prefira Railway/Render/Fly; Vercel serverless exige adaptar o entrypoint.
+### Observações Vercel
+
+- App sobe como função serverless (`api/index.js` + `vercel.json`).
+- Sync Shopee/Meta longo pode estourar timeout (Hobby ~10s / Pro até 60s neste projeto). Prefira sync por períodos curtos.
+- **Não** coloque `SHOPEE_*` / `META_*` globais no Vercel — cada usuário cadastra as próprias APIs (ou use seed local só na conta demo).
+
+## Local
+
+```bash
+npm start
+```
+
+http://localhost:3790
 
 ## Setup DB
+
 ```bash
 npm run setup:db
+npm run setup:profiles
+npm run seed:demo
 ```
-Aplica migrate multi-user + schema (apaga tabelas single-tenant antigas).

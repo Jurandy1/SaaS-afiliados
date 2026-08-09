@@ -152,7 +152,7 @@ const PUBLIC_API = new Set([
   "/api/auth/register",
 ]);
 
-const server = http.createServer(async (req, res) => {
+async function requestHandler(req, res) {
   try {
     const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
     const { pathname } = url;
@@ -535,10 +535,23 @@ const server = http.createServer(async (req, res) => {
   } catch (err) {
     sendJson(res, 500, { error: err.message || String(err) });
   }
-});
+}
 
-server.listen(PORT, () => {
-  console.log(`\n  Teste de Sistema de afiliados - http://localhost:${PORT}`);
-  console.log(`  Auth: login/registro por conta`);
-  console.log(`  Cada usuário: Shopee + Meta + dados isolados\n`);
-});
+module.exports = requestHandler;
+
+// Local / Railway / Render: sobe HTTP server
+// Vercel: usa o export serverless (api/index.js)
+if (!process.env.VERCEL) {
+  const server = http.createServer((req, res) => {
+    Promise.resolve(requestHandler(req, res)).catch((err) => {
+      try {
+        sendJson(res, 500, { error: err.message || String(err) });
+      } catch (_) { /* ignore */ }
+    });
+  });
+  server.listen(PORT, () => {
+    console.log(`\n  Teste de Sistema de afiliados - http://localhost:${PORT}`);
+    console.log(`  Auth: login/registro por conta`);
+    console.log(`  Cada usuário: Shopee + Meta + dados isolados\n`);
+  });
+}
