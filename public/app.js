@@ -23,21 +23,8 @@
     $("#app-shell").classList.remove("hidden");
     if (user?.email) $("#user-email-label").textContent = user.email;
     const isAdmin = user?.role === "admin" || user?.profile?.role === "admin";
-    let adminLink = $("#admin-entry");
-    if (isAdmin) {
-      if (!adminLink) {
-        adminLink = document.createElement("a");
-        adminLink.id = "admin-entry";
-        adminLink.href = "/admin";
-        adminLink.className = "btn ghost sm";
-        adminLink.textContent = "Admin";
-        adminLink.style.marginRight = "8px";
-        $("#btn-logout")?.parentElement?.insertBefore(adminLink, $("#btn-logout"));
-      }
-      adminLink.classList.remove("hidden");
-    } else if (adminLink) {
-      adminLink.classList.add("hidden");
-    }
+    const adminLink = $("#admin-entry");
+    if (adminLink) adminLink.classList.toggle("hidden", !isAdmin);
   }
   function setSidebarOpen(open) {
     document.body.classList.toggle("sidebar-open", !!open);
