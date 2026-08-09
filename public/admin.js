@@ -132,16 +132,9 @@
     const status = $("#users-status")?.value || "all";
     return state.users.filter((u) => {
       if (status !== "all" && u.status !== status) return false;
-      if (q) {
-        const blob = [u.email, u.displayName, u.company, u.role, u.status].join(" ").toLowerCase();
-        if (!blob.includes(q)) return false;
-      }
-      for (const [key, val] of Object.entries(state.colFilters)) {
-        const needle = String(val || "").trim().toLowerCase();
-        if (!needle) continue;
-        if (!String(u[key] ?? "").toLowerCase().includes(needle)) return false;
-      }
-      return true;
+      if (!q) return true;
+      const blob = [u.email, u.displayName, u.company, u.role, u.status].join(" ").toLowerCase();
+      return blob.includes(q);
     });
   }
 
@@ -247,32 +240,7 @@
     });
   }
 
-  function ensureColFilters() {
-    const box = $("#users-col-filters");
-    if (!box || box.dataset.ready) return;
-    const cols = [
-      ["email", "Filtrar email"],
-      ["displayName", "Nome"],
-      ["company", "Empresa"],
-      ["role", "Role"],
-      ["status", "Status"],
-      ["createdAt", "Criado"],
-      ["lastLoginAt", "Login"],
-    ];
-    box.innerHTML = cols.map(([k, ph]) =>
-      `<input type="search" data-col="${k}" placeholder="${ph}" />`).join("");
-    box.dataset.ready = "1";
-    box.querySelectorAll("input").forEach((inp) => {
-      inp.addEventListener("input", () => {
-        state.colFilters[inp.dataset.col] = inp.value;
-        state.page = 1;
-        renderUsers();
-      });
-    });
-  }
-
   function renderUsers() {
-    ensureColFilters();
     const all = filteredUsers();
     $("#users-count").textContent = `${all.length} contas`;
     const pages = Math.max(1, Math.ceil(all.length / state.pageSize));

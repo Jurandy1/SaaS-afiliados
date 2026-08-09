@@ -6,7 +6,7 @@
   <title>Admin · Controle de acessos</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/admin.css" />
 </head>
 <body>
@@ -40,9 +40,25 @@
         </div>
       </div>
       <nav class="rail-nav">
-        <button type="button" class="rail-item active" data-panel="overview">Resumo</button>
-        <button type="button" class="rail-item" data-panel="pending">Pendentes<span class="badge" id="badge-pending">0</span></button>
-        <button type="button" class="rail-item" data-panel="users">Usuários</button>
+        <button type="button" class="rail-item active" data-panel="overview">
+          <span class="rail-item-label">
+            <svg class="rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+            Resumo
+          </span>
+        </button>
+        <button type="button" class="rail-item" data-panel="pending">
+          <span class="rail-item-label">
+            <svg class="rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Pendentes
+          </span>
+          <span class="badge" id="badge-pending">0</span>
+        </button>
+        <button type="button" class="rail-item" data-panel="users">
+          <span class="rail-item-label">
+            <svg class="rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Usuários
+          </span>
+        </button>
       </nav>
       <div class="rail-foot">
         <div class="rail-user" id="admin-user-label">—</div>
@@ -159,7 +175,6 @@
                 <span class="hint" id="users-count">0</span>
               </div>
             </div>
-            <div class="col-filters" id="users-col-filters"></div>
             <div class="table-wrap">
               <table class="grid">
                 <thead>

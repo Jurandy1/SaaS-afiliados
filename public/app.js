@@ -233,15 +233,19 @@
   function renderKpis(k) {
     const invTotal = Number(k.inv_total || 0);
     const lucro = k.lucro != null ? Number(k.lucro) : Number(k.comissao || 0) - invTotal;
+    const C_ACCENT = "#22d3a4";
+    const C_GOLD = "#e4b84a";
+    const C_MUTED = "#5a5f6b";
+    const C_RED = "#f87171";
     const cards = [
-      { label: "Faturamento", value: fmt(k.faturamento), delta: "Shopee", on: true, color: "#e4b84a", spark: SPARK.up, fill: SPARK.upFill, tone: "" },
-      { label: "Comissão", value: fmt(k.comissao), delta: "Shopee", on: true, color: "#86efac", spark: SPARK.up, fill: SPARK.upFill, tone: "" },
-      { label: "Investimento", value: fmt(invTotal), delta: invTotal ? "Meta + Pin" : "sem invest.", on: invTotal > 0, color: invTotal ? "#fbbf24" : "#71717a", spark: SPARK.flat, fill: SPARK.flatFill, tone: "" },
-      { label: "Lucro", value: fmt(lucro), delta: invTotal ? "com − invest" : "≈ comissão", on: true, color: lucro >= 0 ? "#4ade80" : "#f87171", spark: SPARK.up, fill: SPARK.upFill, tone: lucro >= 0 ? "pos" : "neg" },
-      { label: "ROI", value: fmtPct(k.roi), delta: invTotal ? "lucro/invest" : "—", on: invTotal > 0, color: "#60a5fa", spark: SPARK.up, fill: SPARK.upFill, tone: invTotal > 0 ? "pos" : "" },
+      { label: "Lucro", value: fmt(lucro), delta: invTotal ? "com − invest" : "≈ comissão", on: true, color: lucro >= 0 ? C_ACCENT : C_RED, spark: SPARK.up, fill: SPARK.upFill, tone: lucro >= 0 ? "pos" : "neg", hero: true },
+      { label: "Faturamento", value: fmt(k.faturamento), delta: "Shopee", on: true, color: C_GOLD, spark: SPARK.up, fill: SPARK.upFill, tone: "" },
+      { label: "Comissão", value: fmt(k.comissao), delta: "Shopee", on: true, color: C_ACCENT, spark: SPARK.up, fill: SPARK.upFill, tone: "" },
+      { label: "Investimento", value: fmt(invTotal), delta: invTotal ? "Meta + Pin" : "sem invest.", on: invTotal > 0, color: invTotal ? C_GOLD : C_MUTED, spark: SPARK.flat, fill: SPARK.flatFill, tone: "" },
+      { label: "ROI", value: fmtPct(k.roi), delta: invTotal ? "lucro/invest" : "—", on: invTotal > 0, color: C_ACCENT, spark: SPARK.up, fill: SPARK.upFill, tone: invTotal > 0 ? "pos" : "" },
     ];
     $("#kpi-grid").innerHTML = cards.map((c) => `
-      <div class="kpi">
+      <div class="kpi${c.hero ? " kpi--hero" : ""}">
         <div class="kpi-top">
           <div class="kpi-label">${c.label}</div>
           <span class="kpi-delta ${c.on ? "on" : "off"}">${c.delta}</span>
@@ -287,8 +291,8 @@
     })).join("");
     const rowProg = [`<div class="c">Progresso da meta</div>`].concat(targets.map((t, i) => {
       const pct = Math.min(100, (fat / (base * t.mult)) * 100);
-      const bg = i === 0 ? "#e87a7a" : i === 1 ? "#f0a0a0" : "#c45c5c";
-      return `<div class="c r"><div class="prog-row"><div class="prog-bar"><i style="width:${pct.toFixed(1)}%;background:${bg}"></i></div><span class="prog-pct">${pct.toFixed(1).replace(".", ",")}%</span></div></div>`;
+      const bg = i === 0 ? "#22d3a4" : i === 1 ? "#e4b84a" : "#f0888a";
+      return `<div class="c r"><div class="prog-row"><div class="prog-bar"><i style="width:${pct.toFixed(1)}%;background:${bg}"></i></div><span class="prog-pct" style="color:${bg}">${pct.toFixed(1).replace(".", ",")}%</span></div></div>`;
     })).join("");
     grid.innerHTML = headers + rowFat + rowBonus + rowDaily + rowProg;
   }
@@ -551,21 +555,6 @@
     state.dataPage = 1;
     state.dataColFilters = {};
     $("#data-thead").innerHTML = `<tr>${headers.map((h) => `<th class="${h.num ? "num" : ""}">${h.label}</th>`).join("")}</tr>`;
-    const filters = $("#data-col-filters");
-    if (filters) {
-      filters.innerHTML = headers.map((h, i) => {
-        const key = h.key || `col_${i}`;
-        return `<input type="search" data-key="${escapeHtml(key)}" data-idx="${i}" placeholder="Filtrar ${escapeHtml(h.label)}…" />`;
-      }).join("");
-      filters.style.gridTemplateColumns = `repeat(${Math.min(headers.length, 6)}, minmax(110px, 1fr))`;
-      filters.querySelectorAll("input").forEach((inp) => {
-        inp.addEventListener("input", () => {
-          state.dataColFilters[inp.dataset.key] = inp.value;
-          state.dataPage = 1;
-          renderDataBody();
-        });
-      });
-    }
     const sizeSel = $("#data-page-size");
     if (sizeSel) state.dataPageSize = Number(sizeSel.value) || 10;
     renderDataBody();
@@ -585,19 +574,10 @@
   function filteredDataRows() {
     const headers = state.dataHeaders || [];
     const q = ($("#data-search")?.value || "").trim().toLowerCase();
+    if (!q) return state.dataRows || [];
     return (state.dataRows || []).filter((r) => {
-      if (q) {
-        const blob = headers.map((h, i) => rowCellText(headers, r, h.key || `col_${i}`, i)).join(" ").toLowerCase();
-        if (!blob.includes(q)) return false;
-      }
-      for (const [key, val] of Object.entries(state.dataColFilters || {})) {
-        const needle = String(val || "").trim().toLowerCase();
-        if (!needle) continue;
-        const idx = headers.findIndex((h, i) => (h.key || `col_${i}`) === key);
-        const text = rowCellText(headers, r, key, idx >= 0 ? idx : 0).toLowerCase();
-        if (!text.includes(needle)) return false;
-      }
-      return true;
+      const blob = headers.map((h, i) => rowCellText(headers, r, h.key || `col_${i}`, i)).join(" ").toLowerCase();
+      return blob.includes(q);
     });
   }
 
