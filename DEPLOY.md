@@ -1,7 +1,14 @@
 # Deploy
 
-## Multi-usuário
-Cada pessoa cria conta (email/senha), cola **a própria** Shopee e **o próprio** Meta. Dados isolados por `user_id`.
+## Conta demonstração (exemplo com APIs reais)
+
+Após deploy / `npm run seed:demo`:
+
+- Email: `demo@metricly.app`
+- Senha: `DemoMetricly2026`
+
+Essa conta recebe Shopee + Meta do `.env` local (não versionado). Novos usuários criam conta própria com APIs vazias.
+
 
 ## Vercel — Environment Variables (só infraestrutura)
 

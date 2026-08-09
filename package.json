@@ -8,7 +8,8 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "setup:db": "node scripts/setup-db.cjs",
-    "seed": "node scripts/seed-credentials.cjs"
+    "seed": "node scripts/seed-credentials.cjs",
+    "seed:demo": "node scripts/seed-demo.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
