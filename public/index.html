@@ -12,9 +12,9 @@
 <body>
   <div id="auth-gate" class="auth-gate">
     <div class="auth-card" id="auth-card">
-      <div class="brand" style="border:0;padding:0 0 16px">
+      <div class="brand auth-brand">
         <div class="brand-mark"><span></span></div>
-        <div>
+        <div class="brand-text">
           <div class="brand-name">Teste de Sistema de afiliados</div>
           <div class="brand-sub">Shopee + Meta · multi-conta</div>
         </div>
@@ -79,13 +79,14 @@
   </div>
 
   <div class="app hidden" id="app-shell">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="brand">
         <div class="brand-mark"><span></span></div>
-        <div>
+        <div class="brand-text">
           <div class="brand-name">Teste de Sistema de afiliados</div>
           <div class="brand-sub">Painel de afiliados</div>
         </div>
+        <button type="button" class="icon-btn sidebar-close" id="btn-sidebar-close" aria-label="Fechar menu">Fechar</button>
       </div>
 
       <div class="account-pill">
@@ -136,14 +137,17 @@
       </div>
     </aside>
 
+    <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
     <main class="main">
       <header class="topbar">
-        <div class="crumbs">Analytics / <strong id="crumb-label">Painel de Lucro</strong></div>
+        <div class="topbar-left">
+          <button type="button" class="icon-btn menu-btn" id="btn-sidebar-open" aria-label="Abrir menu">Menu</button>
+          <div class="crumbs">Analytics / <strong id="crumb-label">Painel de Lucro</strong></div>
+        </div>
         <div class="top-actions">
           <div class="search-wrap">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="search" id="global-search" placeholder="Buscar SubID, produto, campanha…" />
-            <kbd>⌘K</kbd>
+            <input type="search" id="global-search" placeholder="Buscar SubID, produto…" />
           </div>
           <button type="button" class="icon-btn" title="Ajuda" id="btn-help">Ajuda</button>
         </div>

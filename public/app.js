@@ -39,7 +39,18 @@
       adminLink.classList.add("hidden");
     }
   }
+  function setSidebarOpen(open) {
+    document.body.classList.toggle("sidebar-open", !!open);
+    const backdrop = $("#sidebar-backdrop");
+    if (backdrop) {
+      if (open) backdrop.removeAttribute("hidden");
+      else backdrop.setAttribute("hidden", "");
+    }
+    $("#btn-sidebar-open")?.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
   function showAuth() {
+    setSidebarOpen(false);
     $("#auth-gate").classList.remove("hidden");
     $("#app-shell").classList.add("hidden");
   }
@@ -219,6 +230,7 @@
     $("#view-config").classList.toggle("hidden", view !== "config");
     $("#view-data").classList.toggle("hidden", !isData);
     $("#crumb-label").textContent = VIEW_LABELS[navKey] || VIEW_LABELS[view] || view;
+    setSidebarOpen(false);
 
     if (view === "subids") renderSubIdsFull();
     if (isData) loadDataView(view);
@@ -1076,6 +1088,16 @@
     $("#btn-logout")?.addEventListener("click", () => {
       clearSession();
       showAuth();
+    });
+
+    $("#btn-sidebar-open")?.addEventListener("click", () => setSidebarOpen(true));
+    $("#btn-sidebar-close")?.addEventListener("click", () => setSidebarOpen(false));
+    $("#sidebar-backdrop")?.addEventListener("click", () => setSidebarOpen(false));
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    });
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 900) setSidebarOpen(false);
     });
 
     $$(".nav-item").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
