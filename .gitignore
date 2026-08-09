@@ -1,0 +1,10 @@
+node_modules/
+data/credentials.json
+data/cache/
+.env
+.DS_Store
+*.log
+uploads/
+.thumbnail
+Painel de Lucro.dc.html
+support.js

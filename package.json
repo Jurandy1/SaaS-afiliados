@@ -1,0 +1,20 @@
+{
+  "name": "metricly-saas-afiliados",
+  "version": "0.2.0",
+  "private": true,
+  "description": "SaaS afiliados — dashboard Shopee real + Supabase (sem Meta)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "setup:db": "node scripts/setup-db.cjs",
+    "seed": "node scripts/seed-credentials.cjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "pg": "^8.14.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

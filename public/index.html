@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Metricly — Painel Shopee</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark"><span></span></div>
+        <div>
+          <div class="brand-name">Metricly</div>
+          <div class="brand-sub">Affiliate Analytics</div>
+        </div>
+      </div>
+
+      <div class="account-pill">
+        <div class="account-avatar">SH</div>
+        <div class="account-meta">
+          <div class="account-title">Conta Shopee</div>
+          <div class="account-sub" id="sidebar-status">API não configurada</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button type="button" class="nav-item active" data-view="dashboard">Painel de Lucro</button>
+        <button type="button" class="nav-item" data-view="subids">Por SubID</button>
+        <button type="button" class="nav-item" data-view="config">Configuração API</button>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="chip">Shopee · BR</div>
+        <div class="chip muted">Meta off</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="crumbs">Analytics / <strong id="crumb-label">Painel de Lucro</strong></div>
+        <div class="top-actions">
+          <label class="date-field">De
+            <input type="date" id="start-date" />
+          </label>
+          <label class="date-field">Até
+            <input type="date" id="end-date" />
+          </label>
+          <button type="button" class="btn ghost" id="btn-load">Atualizar</button>
+          <button type="button" class="btn primary" id="btn-sync">Sincronizar Shopee</button>
+        </div>
+      </header>
+
+      <!-- DASHBOARD -->
+      <section id="view-dashboard" class="view">
+        <div class="banner" id="sync-banner">Configure a API Shopee em <button type="button" class="linkish" data-goto="config">Configuração</button> para puxar vendas reais.</div>
+
+        <div class="kpi-grid" id="kpi-grid">
+          <!-- filled by JS -->
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Comissão por dia</div>
+              <div class="panel-sub">Dados reais da conversionReport (Shopee)</div>
+            </div>
+            <div class="panel-meta" id="sync-meta">—</div>
+          </div>
+          <div class="bars" id="daily-bars"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">Status dos pedidos</div>
+              <div class="panel-sub">Concluídos · Pendentes · Cancelados · Não pagos</div>
+            </div>
+          </div>
+          <div class="status-row" id="status-row"></div>
+        </div>
+      </section>
+
+      <!-- SUBIDS -->
+      <section id="view-subids" class="view hidden">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">SubIDs</div>
+              <div class="panel-sub">utm_content da API Shopee · sem Meta / Pinterest</div>
+            </div>
+            <input type="search" id="subid-search" class="search" placeholder="Buscar SubID…" />
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>SubID</th>
+                  <th class="num">Faturamento</th>
+                  <th class="num">Comissão</th>
+                  <th class="num">Abat. %</th>
+                  <th class="num">Pedidos</th>
+                  <th class="num">Conc.</th>
+                  <th class="num">Pend.</th>
+                  <th class="num">Canc.</th>
+                </tr>
+              </thead>
+              <tbody id="subid-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- CONFIG -->
+      <section id="view-config" class="view hidden">
+        <div class="panel config-panel">
+          <div class="panel-head">
+            <div>
+              <div class="panel-title">API Shopee Affiliate</div>
+              <div class="panel-sub">Cole o APP ID e o Secret do Open API (affiliate.shopee.com.br/open_api)</div>
+            </div>
+          </div>
+
+          <form id="cred-form" class="form">
+            <label>SHOPEE_APP_ID
+              <input type="text" id="app-id" name="appId" autocomplete="off" placeholder="Ex: 18108270013" required />
+            </label>
+            <label>SHOPEE_SECRET
+              <input type="password" id="app-secret" name="secret" autocomplete="off" placeholder="Cole o secret aqui" required />
+            </label>
+            <p class="hint">Os dados ficam só no servidor local (<code>data/credentials.json</code>). Meta e Pinterest estão desligados neste MVP.</p>
+            <div class="form-actions">
+              <button type="submit" class="btn primary">Salvar credenciais</button>
+              <button type="button" class="btn ghost" id="btn-test">Testar API</button>
+            </div>
+            <div id="cred-status" class="form-status"></div>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
