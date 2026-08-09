@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Metricly — Painel Shopee</title>
+  <title>Metricly — Painel de Lucro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -28,15 +28,42 @@
         </div>
       </div>
 
-      <nav class="nav">
-        <button type="button" class="nav-item active" data-view="dashboard">Painel de Lucro</button>
-        <button type="button" class="nav-item" data-view="subids">Por SubID</button>
-        <button type="button" class="nav-item" data-view="config">Configuração API</button>
+      <nav class="nav" id="sidebar-nav">
+        <div class="nav-sec">
+          <div class="nav-sec-title">Análise</div>
+          <button type="button" class="nav-item active" data-view="dashboard"><span class="nav-dot"></span>Painel de Lucro</button>
+          <button type="button" class="nav-item" data-view="visao"><span class="nav-dot"></span>Visão geral</button>
+          <button type="button" class="nav-item" data-view="performance"><span class="nav-dot"></span>Performance<span class="nav-badge">—</span></button>
+          <button type="button" class="nav-item" data-view="comparativos"><span class="nav-dot"></span>Comparativos</button>
+        </div>
+        <div class="nav-sec">
+          <div class="nav-sec-title">Operação</div>
+          <button type="button" class="nav-item" data-view="subids"><span class="nav-dot"></span>SubIDs<span class="nav-badge" id="nav-subid-count">0</span></button>
+          <button type="button" class="nav-item" data-view="produtos"><span class="nav-dot"></span>Produtos</button>
+          <button type="button" class="nav-item" data-view="campanhas"><span class="nav-dot"></span>Campanhas</button>
+          <button type="button" class="nav-item" data-view="pedidos"><span class="nav-dot"></span>Pedidos</button>
+        </div>
+        <div class="nav-sec">
+          <div class="nav-sec-title">Financeiro</div>
+          <button type="button" class="nav-item" data-view="comissoes"><span class="nav-dot"></span>Comissões</button>
+          <button type="button" class="nav-item" data-view="investimentos"><span class="nav-dot"></span>Investimentos</button>
+          <button type="button" class="nav-item" data-view="metas"><span class="nav-dot"></span>Metas &amp; bônus</button>
+          <button type="button" class="nav-item" data-view="impostos"><span class="nav-dot"></span>Impostos</button>
+        </div>
+        <div class="nav-sec">
+          <div class="nav-sec-title">Sistema</div>
+          <button type="button" class="nav-item" data-view="integracoes"><span class="nav-dot"></span>Integrações</button>
+          <button type="button" class="nav-item" data-view="equipe"><span class="nav-dot"></span>Equipe</button>
+          <button type="button" class="nav-item" data-view="config"><span class="nav-dot"></span>Configurações</button>
+        </div>
       </nav>
 
-      <div class="sidebar-foot">
-        <div class="chip">Shopee · BR</div>
-        <div class="chip muted">Meta off</div>
+      <div class="sidebar-user">
+        <div class="user-avatar">MP</div>
+        <div class="user-meta">
+          <div class="user-name" id="team-name">SaaS SHOPPE</div>
+          <div class="user-plan" id="team-plan">Shopee · Meta</div>
+        </div>
       </div>
     </aside>
 
@@ -44,103 +71,326 @@
       <header class="topbar">
         <div class="crumbs">Analytics / <strong id="crumb-label">Painel de Lucro</strong></div>
         <div class="top-actions">
-          <label class="date-field">De
-            <input type="date" id="start-date" />
-          </label>
-          <label class="date-field">Até
-            <input type="date" id="end-date" />
-          </label>
-          <button type="button" class="btn ghost" id="btn-load">Atualizar</button>
-          <button type="button" class="btn primary" id="btn-sync">Sincronizar Shopee</button>
+          <div class="search-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#737373" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="search" id="global-search" placeholder="Buscar SubID, produto, campanha…" />
+            <kbd>⌘K</kbd>
+          </div>
+          <button type="button" class="icon-btn" title="Ajuda" id="btn-help">Ajuda</button>
         </div>
       </header>
 
-      <!-- DASHBOARD -->
-      <section id="view-dashboard" class="view">
-        <div class="banner" id="sync-banner">Configure a API Shopee em <button type="button" class="linkish" data-goto="config">Configuração</button> para puxar vendas reais.</div>
-
-        <div class="kpi-grid" id="kpi-grid">
-          <!-- filled by JS -->
-        </div>
-
-        <div class="panel">
-          <div class="panel-head">
+      <div class="content">
+        <!-- DASHBOARD -->
+        <section id="view-dashboard" class="view">
+          <div class="page-head">
             <div>
-              <div class="panel-title">Comissão por dia</div>
-              <div class="panel-sub">Dados reais da conversionReport (Shopee)</div>
+              <div class="page-tags">
+                <span>SUBID · META · PINTEREST · ORGÂNICO</span>
+                <span class="live-pill" id="live-pill"><span class="live-dot"></span>AO VIVO</span>
+              </div>
+              <h1>Painel de Lucro</h1>
+              <p class="page-sub" id="page-sub">Sincronize Shopee e Meta para comissão, investimento e ROI.</p>
             </div>
-            <div class="panel-meta" id="sync-meta">—</div>
+            <div class="page-actions">
+              <button type="button" class="btn ghost" data-goto="config">Configurações</button>
+              <button type="button" class="btn ghost" id="btn-export">Exportar CSV</button>
+              <button type="button" class="btn primary" id="btn-sync">Sincronizar Shopee</button>
+            </div>
           </div>
-          <div class="bars" id="daily-bars"></div>
-        </div>
 
-        <div class="panel">
-          <div class="panel-head">
+          <div class="filter-bar">
+            <div class="tabs" id="channel-tabs">
+              <button type="button" class="tab active" data-tab="Geral">Geral</button>
+              <button type="button" class="tab" data-tab="Meta" title="Meta Ads off">Meta <span class="off">off</span></button>
+              <button type="button" class="tab" data-tab="Pinterest" title="Pinterest off">Pinterest <span class="off">off</span></button>
+              <button type="button" class="tab" data-tab="Organico">Orgânico</button>
+              <button type="button" class="tab" data-tab="SubID">Por SubID</button>
+            </div>
+            <div class="filter-sep"></div>
+            <div class="date-range">
+              <input type="date" id="start-date" />
+              <span>→</span>
+              <input type="date" id="end-date" />
+            </div>
+            <button type="button" class="chip-btn" data-range="7d">Últimos 7d</button>
+            <button type="button" class="chip-btn" data-range="month">Este mês</button>
+            <button type="button" class="chip-btn" data-range="mtd">MTD</button>
+            <div class="filter-grow"></div>
+            <button type="button" class="btn ghost" id="btn-load">Atualizar</button>
+          </div>
+
+          <div class="banner" id="sync-banner">Configure a API Shopee em <button type="button" class="linkish" data-goto="config">Configurações</button>.</div>
+
+          <div class="kpi-grid" id="kpi-grid"></div>
+
+          <div class="two-col">
+            <div class="panel">
+              <div class="panel-head">
+                <div>
+                  <div class="panel-title">Projeção de Metas e Bônus</div>
+                  <div class="panel-sub" id="proj-sub">Faturamento até agora —</div>
+                </div>
+                <button type="button" class="btn ghost sm" id="btn-edit-meta">Editar meta</button>
+              </div>
+              <div class="proj-grid" id="proj-grid"></div>
+            </div>
+
+            <div class="insight-card">
+              <div class="insight-label"><span class="live-dot"></span>Diagnóstico da conta</div>
+              <div class="insight-title" id="insight-title">Aguardando sync…</div>
+              <div class="insight-body" id="insight-body">Puxe a conversionReport da Shopee para gerar o diagnóstico.</div>
+              <div class="insight-stats" id="insight-stats"></div>
+              <button type="button" class="btn light" data-goto="subids">Ver todos os SubIDs</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">Comissão por dia</div>
+                <div class="panel-sub">Shopee real · investimento Meta/Pin = R$ 0 (off)</div>
+              </div>
+              <div class="legend">
+                <span><i class="swatch dark"></i>Comissão</span>
+                <span><i class="swatch gray"></i>Investimento</span>
+              </div>
+            </div>
+            <div class="chart" id="daily-chart"></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">Resumo diário</div>
+                <div class="panel-sub">Faturamento e comissão Shopee · invest/lucro/ROI aguardam Meta</div>
+              </div>
+              <div class="panel-meta" id="sync-meta">—</div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="daily-table">
+                <thead>
+                  <tr>
+                    <th>Dia</th>
+                    <th class="num">Faturamento</th>
+                    <th class="num">Comissão</th>
+                    <th class="num">Inv. Meta</th>
+                    <th class="num">Inv. Pin</th>
+                    <th class="num">Inv. Total</th>
+                    <th class="num">Lucro</th>
+                    <th class="num">ROI</th>
+                    <th class="num">Abat.</th>
+                  </tr>
+                </thead>
+                <tbody id="daily-tbody"></tbody>
+                <tfoot id="daily-tfoot"></tfoot>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel" id="dash-subids-panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title-row">
+                  <div class="panel-title">SubIDs</div>
+                  <span class="count-pill" id="subid-count-pill">0</span>
+                </div>
+                <div class="panel-sub">Performance por SubID (utm_content) · canal Meta off</div>
+              </div>
+              <div class="panel-tools">
+                <input type="search" id="subid-search" class="search" placeholder="Buscar SubID…" />
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table" id="subid-table">
+                <thead>
+                  <tr>
+                    <th>SubID</th>
+                    <th class="num">Faturamento</th>
+                    <th class="num">Comissão</th>
+                    <th class="num">Investimento</th>
+                    <th class="num">Lucro</th>
+                    <th class="num">ROI</th>
+                    <th class="num">Ped.</th>
+                    <th class="num">Conc.</th>
+                    <th class="num">Pend.</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="subid-tbody"></tbody>
+              </table>
+            </div>
+            <div class="pager" id="subid-pager"></div>
+          </div>
+
+          <footer class="page-foot">
+            <div>Metricly · Affiliate Analytics · SaaS SHOPPE</div>
+            <div class="mono" id="footer-sync">Última sincronização —</div>
+          </footer>
+        </section>
+
+        <!-- SUBIDS full page -->
+        <section id="view-subids" class="view hidden">
+          <div class="page-head">
             <div>
-              <div class="panel-title">Status dos pedidos</div>
-              <div class="panel-sub">Concluídos · Pendentes · Cancelados · Não pagos</div>
+              <h1>SubIDs</h1>
+              <p class="page-sub">Lista completa do período selecionado no Painel de Lucro.</p>
             </div>
+            <button type="button" class="btn primary" data-goto="dashboard">Voltar ao painel</button>
           </div>
-          <div class="status-row" id="status-row"></div>
-        </div>
-      </section>
+          <div class="panel">
+            <div class="panel-head">
+              <input type="search" id="subid-search-full" class="search" placeholder="Buscar SubID…" />
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>SubID</th>
+                    <th class="num">Faturamento</th>
+                    <th class="num">Comissão</th>
+                    <th class="num">Abat. %</th>
+                    <th class="num">Pedidos</th>
+                    <th class="num">Conc.</th>
+                    <th class="num">Pend.</th>
+                    <th class="num">Canc.</th>
+                  </tr>
+                </thead>
+                <tbody id="subid-tbody-full"></tbody>
+              </table>
+            </div>
+            <div class="pager" id="subid-pager-full"></div>
+          </div>
+        </section>
 
-      <!-- SUBIDS -->
-      <section id="view-subids" class="view hidden">
-        <div class="panel">
-          <div class="panel-head">
+        <!-- CONFIG / INTEGRAÇÕES -->
+        <section id="view-config" class="view hidden">
+          <div class="page-head">
             <div>
-              <div class="panel-title">SubIDs</div>
-              <div class="panel-sub">utm_content da API Shopee · sem Meta / Pinterest</div>
+              <h1>Configurações / Integrações</h1>
+              <p class="page-sub">Shopee, Meta Ads e Pinterest — salve, teste e sincronize para alimentar o painel.</p>
             </div>
-            <input type="search" id="subid-search" class="search" placeholder="Buscar SubID…" />
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>SubID</th>
-                  <th class="num">Faturamento</th>
-                  <th class="num">Comissão</th>
-                  <th class="num">Abat. %</th>
-                  <th class="num">Pedidos</th>
-                  <th class="num">Conc.</th>
-                  <th class="num">Pend.</th>
-                  <th class="num">Canc.</th>
-                </tr>
-              </thead>
-              <tbody id="subid-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
 
-      <!-- CONFIG -->
-      <section id="view-config" class="view hidden">
-        <div class="panel config-panel">
-          <div class="panel-head">
+          <div class="panel config-panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">API Shopee Affiliate</div>
+                <div class="panel-sub">affiliate.shopee.com.br/open_api · dados no Supabase</div>
+              </div>
+            </div>
+            <form id="cred-form" class="form">
+              <label>SHOPEE_APP_ID
+                <input type="text" id="app-id" name="appId" autocomplete="off" placeholder="Ex: 18108270013" required />
+              </label>
+              <label>SHOPEE_SECRET
+                <input type="password" id="app-secret" name="secret" autocomplete="off" placeholder="Cole o secret aqui" required />
+              </label>
+              <p class="hint">Trocar o APP_ID reseta métricas Shopee (pedidos/daily/subid) e puxa a nova conta.</p>
+              <div class="form-actions">
+                <button type="submit" class="btn primary">Salvar Shopee</button>
+                <button type="button" class="btn ghost" id="btn-test">Testar API</button>
+              </div>
+              <div id="cred-status" class="form-status"></div>
+            </form>
+          </div>
+
+          <div class="panel config-panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">Meta Ads (Facebook)</div>
+                <div class="panel-sub" id="meta-status-sub">Marketing API · invest / ROI por SubID</div>
+              </div>
+            </div>
+            <form id="meta-form" class="form">
+              <label>META_ACCESS_TOKEN
+                <input type="password" id="meta-token" autocomplete="off" placeholder="Access token Marketing API" />
+              </label>
+              <label>META_AD_ACCOUNT_IDS
+                <input type="text" id="meta-accounts" autocomplete="off" placeholder="1396814339172082, act_123..." />
+              </label>
+              <label>META_API_VERSION
+                <input type="text" id="meta-version" value="v19.0" autocomplete="off" />
+              </label>
+              <p class="hint">IDs separados por vírgula. Token no Supabase. Não reseta dados Shopee.</p>
+              <div class="form-actions">
+                <button type="submit" class="btn primary">Salvar Meta</button>
+                <button type="button" class="btn ghost" id="btn-meta-test">Testar Meta</button>
+                <button type="button" class="btn ghost" id="btn-meta-sync">Sincronizar Meta</button>
+              </div>
+              <div id="meta-status" class="form-status"></div>
+            </form>
+          </div>
+
+          <div class="panel config-panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">Pinterest Ads</div>
+                <div class="panel-sub">Importação CSV (formato AfiliadosPRO)</div>
+              </div>
+            </div>
+            <div class="form">
+              <label>Arquivo CSV
+                <input type="file" id="pin-file" accept=".csv,text/csv" />
+              </label>
+              <div class="form-actions">
+                <button type="button" class="btn primary" id="btn-pin-import">Importar CSV</button>
+              </div>
+              <div id="pin-status" class="form-status"></div>
+            </div>
+          </div>
+
+          <div class="panel config-panel">
+            <div class="panel-head">
+              <div>
+                <div class="panel-title">Metas, impostos e equipe</div>
+                <div class="panel-sub">Ajustes do painel</div>
+              </div>
+            </div>
+            <form id="settings-form" class="form">
+              <label>Meta base de faturamento (R$)
+                <input type="number" id="set-meta-base" step="0.01" />
+              </label>
+              <label>Alíquota de imposto sobre comissão (%)
+                <input type="number" id="set-tax" step="0.01" min="0" max="100" />
+              </label>
+              <label>Nome da equipe
+                <input type="text" id="set-team-name" />
+              </label>
+              <label>Plano / subtítulo
+                <input type="text" id="set-team-plan" />
+              </label>
+              <div class="form-actions">
+                <button type="submit" class="btn primary">Salvar ajustes</button>
+              </div>
+              <div id="settings-status" class="form-status"></div>
+            </form>
+          </div>
+        </section>
+
+        <!-- DATA VIEWS -->
+        <section id="view-data" class="view hidden">
+          <div class="page-head">
             <div>
-              <div class="panel-title">API Shopee Affiliate</div>
-              <div class="panel-sub">Cole o APP ID e o Secret do Open API (affiliate.shopee.com.br/open_api)</div>
+              <h1 id="data-title">—</h1>
+              <p class="page-sub" id="data-sub">—</p>
+            </div>
+            <button type="button" class="btn primary" data-goto="dashboard">Painel de Lucro</button>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title" id="data-panel-title">Dados</div>
+              <input type="search" id="data-search" class="search" placeholder="Filtrar…" />
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead id="data-thead"></thead>
+                <tbody id="data-tbody"></tbody>
+              </table>
             </div>
           </div>
-
-          <form id="cred-form" class="form">
-            <label>SHOPEE_APP_ID
-              <input type="text" id="app-id" name="appId" autocomplete="off" placeholder="Ex: 18108270013" required />
-            </label>
-            <label>SHOPEE_SECRET
-              <input type="password" id="app-secret" name="secret" autocomplete="off" placeholder="Cole o secret aqui" required />
-            </label>
-            <p class="hint">Os dados ficam só no servidor local (<code>data/credentials.json</code>). Meta e Pinterest estão desligados neste MVP.</p>
-            <div class="form-actions">
-              <button type="submit" class="btn primary">Salvar credenciais</button>
-              <button type="button" class="btn ghost" id="btn-test">Testar API</button>
-            </div>
-            <div id="cred-status" class="form-status"></div>
-          </form>
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
   </div>
   <script src="/app.js"></script>

@@ -101,7 +101,6 @@ async function saveDashboardSnapshot(dash) {
   const supabase = getSupabase();
   const now = new Date().toISOString();
 
-  // Substitui métricas do período sincronizado
   const dailyRows = (dash.daily || []).map((d) => ({
     data: d.data,
     faturamento: d.faturamento,
@@ -111,6 +110,11 @@ async function saveDashboardSnapshot(dash) {
     pendentes: d.pendentes,
     cancelados: d.cancelados,
     unpaid: d.unpaid,
+    inv_meta: d.inv_meta || 0,
+    inv_pin: d.inv_pin || 0,
+    inv_total: d.inv_total || 0,
+    lucro: d.lucro != null ? d.lucro : d.comissao || 0,
+    roi: d.roi || 0,
     updated_at: now,
   }));
   if (dailyRows.length) {
@@ -118,7 +122,6 @@ async function saveDashboardSnapshot(dash) {
     if (error) throw new Error(`daily_metrics: ${error.message}`);
   }
 
-  // SubIDs: dump completo do último sync (visão atual)
   await supabase.from("subid_metrics").delete().neq("subid", "__never__");
   const subRows = (dash.subIds || []).map((r) => ({
     subid: r.subid,
@@ -130,10 +133,14 @@ async function saveDashboardSnapshot(dash) {
     cancelados: r.cancelados,
     itens: r.itens || 0,
     abatimento: r.abatimento || 0,
+    inv_meta: r.inv_meta || 0,
+    inv_pin: r.inv_pin || 0,
+    inv_total: r.inv_total || 0,
+    lucro: r.lucro != null ? r.lucro : r.comissao || 0,
+    roi: r.roi || 0,
     updated_at: now,
   }));
   if (subRows.length) {
-    // upsert em chunks
     for (let i = 0; i < subRows.length; i += 200) {
       const chunk = subRows.slice(i, i + 200);
       const { error } = await supabase.from("subid_metrics").upsert(chunk);
@@ -150,6 +157,79 @@ async function saveDashboardSnapshot(dash) {
     synced_at: dash.syncedAt || now,
   });
   if (runErr) throw new Error(`sync_runs: ${runErr.message}`);
+}
+
+async function persistOrdersAndProducts({ orders, orderItems, products }) {
+  const supabase = getSupabase();
+  const now = new Date().toISOString();
+  if (orders?.length) {
+    for (let i = 0; i < orders.length; i += 200) {
+      const chunk = orders.slice(i, i + 200).map((o) => ({ ...o, updated_at: now }));
+      const { error } = await supabase.from("orders").upsert(chunk);
+      if (error) throw new Error(`orders: ${error.message}`);
+    }
+  }
+  if (orderItems?.length) {
+    for (let i = 0; i < orderItems.length; i += 200) {
+      const chunk = orderItems.slice(i, i + 200).map((o) => ({ ...o, updated_at: now }));
+      const { error } = await supabase.from("order_items").upsert(chunk);
+      if (error) throw new Error(`order_items: ${error.message}`);
+    }
+  }
+  if (products?.length) {
+    for (let i = 0; i < products.length; i += 200) {
+      const chunk = products.slice(i, i + 200).map((p) => ({ ...p, updated_at: now }));
+      const { error } = await supabase.from("products").upsert(chunk);
+      if (error) throw new Error(`products: ${error.message}`);
+    }
+  }
+}
+
+async function loadOrders({ startDate, endDate, limit = 200 } = {}) {
+  const supabase = getSupabase();
+  let q = supabase.from("orders").select("*").order("data", { ascending: false }).limit(limit);
+  if (startDate) q = q.gte("data", startDate);
+  if (endDate) q = q.lte("data", endDate);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function loadProducts({ limit = 200 } = {}) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .order("comissao", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function loadSettings() {
+  const supabase = getSupabase();
+  const { data } = await supabase.from("app_settings").select("*").eq("id", "default").maybeSingle();
+  return {
+    metaBase: Number(data?.meta_base || process.env.META_BASE || 863959),
+    taxRate: Number(data?.tax_rate || 0),
+    teamName: data?.team_name || "SaaS SHOPPE",
+    teamPlan: data?.team_plan || "Shopee · Meta",
+  };
+}
+
+async function saveSettings(partial) {
+  const prev = await loadSettings();
+  const next = {
+    meta_base: partial.metaBase != null ? Number(partial.metaBase) : prev.metaBase,
+    tax_rate: partial.taxRate != null ? Number(partial.taxRate) : prev.taxRate,
+    team_name: partial.teamName != null ? String(partial.teamName) : prev.teamName,
+    team_plan: partial.teamPlan != null ? String(partial.teamPlan) : prev.teamPlan,
+    updated_at: new Date().toISOString(),
+  };
+  const supabase = getSupabase();
+  const { error } = await supabase.from("app_settings").upsert({ id: "default", ...next });
+  if (error) throw new Error(error.message);
+  return loadSettings();
 }
 
 async function loadDashboardFromDb(startDate, endDate) {
@@ -185,6 +265,11 @@ async function loadDashboardFromDb(startDate, endDate) {
     pendentes: 0,
     cancelados: 0,
     unpaid: 0,
+    inv_meta: 0,
+    inv_pin: 0,
+    inv_total: 0,
+    lucro: 0,
+    roi: null,
     abatimento: 0,
     subIdsCount: (subIds || []).length,
   };
@@ -196,9 +281,20 @@ async function loadDashboardFromDb(startDate, endDate) {
     kpis.pendentes += Number(d.pendentes || 0);
     kpis.cancelados += Number(d.cancelados || 0);
     kpis.unpaid += Number(d.unpaid || 0);
+    kpis.inv_meta += Number(d.inv_meta || 0);
+    kpis.inv_pin += Number(d.inv_pin || 0);
+    kpis.inv_total += Number(d.inv_total || 0);
+    kpis.lucro += Number(d.lucro != null ? d.lucro : (d.comissao || 0) - (d.inv_total || 0));
   }
   kpis.faturamento = Math.round(kpis.faturamento * 100) / 100;
   kpis.comissao = Math.round(kpis.comissao * 100) / 100;
+  kpis.inv_meta = Math.round(kpis.inv_meta * 100) / 100;
+  kpis.inv_pin = Math.round(kpis.inv_pin * 100) / 100;
+  kpis.inv_total = Math.round(kpis.inv_total * 100) / 100;
+  kpis.lucro = Math.round(kpis.lucro * 100) / 100;
+  kpis.roi = kpis.inv_total > 0
+    ? Math.round((kpis.lucro / kpis.inv_total) * 10000) / 100
+    : null;
   kpis.abatimento = kpis.faturamento > 0
     ? Math.round((kpis.comissao / kpis.faturamento) * 10000) / 100
     : 0;
@@ -217,6 +313,11 @@ async function loadDashboardFromDb(startDate, endDate) {
       pendentes: Number(d.pendentes || 0),
       cancelados: Number(d.cancelados || 0),
       unpaid: Number(d.unpaid || 0),
+      inv_meta: Number(d.inv_meta || 0),
+      inv_pin: Number(d.inv_pin || 0),
+      inv_total: Number(d.inv_total || 0),
+      lucro: Number(d.lucro != null ? d.lucro : 0),
+      roi: d.roi != null ? Number(d.roi) : null,
     })),
     subIds: (subIds || []).map((r) => ({
       subid: r.subid,
@@ -228,6 +329,11 @@ async function loadDashboardFromDb(startDate, endDate) {
       cancelados: Number(r.cancelados || 0),
       itens: Number(r.itens || 0),
       abatimento: Number(r.abatimento || 0),
+      inv_meta: Number(r.inv_meta || 0),
+      inv_pin: Number(r.inv_pin || 0),
+      inv_total: Number(r.inv_total || 0),
+      lucro: Number(r.lucro != null ? r.lucro : 0),
+      roi: r.roi != null ? Number(r.roi) : null,
     })),
     syncedAt: lastRun?.synced_at || null,
     fromDb: true,
@@ -240,6 +346,11 @@ module.exports = {
   credentialsPublic,
   saveDashboardSnapshot,
   loadDashboardFromDb,
+  persistOrdersAndProducts,
+  loadOrders,
+  loadProducts,
+  loadSettings,
+  saveSettings,
   resetAllSyncedData,
   maskSecret,
 };

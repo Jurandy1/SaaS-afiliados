@@ -113,12 +113,8 @@ function parseMoney(v) {
 }
 
 function parseSubId(utmContent) {
-  const raw = String(utmContent || "").trim();
-  if (!raw) return "ORGANICO";
-  // utm_content pode vir "sub1-sub2-..." — usamos o primeiro pedaço útil
-  const parts = raw.split(/[-_|]/).map((p) => p.trim()).filter(Boolean);
-  const first = parts[0] || raw;
-  return first.slice(0, 64) || "ORGANICO";
+  const { normalizeShopeeSubId } = require("./normalizeSubId");
+  return normalizeShopeeSubId(utmContent) || "organico";
 }
 
 function toUnixDayStart(dateStr) {

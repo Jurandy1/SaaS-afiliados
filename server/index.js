@@ -10,9 +10,22 @@ const {
   saveCredentials,
   loadCredentials,
   loadDashboardFromDb,
+  loadOrders,
+  loadProducts,
+  loadSettings,
+  saveSettings,
 } = require("./store");
 const { testCredentials, clearCredsCache } = require("./shopee");
 const { buildDashboard } = require("./metrics");
+const { enrichDashboardWithAds } = require("./finance");
+const {
+  metaCredentialsPublic,
+  saveMetaCredentials,
+  testMetaCredentials,
+  syncMetaDaily,
+  loadCampaigns,
+} = require("./meta");
+const { importPinterestCsv } = require("./pinterest");
 
 const PORT = Number(process.env.PORT || 3790);
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
@@ -72,11 +85,33 @@ async function readBody(req) {
   for await (const c of req) chunks.push(c);
   const raw = Buffer.concat(chunks).toString("utf8");
   if (!raw) return {};
+  const ct = String(req.headers["content-type"] || "");
+  if (ct.includes("multipart/form-data")) {
+    return { _raw: raw, _ct: ct };
+  }
   try {
     return JSON.parse(raw);
   } catch {
-    return {};
+    return { _text: raw };
   }
+}
+
+function extractMultipartFile(raw, contentType) {
+  const m = String(contentType || "").match(/boundary=(.+)$/i);
+  if (!m) return null;
+  const boundary = m[1].trim();
+  const parts = raw.split(`--${boundary}`);
+  for (const part of parts) {
+    if (!part.includes("Content-Disposition") || part.includes('filename=""')) continue;
+    if (!/filename="/i.test(part)) continue;
+    const idx = part.indexOf("\r\n\r\n");
+    if (idx < 0) continue;
+    let body = part.slice(idx + 4);
+    if (body.endsWith("\r\n")) body = body.slice(0, -2);
+    if (body.endsWith("--")) body = body.slice(0, -2);
+    return body;
+  }
+  return null;
 }
 
 function defaultRange() {
@@ -103,13 +138,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === "/api/health") {
-      const cred = await credentialsPublic();
+      const [cred, meta] = await Promise.all([credentialsPublic(), metaCredentialsPublic()]);
       sendJson(res, 200, {
         ok: true,
         shopeeConfigured: cred.configured,
+        metaConfigured: meta.configured,
         supabase: Boolean(process.env.SUPABASE_URL),
-        metaEnabled: false,
-        pinterestEnabled: false,
+        metaEnabled: meta.configured,
+        pinterestEnabled: true,
       });
       return;
     }
@@ -152,6 +188,118 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // --- Meta ---
+    if (pathname === "/api/meta/credentials" && req.method === "GET") {
+      sendJson(res, 200, { success: true, ...(await metaCredentialsPublic()) });
+      return;
+    }
+
+    if (pathname === "/api/meta/credentials" && req.method === "POST") {
+      const body = await readBody(req);
+      try {
+        const saved = await saveMetaCredentials({
+          accessToken: body.accessToken,
+          adAccountIds: body.adAccountIds,
+          apiVersion: body.apiVersion,
+        });
+        sendJson(res, 200, { success: true, ...saved, message: "Credenciais Meta salvas." });
+      } catch (err) {
+        sendJson(res, 400, { success: false, error: err.message });
+      }
+      return;
+    }
+
+    if (pathname === "/api/meta/test" && req.method === "POST") {
+      try {
+        const result = await testMetaCredentials();
+        sendJson(res, 200, { success: true, ...result });
+      } catch (err) {
+        sendJson(res, 400, { success: false, error: err.message || String(err) });
+      }
+      return;
+    }
+
+    if (pathname === "/api/meta/sync" && req.method === "POST") {
+      const body = await readBody(req);
+      try {
+        const daysBack = Number(body.daysBack || url.searchParams.get("days") || 7);
+        const result = await syncMetaDaily({ daysBack });
+        sendJson(res, 200, { success: true, ...result });
+      } catch (err) {
+        sendJson(res, 500, { success: false, error: err.message || String(err) });
+      }
+      return;
+    }
+
+    if (pathname === "/api/pinterest/import" && req.method === "POST") {
+      const body = await readBody(req);
+      try {
+        let text = body.csv || body._text || "";
+        if (body._raw && body._ct) {
+          text = extractMultipartFile(body._raw, body._ct) || text;
+        }
+        if (!text.trim()) {
+          sendJson(res, 400, { success: false, error: "Envie o CSV (campo csv ou multipart file)" });
+          return;
+        }
+        const result = await importPinterestCsv(text);
+        sendJson(res, 200, { success: true, ...result });
+      } catch (err) {
+        sendJson(res, 400, { success: false, error: err.message || String(err) });
+      }
+      return;
+    }
+
+    if (pathname === "/api/settings" && req.method === "GET") {
+      sendJson(res, 200, { success: true, ...(await loadSettings()) });
+      return;
+    }
+
+    if (pathname === "/api/settings" && req.method === "POST") {
+      const body = await readBody(req);
+      try {
+        const s = await saveSettings(body);
+        sendJson(res, 200, { success: true, ...s });
+      } catch (err) {
+        sendJson(res, 400, { success: false, error: err.message });
+      }
+      return;
+    }
+
+    if (pathname === "/api/orders" && req.method === "GET") {
+      try {
+        const startDate = url.searchParams.get("start") || defaultRange().startDate;
+        const endDate = url.searchParams.get("end") || defaultRange().endDate;
+        const orders = await loadOrders({ startDate, endDate, limit: 500 });
+        sendJson(res, 200, { success: true, orders });
+      } catch (err) {
+        sendJson(res, 500, { success: false, error: err.message });
+      }
+      return;
+    }
+
+    if (pathname === "/api/products" && req.method === "GET") {
+      try {
+        const products = await loadProducts({ limit: 500 });
+        sendJson(res, 200, { success: true, products });
+      } catch (err) {
+        sendJson(res, 500, { success: false, error: err.message });
+      }
+      return;
+    }
+
+    if (pathname === "/api/campaigns" && req.method === "GET") {
+      try {
+        const startDate = url.searchParams.get("start") || defaultRange().startDate;
+        const endDate = url.searchParams.get("end") || defaultRange().endDate;
+        const campaigns = await loadCampaigns(startDate, endDate);
+        sendJson(res, 200, { success: true, campaigns });
+      } catch (err) {
+        sendJson(res, 500, { success: false, error: err.message });
+      }
+      return;
+    }
+
     if (pathname === "/api/dashboard" && req.method === "GET") {
       const startDate = url.searchParams.get("start") || defaultRange().startDate;
       const endDate = url.searchParams.get("end") || defaultRange().endDate;
@@ -169,8 +317,9 @@ const server = http.createServer(async (req, res) => {
 
       try {
         if (!force) {
-          const fromDb = await loadDashboardFromDb(startDate, endDate);
+          let fromDb = await loadDashboardFromDb(startDate, endDate);
           if (fromDb) {
+            fromDb = await enrichDashboardWithAds(fromDb);
             sendJson(res, 200, { success: true, cached: true, ...fromDb });
             return;
           }
@@ -196,13 +345,17 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, async () => {
   let cred;
+  let meta;
   try {
     cred = await credentialsPublic();
+    meta = await metaCredentialsPublic();
   } catch {
     cred = { configured: false };
+    meta = { configured: false };
   }
   console.log(`\n  Metricly SaaS → http://localhost:${PORT}`);
   console.log(`  Supabase: ${(process.env.SUPABASE_URL || "").replace(/https?:\/\//, "").slice(0, 40) || "NÃO"}`);
   console.log(`  Shopee API: ${cred.configured ? "configurada" : "PENDENTE"}`);
-  console.log(`  Meta/Pinterest: off\n`);
+  console.log(`  Meta Ads: ${meta.configured ? "configurada" : "PENDENTE"}`);
+  console.log(`  Pinterest: CSV import\n`);
 });

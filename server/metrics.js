@@ -7,7 +7,8 @@ const {
   parseSubId,
   dateFromPurchaseTs,
 } = require("./shopee");
-const { saveDashboardSnapshot } = require("./store");
+const { saveDashboardSnapshot, persistOrdersAndProducts } = require("./store");
+const { enrichDashboardWithAds } = require("./finance");
 
 function emptyDay(date) {
   return {
@@ -30,6 +31,9 @@ function aggregateReport(nodes) {
   const byDay = {};
   const bySubId = {};
   const orderSeen = new Set();
+  const orders = [];
+  const items = [];
+  const products = {};
 
   let faturamento = 0;
   let comissao = 0;
@@ -56,23 +60,64 @@ function aggregateReport(nodes) {
       };
     }
 
-    const orders = Array.isArray(node.orders) ? node.orders : [];
-    orders.forEach((order, idx) => {
+    const nodeOrders = Array.isArray(node.orders) ? node.orders : [];
+    nodeOrders.forEach((order, idx) => {
       const orderId = String(order.orderId || `${node.conversionId}_${idx}`);
       if (orderSeen.has(orderId)) return;
       orderSeen.add(orderId);
 
       const status = classifyStatus(order.orderStatus);
-      const items = Array.isArray(order.items) ? order.items : [];
+      const orderItems = Array.isArray(order.items) ? order.items : [];
       let fat = 0;
       let com = 0;
       let qty = 0;
-      for (const it of items) {
-        fat += parseMoney(it.actualAmount);
-        com += parseMoney(it.itemTotalCommission);
-        qty += Number(it.qty || 0) || 0;
+      for (const it of orderItems) {
+        const itFat = parseMoney(it.actualAmount);
+        const itCom = parseMoney(it.itemTotalCommission);
+        const itQty = Number(it.qty || 0) || 0;
+        fat += itFat;
+        com += itCom;
+        qty += itQty;
+        const itemId = String(it.itemId || "").trim() || `unknown_${orderId}`;
+        items.push({
+          id: `${orderId}_${itemId}`,
+          order_id: orderId,
+          item_id: itemId,
+          item_name: String(it.itemName || "").slice(0, 200),
+          shop_name: String(it.shopName || "").slice(0, 120),
+          qty: itQty,
+          faturamento: itFat,
+          comissao: itCom,
+          data: date,
+          subid,
+        });
+        if (!products[itemId]) {
+          products[itemId] = {
+            item_id: itemId,
+            item_name: String(it.itemName || "").slice(0, 200),
+            shop_name: String(it.shopName || "").slice(0, 120),
+            faturamento: 0,
+            comissao: 0,
+            pedidos: 0,
+            qty: 0,
+          };
+        }
+        products[itemId].faturamento += itFat;
+        products[itemId].comissao += itCom;
+        products[itemId].qty += itQty;
+        products[itemId].pedidos += 1;
       }
       if (com <= 0) com = parseMoney(node.netCommission || node.totalCommission);
+
+      orders.push({
+        order_id: orderId,
+        conversion_id: String(node.conversionId || ""),
+        data: date,
+        subid,
+        status,
+        faturamento: round2(fat),
+        comissao: round2(com),
+      });
 
       pedidos += 1;
       byDay[date].pedidos += 1;
@@ -120,6 +165,14 @@ function aggregateReport(nodes) {
     }))
     .sort((a, b) => b.comissao - a.comissao);
 
+  const productList = Object.values(products)
+    .map((p) => ({
+      ...p,
+      faturamento: round2(p.faturamento),
+      comissao: round2(p.comissao),
+    }))
+    .sort((a, b) => b.comissao - a.comissao);
+
   return {
     kpis: {
       faturamento: round2(faturamento),
@@ -138,26 +191,48 @@ function aggregateReport(nodes) {
       comissao: round2(d.comissao),
     })),
     subIds,
+    orders,
+    orderItems: items,
+    products: productList,
   };
 }
 
 async function buildDashboard({ startDate, endDate, persist = true }) {
   const { nodes, pages } = await pullConversionReport(startDate, endDate);
   const agg = aggregateReport(nodes);
-  const dash = {
+  let dash = {
     range: { startDate, endDate },
     nodes: nodes.length,
     pages,
-    ...agg,
+    kpis: agg.kpis,
+    daily: agg.daily,
+    subIds: agg.subIds,
     syncedAt: new Date().toISOString(),
   };
+
   if (persist) {
     try {
       await saveDashboardSnapshot(dash);
+      await persistOrdersAndProducts({
+        orders: agg.orders,
+        orderItems: agg.orderItems,
+        products: agg.products,
+      });
     } catch (err) {
       console.warn("[metrics] falha ao gravar Supabase:", err.message || err);
     }
   }
+
+  try {
+    dash = await enrichDashboardWithAds(dash);
+  } catch (err) {
+    console.warn("[metrics] finance enrich:", err.message || err);
+  }
+
+  // keep lists for API consumers without bloating sync_runs
+  dash.ordersPreview = (agg.orders || []).slice(0, 200);
+  dash.productsPreview = (agg.products || []).slice(0, 100);
+
   return dash;
 }
 
