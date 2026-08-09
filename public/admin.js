@@ -13,6 +13,7 @@
     pageSize: 10,
     selectedId: null,
     colFilters: {},
+    sort: { key: "createdAt", dir: "desc" },
   };
 
   function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
@@ -127,14 +128,42 @@
     if (filters) filters.classList.toggle("hidden", name === "overview");
   }
 
+  function compareSort(a, b, dir) {
+    const mul = dir === "desc" ? -1 : 1;
+    if (a == null && b == null) return 0;
+    if (a == null) return 1;
+    if (b == null) return -1;
+    if (typeof a === "number" && typeof b === "number") return a === b ? 0 : (a > b ? mul : -mul);
+    const ta = Date.parse(a);
+    const tb = Date.parse(b);
+    if (!Number.isNaN(ta) && !Number.isNaN(tb) && String(a).match(/\d{4}-\d{2}/)) {
+      return ta === tb ? 0 : (ta > tb ? mul : -mul);
+    }
+    return String(a).localeCompare(String(b), "pt-BR", { sensitivity: "base", numeric: true }) * mul;
+  }
+
   function filteredUsers() {
     const q = ($("#users-q")?.value || "").trim().toLowerCase();
     const status = $("#users-status")?.value || "all";
-    return state.users.filter((u) => {
+    let rows = state.users.filter((u) => {
       if (status !== "all" && u.status !== status) return false;
       if (!q) return true;
       const blob = [u.email, u.displayName, u.company, u.role, u.status].join(" ").toLowerCase();
       return blob.includes(q);
+    });
+    const key = state.sort.key;
+    if (key) {
+      rows = [...rows].sort((a, b) => compareSort(a[key], b[key], state.sort.dir));
+    }
+    return rows;
+  }
+
+  function paintUserSortHeaders() {
+    $$("#panel-users th[data-sort]").forEach((th) => {
+      const active = state.sort.key === th.dataset.sort;
+      th.classList.add("th-sort");
+      th.classList.toggle("asc", active && state.sort.dir === "asc");
+      th.classList.toggle("desc", active && state.sort.dir === "desc");
     });
   }
 
@@ -241,6 +270,7 @@
   }
 
   function renderUsers() {
+    paintUserSortHeaders();
     const all = filteredUsers();
     $("#users-count").textContent = `${all.length} contas`;
     const pages = Math.max(1, Math.ceil(all.length / state.pageSize));
@@ -386,6 +416,18 @@
     $("#btn-refresh").addEventListener("click", () => refresh().catch((e) => alert(e.message)));
     $("#users-q").addEventListener("input", () => { state.page = 1; renderUsers(); });
     $("#users-status").addEventListener("change", () => { state.page = 1; renderUsers(); });
+    $("#panel-users thead")?.addEventListener("click", (e) => {
+      const th = e.target.closest("th[data-sort]");
+      if (!th) return;
+      const key = th.dataset.sort;
+      if (state.sort.key === key) state.sort.dir = state.sort.dir === "asc" ? "desc" : "asc";
+      else {
+        state.sort.key = key;
+        state.sort.dir = "asc";
+      }
+      state.page = 1;
+      renderUsers();
+    });
 
     $$(".rail-item").forEach((b) => b.addEventListener("click", () => setPanel(b.dataset.panel)));
 

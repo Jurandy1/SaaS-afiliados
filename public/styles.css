@@ -1213,6 +1213,34 @@ button, input, select, textarea { font: inherit; color: inherit; }
   text-align: left;
   white-space: nowrap;
 }
+.data-table th.th-sort {
+  cursor: pointer;
+  user-select: none;
+  transition: color .12s ease;
+}
+.data-table th.th-sort:hover { color: var(--text); }
+.data-table th.th-sort::after {
+  content: "⇅";
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  opacity: 0.35;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.data-table th.th-sort.asc,
+.data-table th.th-sort.desc { color: var(--accent); }
+.data-table th.th-sort.asc::after {
+  content: "↑";
+  opacity: 1;
+  color: var(--accent);
+}
+.data-table th.th-sort.desc::after {
+  content: "↓";
+  opacity: 1;
+  color: var(--accent);
+}
 .data-table th.num, .data-table td.num { text-align: right; }
 .data-table td {
   padding: 11px 16px;

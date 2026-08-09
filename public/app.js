@@ -89,6 +89,10 @@
     dataPage: 1,
     dataPageSize: 10,
     dataColFilters: {},
+    dataSort: { key: null, dir: "asc" },
+    subidSort: { key: null, dir: "asc" },
+    dailySort: { key: null, dir: "asc" },
+    dailyRows: [],
   };
 
   function fmt(v) {
@@ -332,9 +336,92 @@
       </div>`;
   }
 
+  function parseSortable(v) {
+    if (v == null || v === "") return { kind: "empty", n: 0, s: "" };
+    if (typeof v === "number" && Number.isFinite(v)) return { kind: "num", n: v, s: String(v) };
+    if (typeof v === "boolean") return { kind: "num", n: v ? 1 : 0, s: String(v) };
+    const s = String(v).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return { kind: "num", n: Date.parse(s.slice(0, 10)) || 0, s };
+    const compact = s
+      .replace(/R\$\s?/gi, "")
+      .replace(/%/g, "")
+      .replace(/\s/g, "")
+      .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+      .replace(",", ".");
+    if (/^-?\d+(\.\d+)?$/.test(compact)) return { kind: "num", n: Number(compact), s };
+    return { kind: "str", n: 0, s: s.toLowerCase() };
+  }
+
+  function compareSortValues(a, b, dir) {
+    const mul = dir === "desc" ? -1 : 1;
+    const A = parseSortable(a);
+    const B = parseSortable(b);
+    if (A.kind === "empty" && B.kind !== "empty") return 1;
+    if (B.kind === "empty" && A.kind !== "empty") return -1;
+    if (A.kind === "num" && B.kind === "num") {
+      if (A.n === B.n) return 0;
+      return A.n > B.n ? mul : -mul;
+    }
+    return A.s.localeCompare(B.s, "pt-BR", { sensitivity: "base", numeric: true }) * mul;
+  }
+
+  function sortRows(rows, key, dir, getter) {
+    if (!key || !rows?.length) return rows || [];
+    const get = getter || ((r) => r[key]);
+    return [...rows].sort((a, b) => compareSortValues(get(a), get(b), dir || "asc"));
+  }
+
+  function toggleSortState(sortState, key) {
+    if (sortState.key === key) sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+    else {
+      sortState.key = key;
+      sortState.dir = "asc";
+    }
+  }
+
+  function paintSortHeaders(root, sortState) {
+    const el = typeof root === "string" ? $(root) : root;
+    if (!el) return;
+    el.querySelectorAll("th[data-sort]").forEach((th) => {
+      const active = sortState.key === th.dataset.sort;
+      th.classList.add("th-sort");
+      th.classList.toggle("asc", active && sortState.dir === "asc");
+      th.classList.toggle("desc", active && sortState.dir === "desc");
+      th.title = active
+        ? (sortState.dir === "asc" ? "Ordenado crescente · clique para decrescente" : "Ordenado decrescente · clique para crescente")
+        : "Clique para ordenar";
+      th.setAttribute("aria-sort", active ? (sortState.dir === "asc" ? "ascending" : "descending") : "none");
+    });
+  }
+
+  function wireSortHeaders(rootSel, getSortState, onChange) {
+    const root = $(rootSel);
+    if (!root || root.dataset.sortWired === "1") return;
+    root.dataset.sortWired = "1";
+    root.addEventListener("click", (e) => {
+      const th = e.target.closest("th[data-sort]");
+      if (!th || !root.contains(th)) return;
+      e.preventDefault();
+      toggleSortState(getSortState(), th.dataset.sort);
+      onChange();
+    });
+  }
+
   function renderDailyTable(daily, k) {
-    const rows = daily || [];
-    $("#daily-tbody").innerHTML = rows.map((d) => {
+    state.dailyRows = Array.isArray(daily) ? daily : [];
+    const sorted = sortRows(state.dailyRows, state.dailySort.key, state.dailySort.dir, (d) => {
+      if (state.dailySort.key === "abatimento") {
+        const fat = Number(d.faturamento || 0);
+        const com = Number(d.comissao || 0);
+        return fat > 0 ? (com / fat) * 100 : 0;
+      }
+      if (state.dailySort.key === "lucro") {
+        return d.lucro != null ? d.lucro : Number(d.comissao || 0) - Number(d.inv_total || 0);
+      }
+      return d[state.dailySort.key];
+    });
+    paintSortHeaders("#daily-table thead", state.dailySort);
+    $("#daily-tbody").innerHTML = sorted.map((d) => {
       const fat = Number(d.faturamento || 0);
       const com = Number(d.comissao || 0);
       const abat = fat > 0 ? (com / fat) * 100 : 0;
@@ -352,7 +439,7 @@
       </tr>`;
     }).join("") || `<tr><td colspan="9">Sem dias no período.</td></tr>`;
 
-    if (rows.length) {
+    if (state.dailyRows.length) {
       $("#daily-tfoot").innerHTML = `<tr>
         <td>TOTAL</td>
         <td class="num">${fmt(k.faturamento)}</td>
@@ -482,7 +569,13 @@
   }
 
   function renderSubIdsDash() {
-    const all = filteredSubIds(state.dash?.subIds || [], $("#subid-search")?.value);
+    let all = filteredSubIds(state.dash?.subIds || [], $("#subid-search")?.value);
+    all = sortRows(all, state.subidSort.key, state.subidSort.dir, (r) => {
+      if (state.subidSort.key === "subid") return r.subid;
+      if (state.subidSort.key === "status") return "Ativa";
+      return r[state.subidSort.key];
+    });
+    paintSortHeaders("#subid-table thead", state.subidSort);
     const total = all.length;
     const pages = Math.max(1, Math.ceil(total / state.pageSize));
     if (state.subidPage > pages) state.subidPage = pages;
@@ -519,7 +612,16 @@
   }
 
   function renderSubIdsFull() {
-    const all = filteredSubIds(state.dash?.subIds || [], $("#subid-search-full")?.value);
+    let all = filteredSubIds(state.dash?.subIds || [], $("#subid-search-full")?.value);
+    all = sortRows(all, state.subidSort.key, state.subidSort.dir, (r) => {
+      if (state.subidSort.key === "subid") return r.subid;
+      if (state.subidSort.key === "inv_total" || state.subidSort.key === "lucro" || state.subidSort.key === "roi" || state.subidSort.key === "status") {
+        if (state.subidSort.key === "status") return "";
+        return r[state.subidSort.key];
+      }
+      return r[state.subidSort.key];
+    });
+    paintSortHeaders("#subid-table-full thead", state.subidSort);
     const total = all.length;
     const pages = Math.max(1, Math.ceil(total / state.pageSize));
     if (state.subidPageFull > pages) state.subidPageFull = pages;
@@ -554,7 +656,12 @@
     state.dataRows = rows || [];
     state.dataPage = 1;
     state.dataColFilters = {};
-    $("#data-thead").innerHTML = `<tr>${headers.map((h) => `<th class="${h.num ? "num" : ""}">${h.label}</th>`).join("")}</tr>`;
+    state.dataSort = { key: null, dir: "asc" };
+    $("#data-thead").innerHTML = `<tr>${headers.map((h, i) => {
+      const key = h.key || `col_${i}`;
+      return `<th class="th-sort ${h.num ? "num" : ""}" data-sort="${escapeHtml(key)}" scope="col">${h.label}</th>`;
+    }).join("")}</tr>`;
+    paintSortHeaders("#data-thead", state.dataSort);
     const sizeSel = $("#data-page-size");
     if (sizeSel) state.dataPageSize = Number(sizeSel.value) || 10;
     renderDataBody();
@@ -574,16 +681,28 @@
   function filteredDataRows() {
     const headers = state.dataHeaders || [];
     const q = ($("#data-search")?.value || "").trim().toLowerCase();
-    if (!q) return state.dataRows || [];
-    return (state.dataRows || []).filter((r) => {
-      const blob = headers.map((h, i) => rowCellText(headers, r, h.key || `col_${i}`, i)).join(" ").toLowerCase();
-      return blob.includes(q);
+    let rows = state.dataRows || [];
+    if (q) {
+      rows = rows.filter((r) => {
+        const blob = headers.map((h, i) => rowCellText(headers, r, h.key || `col_${i}`, i)).join(" ").toLowerCase();
+        return blob.includes(q);
+      });
+    }
+    return sortRows(rows, state.dataSort.key, state.dataSort.dir, (r) => {
+      const key = state.dataSort.key;
+      const idx = headers.findIndex((h, i) => (h.key || `col_${i}`) === key);
+      const h = idx >= 0 ? headers[idx] : headers.find((x) => x.key === key);
+      if (!h) return r[key];
+      if (h.sortValue) return h.sortValue(r);
+      if (h.num) return Number(r[h.key] ?? 0);
+      return r[h.key] ?? rowCellText(headers, r, key, idx >= 0 ? idx : 0);
     });
   }
 
   function renderDataBody() {
     const headers = state.dataHeaders || [];
     const filtered = filteredDataRows();
+    paintSortHeaders("#data-thead", state.dataSort);
     const pageSize = state.dataPageSize || 10;
     const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
     if (state.dataPage > pages) state.dataPage = pages;
@@ -1070,6 +1189,23 @@
 
     $("#subid-search")?.addEventListener("input", () => { state.subidPage = 1; renderSubIdsDash(); });
     $("#subid-search-full")?.addEventListener("input", () => { state.subidPageFull = 1; renderSubIdsFull(); });
+    wireSortHeaders("#subid-table thead", () => state.subidSort, () => {
+      state.subidPage = 1;
+      renderSubIdsDash();
+      renderSubIdsFull();
+    });
+    wireSortHeaders("#subid-table-full thead", () => state.subidSort, () => {
+      state.subidPageFull = 1;
+      renderSubIdsDash();
+      renderSubIdsFull();
+    });
+    wireSortHeaders("#daily-table thead", () => state.dailySort, () => {
+      renderDailyTable(state.dailyRows, state.dash?.kpis || {});
+    });
+    wireSortHeaders("#data-thead", () => state.dataSort, () => {
+      state.dataPage = 1;
+      renderDataBody();
+    });
     $("#data-search")?.addEventListener("input", () => {
       state.dataPage = 1;
       renderDataBody();

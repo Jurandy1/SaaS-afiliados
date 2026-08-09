@@ -275,16 +275,16 @@
               <table class="data-table" id="subid-table">
                 <thead>
                   <tr>
-                    <th>SubID</th>
-                    <th class="num">Faturamento</th>
-                    <th class="num">Comissão</th>
-                    <th class="num">Investimento</th>
-                    <th class="num">Lucro</th>
-                    <th class="num">ROI</th>
-                    <th class="num">Ped.</th>
-                    <th class="num">Conc.</th>
-                    <th class="num">Pend.</th>
-                    <th>Status</th>
+                    <th class="th-sort" data-sort="subid">SubID</th>
+                    <th class="th-sort num" data-sort="faturamento">Faturamento</th>
+                    <th class="th-sort num" data-sort="comissao">Comissão</th>
+                    <th class="th-sort num" data-sort="inv_total">Investimento</th>
+                    <th class="th-sort num" data-sort="lucro">Lucro</th>
+                    <th class="th-sort num" data-sort="roi">ROI</th>
+                    <th class="th-sort num" data-sort="pedidos">Ped.</th>
+                    <th class="th-sort num" data-sort="concluidos">Conc.</th>
+                    <th class="th-sort num" data-sort="pendentes">Pend.</th>
+                    <th class="th-sort" data-sort="status">Status</th>
                   </tr>
                 </thead>
                 <tbody id="subid-tbody"></tbody>
@@ -305,15 +305,15 @@
               <table class="data-table" id="daily-table">
                 <thead>
                   <tr>
-                    <th>Dia</th>
-                    <th class="num">Faturamento</th>
-                    <th class="num">Comissão</th>
-                    <th class="num">Inv. Meta</th>
-                    <th class="num">Inv. Pin</th>
-                    <th class="num">Inv. Total</th>
-                    <th class="num">Lucro</th>
-                    <th class="num">ROI</th>
-                    <th class="num">Abat.</th>
+                    <th class="th-sort" data-sort="data">Dia</th>
+                    <th class="th-sort num" data-sort="faturamento">Faturamento</th>
+                    <th class="th-sort num" data-sort="comissao">Comissão</th>
+                    <th class="th-sort num" data-sort="inv_meta">Inv. Meta</th>
+                    <th class="th-sort num" data-sort="inv_pin">Inv. Pin</th>
+                    <th class="th-sort num" data-sort="inv_total">Inv. Total</th>
+                    <th class="th-sort num" data-sort="lucro">Lucro</th>
+                    <th class="th-sort num" data-sort="roi">ROI</th>
+                    <th class="th-sort num" data-sort="abatimento">Abat.</th>
                   </tr>
                 </thead>
                 <tbody id="daily-tbody"></tbody>
@@ -355,17 +355,17 @@
               <input type="search" id="subid-search-full" class="search" placeholder="Buscar SubID…" />
             </div>
             <div class="table-wrap">
-              <table class="data-table">
+              <table class="data-table" id="subid-table-full">
                 <thead>
                   <tr>
-                    <th>SubID</th>
-                    <th class="num">Faturamento</th>
-                    <th class="num">Comissão</th>
-                    <th class="num">Abat. %</th>
-                    <th class="num">Pedidos</th>
-                    <th class="num">Conc.</th>
-                    <th class="num">Pend.</th>
-                    <th class="num">Canc.</th>
+                    <th class="th-sort" data-sort="subid">SubID</th>
+                    <th class="th-sort num" data-sort="faturamento">Faturamento</th>
+                    <th class="th-sort num" data-sort="comissao">Comissão</th>
+                    <th class="th-sort num" data-sort="abatimento">Abat. %</th>
+                    <th class="th-sort num" data-sort="pedidos">Pedidos</th>
+                    <th class="th-sort num" data-sort="concluidos">Conc.</th>
+                    <th class="th-sort num" data-sort="pendentes">Pend.</th>
+                    <th class="th-sort num" data-sort="cancelados">Canc.</th>
                   </tr>
                 </thead>
                 <tbody id="subid-tbody-full"></tbody>
