@@ -22,48 +22,27 @@ function loadEnv() {
 loadEnv();
 
 async function main() {
-  const migrate = fs.readFileSync(path.join(__dirname, "..", "sql", "migrate-multiuser.sql"), "utf8");
-  const sql = fs.readFileSync(path.join(__dirname, "..", "sql", "schema.sql"), "utf8");
-  const subidOps = fs.readFileSync(path.join(__dirname, "..", "sql", "subid-ops.sql"), "utf8");
+  const sql = fs.readFileSync(path.join(__dirname, "..", "sql", "subid-ops.sql"), "utf8");
   const password = process.env.SUPABASE_DB_PASSWORD || "";
   const ref = (process.env.SUPABASE_URL || "")
     .replace(/^https?:\/\//, "")
     .replace(/\.supabase\.co.*$/, "")
     .trim();
-
   if (!password || !ref) {
     console.error("Defina SUPABASE_DB_PASSWORD e SUPABASE_URL no .env");
     process.exit(1);
   }
-
   const connectionString =
     process.env.DATABASE_URL ||
     `postgresql://postgres.${ref}:${encodeURIComponent(password)}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`;
-
-  async function run(cs, label) {
-    const client = new Client({ connectionString: cs, ssl: { rejectUnauthorized: false } });
-    await client.connect();
-    console.log(`Aplicando migrate (${label})…`);
-    await client.query(migrate);
-    console.log(`Aplicando schema (${label})…`);
-    await client.query(sql);
-    console.log(`Aplicando subid-ops (${label})…`);
-    await client.query(subidOps);
-    await client.end();
-  }
-
-  console.log("Conectando ao Supabase Postgres…");
-  try {
-    await run(connectionString, "pooler");
-  } catch (err) {
-    const alt = `postgresql://postgres:${encodeURIComponent(password)}@db.${ref}.supabase.co:5432/postgres`;
-    console.log("Pooler falhou, tentando host direto…", err.message);
-    await run(alt, "direto");
-  }
-  console.log("Schema multi-user aplicado com sucesso.");
+  const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } });
+  await client.connect();
+  await client.query(sql);
+  await client.end();
+  console.log("subid-ops.sql aplicado.");
 }
 
 main().catch((e) => {
-  console.error(e);
+  console.error(e.message || e);
   process.exit(1);
 });

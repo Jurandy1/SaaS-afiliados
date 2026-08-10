@@ -456,6 +456,28 @@ async function requestHandler(req, res) {
           return;
         }
 
+        if (pathname === "/api/subid-ops" && req.method === "GET") {
+          const { loadSubidOps } = require("./subidOps");
+          sendJson(res, 200, { success: true, ops: await loadSubidOps() });
+          return;
+        }
+
+        if (pathname === "/api/subid-ops" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const { upsertSubidOps } = require("./subidOps");
+            const row = await upsertSubidOps(body.subid, {
+              canal: body.canal,
+              status: body.status,
+              produto: body.produto,
+            });
+            sendJson(res, 200, { success: true, ...row });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
         if (pathname === "/api/orders" && req.method === "GET") {
           try {
             const startDate = url.searchParams.get("start") || defaultRange().startDate;

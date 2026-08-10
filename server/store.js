@@ -103,7 +103,7 @@ async function saveDashboardSnapshot(dash, userId = requireUserId()) {
     inv_pin: d.inv_pin || 0,
     inv_total: d.inv_total || 0,
     lucro: d.lucro != null ? d.lucro : d.comissao || 0,
-    roi: d.roi || 0,
+    roi: d.roi != null ? d.roi : 0,
     updated_at: now,
   }));
   if (dailyRows.length) {
@@ -127,7 +127,7 @@ async function saveDashboardSnapshot(dash, userId = requireUserId()) {
     inv_pin: r.inv_pin || 0,
     inv_total: r.inv_total || 0,
     lucro: r.lucro != null ? r.lucro : r.comissao || 0,
-    roi: r.roi || 0,
+    roi: r.roi != null ? r.roi : 0,
     updated_at: now,
   }));
   if (subRows.length) {
@@ -243,6 +243,7 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
   kpis.inv_pin = Math.round(kpis.inv_pin * 100) / 100;
   kpis.inv_total = Math.round(kpis.inv_total * 100) / 100;
   kpis.lucro = Math.round(kpis.lucro * 100) / 100;
+  // Recalcula ROI com a mesma base do invest exibido (já pode incluir taxa Meta)
   kpis.roi = kpis.inv_total > 0 ? Math.round((kpis.lucro / kpis.inv_total) * 10000) / 100 : null;
   kpis.abatimento = kpis.faturamento > 0
     ? Math.round((kpis.comissao / kpis.faturamento) * 10000) / 100
@@ -266,24 +267,31 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
       inv_pin: Number(d.inv_pin || 0),
       inv_total: Number(d.inv_total || 0),
       lucro: Number(d.lucro != null ? d.lucro : 0),
-      roi: d.roi != null ? Number(d.roi) : null,
+      roi: d.roi != null && Number(d.inv_total || 0) > 0 ? Number(d.roi) : null,
     })),
-    subIds: (subIds || []).map((r) => ({
-      subid: r.subid,
-      faturamento: Number(r.faturamento || 0),
-      comissao: Number(r.comissao || 0),
-      pedidos: Number(r.pedidos || 0),
-      concluidos: Number(r.concluidos || 0),
-      pendentes: Number(r.pendentes || 0),
-      cancelados: Number(r.cancelados || 0),
-      itens: Number(r.itens || 0),
-      abatimento: Number(r.abatimento || 0),
-      inv_meta: Number(r.inv_meta || 0),
-      inv_pin: Number(r.inv_pin || 0),
-      inv_total: Number(r.inv_total || 0),
-      lucro: Number(r.lucro != null ? r.lucro : 0),
-      roi: r.roi != null ? Number(r.roi) : null,
-    })),
+    subIds: (subIds || []).map((r) => {
+      const inv = Number(r.inv_total || 0);
+      const lucro = Number(r.lucro != null ? r.lucro : 0);
+      let roi = r.roi != null ? Number(r.roi) : null;
+      if (inv <= 0) roi = null;
+      else if (roi == null || !Number.isFinite(roi)) roi = Math.round((lucro / inv) * 10000) / 100;
+      return {
+        subid: r.subid,
+        faturamento: Number(r.faturamento || 0),
+        comissao: Number(r.comissao || 0),
+        pedidos: Number(r.pedidos || 0),
+        concluidos: Number(r.concluidos || 0),
+        pendentes: Number(r.pendentes || 0),
+        cancelados: Number(r.cancelados || 0),
+        itens: Number(r.itens || 0),
+        abatimento: Number(r.abatimento || 0),
+        inv_meta: Number(r.inv_meta || 0),
+        inv_pin: Number(r.inv_pin || 0),
+        inv_total: inv,
+        lucro,
+        roi,
+      };
+    }),
     syncedAt: lastRun?.synced_at || null,
     fromDb: true,
   };
@@ -410,9 +418,12 @@ async function loadProducts({ limit = 200 } = {}, userId = requireUserId()) {
 async function loadSettings(userId = requireUserId()) {
   const supabase = getSupabase();
   const { data } = await supabase.from("app_settings").select("*").eq("user_id", userId).maybeSingle();
+  const taxRate = data?.tax_rate != null ? Number(data.tax_rate) : 11.7;
+  const metaTaxRate = data?.meta_tax_rate != null ? Number(data.meta_tax_rate) : 12;
   return {
     metaBase: Number(data?.meta_base || 863959),
-    taxRate: Number(data?.tax_rate || 0),
+    taxRate,
+    metaTaxRate,
     teamName: data?.team_name || "Minha conta",
     teamPlan: data?.team_plan || "Shopee · Meta",
   };
@@ -428,8 +439,15 @@ async function saveSettings(partial, userId = requireUserId()) {
     team_plan: partial.teamPlan != null ? String(partial.teamPlan) : prev.teamPlan,
     updated_at: new Date().toISOString(),
   };
+  if (partial.metaTaxRate != null) next.meta_tax_rate = Number(partial.metaTaxRate);
+  else if (prev.metaTaxRate != null) next.meta_tax_rate = Number(prev.metaTaxRate);
+
   const supabase = getSupabase();
-  const { error } = await supabase.from("app_settings").upsert(next);
+  let { error } = await supabase.from("app_settings").upsert(next);
+  if (error && /meta_tax_rate/i.test(error.message || "")) {
+    delete next.meta_tax_rate;
+    ({ error } = await supabase.from("app_settings").upsert(next));
+  }
   if (error) throw new Error(error.message);
   return loadSettings(userId);
 }

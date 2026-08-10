@@ -42,27 +42,16 @@
     $("#app-shell").classList.add("hidden");
   }
 
-  const DATA_VIEWS = new Set([
-    "visao", "performance", "comparativos", "produtos", "campanhas",
-    "pedidos", "comissoes", "investimentos", "metas", "impostos", "equipe",
-  ]);
+  const DATA_VIEWS = new Set(["produtos", "campanhas", "pedidos"]);
 
   const VIEW_LABELS = {
     dashboard: "Painel de Lucro",
     subids: "SubIDs",
+    canais: "Canais e status",
     config: "Configurações",
-    integracoes: "Integrações",
-    visao: "Visão geral",
-    performance: "Performance",
-    comparativos: "Comparativos",
     produtos: "Produtos",
     campanhas: "Campanhas",
     pedidos: "Pedidos",
-    comissoes: "Comissões",
-    investimentos: "Investimentos",
-    metas: "Metas & bônus",
-    impostos: "Impostos",
-    equipe: "Equipe",
   };
 
   const SPARK = {
@@ -74,13 +63,16 @@
 
   const state = {
     view: "dashboard",
+    channel: "geral",
     tab: "Geral",
     dash: null,
     configured: false,
     metaConfigured: false,
-    settings: { metaBase: 863959, taxRate: 0, teamName: "SaaS SHOPPE", teamPlan: "Shopee · Meta" },
+    settings: { metaBase: 863959, taxRate: 11.7, metaTaxRate: 12, teamName: "SaaS SHOPPE", teamPlan: "Shopee · Meta" },
     subidPage: 1,
     subidPageFull: 1,
+    opsPage: 1,
+    opsPageSize: 25,
     expandedSubIds: {},
     pageSize: 10,
     dataRows: [],
@@ -104,6 +96,34 @@
   function fmtPct(v) {
     if (v == null || Number.isNaN(Number(v))) return "—";
     return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
+  }
+
+  /** Invest usado no ROI (Meta com imposto + Pin), alinhado ao painel de referência. */
+  function investForRoi(r) {
+    if (!r) return 0;
+    if (r.inv_meta_taxed != null || r.inv_pin != null) {
+      const taxed = r.inv_meta_taxed != null
+        ? Number(r.inv_meta_taxed)
+        : Number(r.inv_meta || 0) * (1 + Number(state.settings.metaTaxRate != null ? state.settings.metaTaxRate : 12) / 100);
+      return taxed + Number(r.inv_pin || 0);
+    }
+    return Number(r.inv_total || 0);
+  }
+
+  function displayRoi(r) {
+    if (!r) return null;
+    const inv = investForRoi(r);
+    if (inv <= 0) return null;
+    if (r.roi != null && Number.isFinite(Number(r.roi))) return Number(r.roi);
+    const lucro = r.lucro != null
+      ? Number(r.lucro)
+      : Number(r.comissao || 0) * (1 - Number(state.settings.taxRate || 0) / 100) - inv;
+    return (lucro / inv) * 100;
+  }
+
+  function roiClass(roi) {
+    if (roi == null || !Number.isFinite(Number(roi))) return "";
+    return Number(roi) >= 0 ? "green" : "neg";
   }
   /** Aceita "R$ 1.234.567,89" / "1234567.89" / "1234567,89" */
   function parseBrNumber(raw) {
@@ -206,6 +226,7 @@
   function setView(navKey) {
     const view = navKey === "integracoes" ? "config" : navKey;
     state.view = view;
+    if (view === "dashboard" && state.channel === "subid") state.channel = "geral";
 
     $$(".nav-item").forEach((b) => {
       if (view === "config") {
@@ -218,12 +239,15 @@
     const isData = DATA_VIEWS.has(view);
     $("#view-dashboard").classList.toggle("hidden", view !== "dashboard");
     $("#view-subids").classList.toggle("hidden", view !== "subids");
+    $("#view-canais")?.classList.toggle("hidden", view !== "canais");
     $("#view-config").classList.toggle("hidden", view !== "config");
     $("#view-data").classList.toggle("hidden", !isData);
     $("#crumb-label").textContent = VIEW_LABELS[navKey] || VIEW_LABELS[view] || view;
     setSidebarOpen(false);
 
+    if (view === "dashboard") applyChannelView();
     if (view === "subids") renderSubIdsFull();
+    if (view === "canais") renderOpsTable();
     if (isData) loadDataView(view);
   }
 
@@ -235,18 +259,25 @@
   }
 
   function renderKpis(k) {
+    const invMeta = Number(k.inv_meta || 0);
+    const invPin = Number(k.inv_pin || 0);
     const invTotal = Number(k.inv_total || 0);
     const lucro = k.lucro != null ? Number(k.lucro) : Number(k.comissao || 0) - invTotal;
     const C_ACCENT = "#22d3a4";
     const C_GOLD = "#e4b84a";
     const C_MUTED = "#5a5f6b";
     const C_RED = "#f87171";
+    const C_META = "#6c9bf5";
+    const C_PIN = "#ea5c86";
     const cards = [
-      { label: "Lucro", value: fmt(lucro), delta: invTotal ? "com − invest" : "≈ comissão", on: true, color: lucro >= 0 ? C_ACCENT : C_RED, spark: SPARK.up, fill: SPARK.upFill, tone: lucro >= 0 ? "pos" : "neg", hero: true },
+      { label: "Lucro", value: fmt(lucro), delta: "após impostos", on: true, color: lucro >= 0 ? C_ACCENT : C_RED, spark: SPARK.up, fill: SPARK.upFill, tone: lucro >= 0 ? "pos" : "neg", hero: true },
       { label: "Faturamento", value: fmt(k.faturamento), delta: "Shopee", on: true, color: C_GOLD, spark: SPARK.up, fill: SPARK.upFill, tone: "" },
       { label: "Comissão", value: fmt(k.comissao), delta: "Shopee", on: true, color: C_ACCENT, spark: SPARK.up, fill: SPARK.upFill, tone: "" },
-      { label: "Investimento", value: fmt(invTotal), delta: invTotal ? "Meta + Pin" : "sem invest.", on: invTotal > 0, color: invTotal ? C_GOLD : C_MUTED, spark: SPARK.flat, fill: SPARK.flatFill, tone: "" },
-      { label: "ROI", value: fmtPct(k.roi), delta: invTotal ? "lucro/invest" : "—", on: invTotal > 0, color: C_ACCENT, spark: SPARK.up, fill: SPARK.upFill, tone: invTotal > 0 ? "pos" : "" },
+      { label: "Invest. Meta", value: fmt(invMeta), delta: invMeta ? "bruto API" : "sem sync", on: invMeta > 0, color: invMeta ? C_META : C_MUTED, spark: SPARK.flat, fill: SPARK.flatFill, tone: "" },
+      { label: "Invest. Pin", value: fmt(invPin), delta: invPin ? "CSV" : "manual", on: invPin > 0, color: invPin ? C_PIN : C_MUTED, spark: SPARK.flat, fill: SPARK.flatFill, tone: "" },
+      { label: "Invest. Total", value: fmt(invTotal), delta: invTotal ? "c/ imposto Meta" : "bruto", on: invTotal > 0, color: invTotal ? C_GOLD : C_MUTED, spark: SPARK.flat, fill: SPARK.flatFill, tone: "" },
+      { label: "ROI", value: fmtPct(k.roi), delta: invTotal ? "lucro/invest*" : "—", on: invTotal > 0, color: C_ACCENT, spark: SPARK.up, fill: SPARK.upFill, tone: invTotal > 0 ? "pos" : "" },
+      { label: "Abatimento", value: fmtPct(k.abatimento), delta: `${fmtNum(k.pedidos)} ped.`, on: true, color: C_MUTED, spark: SPARK.flat, fill: SPARK.flatFill, tone: "" },
     ];
     $("#kpi-grid").innerHTML = cards.map((c) => `
       <div class="kpi${c.hero ? " kpi--hero" : ""}">
@@ -260,21 +291,6 @@
     `).join("");
   }
 
-  function renderMetaStrip(k) {
-    const fat = Number(k.faturamento || 0);
-    const base = Number(state.settings.metaBase || 863959);
-    const pct = base > 0 ? Math.min(100, (fat / base) * 100) : 0;
-    const left = daysLeftInMonth();
-    const sub = $("#proj-sub");
-    if (sub) {
-      sub.innerHTML = `Faturamento <strong class="mono">${fmt(fat)}</strong> de <strong class="mono">${fmt(base)}</strong> · ${left} dias restantes`;
-    }
-    const fill = $("#meta-strip-fill");
-    if (fill) fill.style.width = `${pct.toFixed(1)}%`;
-    const pctEl = $("#meta-strip-pct");
-    if (pctEl) pctEl.textContent = `${pct.toFixed(1).replace(".", ",")}%`;
-  }
-
   function renderProjection(k) {
     const fat = Number(k.faturamento || 0);
     const base = Number(state.settings.metaBase || 863959);
@@ -283,9 +299,11 @@
       { label: "Meta 125% · 2%", mult: 1.25, bonusPct: 0.02 },
       { label: "Meta 150% · 3%", mult: 1.5, bonusPct: 0.03 },
     ];
-    const left = daysLeftInMonth();
-    const grid = $("#proj-grid");
-    if (!grid) return;
+    const left = Math.max(1, daysLeftInMonth());
+    const sub = $("#proj-sub");
+    if (sub) {
+      sub.innerHTML = `Faturamento <strong class="mono">${fmt(fat)}</strong> · base <strong class="mono">${fmt(base)}</strong> · ${left} dias restantes`;
+    }
     const headers = [`<div class="h">% Bônus s/ faturamento</div>`].concat(targets.map((t) => `<div class="h r">${t.label}</div>`)).join("");
     const rowFat = [`<div class="c">Faturamento para atingir</div>`].concat(targets.map((t) => `<div class="c r mono">${fmt(base * t.mult)}</div>`)).join("");
     const rowBonus = [`<div class="c hi">Valor do bônus meta</div>`].concat(targets.map((t) => `<div class="c r green">${fmt(base * t.mult * t.bonusPct)}</div>`)).join("");
@@ -293,12 +311,16 @@
       const need = Math.max(0, base * t.mult - fat) / left;
       return `<div class="c r mono">${fmt(need)}</div>`;
     })).join("");
-    const rowProg = [`<div class="c">Progresso da meta</div>`].concat(targets.map((t, i) => {
+    const rowProg = [`<div class="c">Progresso da meta</div>`].concat(targets.map((t) => {
       const pct = Math.min(100, (fat / (base * t.mult)) * 100);
-      const bg = i === 0 ? "#22d3a4" : i === 1 ? "#e4b84a" : "#f0888a";
+      const bg = pct >= 100 ? "#22d3a4" : pct >= 66 ? "#e4b84a" : "#f0888a";
       return `<div class="c r"><div class="prog-row"><div class="prog-bar"><i style="width:${pct.toFixed(1)}%;background:${bg}"></i></div><span class="prog-pct" style="color:${bg}">${pct.toFixed(1).replace(".", ",")}%</span></div></div>`;
     })).join("");
-    grid.innerHTML = headers + rowFat + rowBonus + rowDaily + rowProg;
+    const html = headers + rowFat + rowBonus + rowDaily + rowProg;
+    const dashGrid = $("#proj-grid-dash");
+    const cfgGrid = $("#proj-grid");
+    if (dashGrid) dashGrid.innerHTML = html;
+    if (cfgGrid) cfgGrid.innerHTML = html;
   }
 
   function renderChart(daily) {
@@ -307,16 +329,19 @@
       $("#daily-chart").innerHTML = `<div class="panel-sub" style="padding:8px 0">Sem dados no período.</div>`;
       return;
     }
-    const max = Math.max(...rows.map((d) => Number(d.faturamento || 0)), 1);
+    const vals = rows.map((d) => Number(d.lucro != null ? d.lucro : Number(d.comissao || 0) - Number(d.inv_total || 0)));
+    const maxAbs = Math.max(...vals.map((v) => Math.abs(v)), 1);
     const n = rows.length;
-    const cols = rows.map((d) => {
-      const fat = Number(d.faturamento || 0);
-      const h = Math.max(fat > 0 ? 4 : 2, Math.round((fat / max) * 100));
+    const cols = rows.map((d, i) => {
+      const lucro = vals[i];
+      const h = Math.max(4, Math.round((Math.abs(lucro) / maxAbs) * 100));
+      const cls = lucro >= 0 ? "fat" : "loss";
+      const sign = lucro >= 0 ? "+" : "";
       return `
-        <div class="chart-col" title="${d.data}: ${fmt(fat)}">
-          <div class="chart-val">${fmt(fat).replace("R$ ", "R$")}</div>
+        <div class="chart-col" title="${d.data}: ${fmt(lucro)}">
+          <div class="chart-val ${lucro >= 0 ? "pos" : "neg"}">${sign}${fmt(lucro).replace("R$ ", "")}</div>
           <div class="chart-pair">
-            <div class="chart-bar fat" style="height:${h}%"></div>
+            <div class="chart-bar ${cls}" style="height:${h}%"></div>
           </div>
         </div>`;
     }).join("");
@@ -324,8 +349,8 @@
     $("#daily-chart").innerHTML = `
       <div class="chart-inner">
         <div class="chart-ylabels">
-          <span>${fmt(max).replace("R$ ", "")}</span>
-          <span>${fmt(max * 0.5).replace("R$ ", "")}</span>
+          <span>${fmt(maxAbs).replace("R$ ", "")}</span>
+          <span>${fmt(maxAbs * 0.5).replace("R$ ", "")}</span>
           <span>0</span>
         </div>
         <div class="chart-plot">
@@ -334,6 +359,76 @@
           <div class="chart-labels" style="grid-template-columns:repeat(${n},1fr)">${labels}</div>
         </div>
       </div>`;
+  }
+
+  function renderSuggestions(dash) {
+    const el = $("#suggestions-body");
+    if (!el) return;
+    const ch = state.channel;
+    if (ch !== "geral" && ch !== "meta") {
+      el.innerHTML = `<div class="panel-sub" style="padding:12px 20px">Sugestões disponíveis na visão Geral ou Meta.</div>`;
+      return;
+    }
+    const subs = (dash?.subIds || []).filter((s) => (s.canal || "meta") === "meta");
+    const tips = [];
+    for (const s of subs) {
+      const days = [...(s.daily || [])].sort((a, b) => String(a.data).localeCompare(String(b.data)));
+      const last15 = days.slice(-15);
+      const inv15 = last15.reduce((a, d) => a + Number(d.inv_meta || 0), 0);
+      const lucro15 = last15.reduce((a, d) => a + Number(d.lucro || 0), 0);
+      const roi15 = inv15 > 0 ? (lucro15 / inv15) * 100 : Number(s.roi);
+      const inv = Number(s.inv_meta || s.inv_total || 0);
+      const lucro = Number(s.lucro || 0);
+      const st = s.status || "ativa";
+      const roi = Number.isFinite(roi15) ? roi15 : Number(s.roi);
+
+      if (st === "ativa" && Number.isFinite(roi) && roi < 40 && inv > 0) {
+        tips.push({
+          subid: s.subid,
+          kind: "desativar",
+          reason: `ROI 15d ${fmtPct(roi)} abaixo de 40%`,
+          action: "Considerar pausar",
+        });
+      } else if (st === "ativa" && Number.isFinite(roi) && roi >= 40 && inv > 0) {
+        const recent = last15.filter((d) => Number(d.inv_meta || 0) > 0).slice(-4);
+        if (recent.length >= 4 && recent.every((d) => Number(d.roi || 0) >= 0)) {
+          const avg = recent.reduce((a, d) => a + Number(d.inv_meta || 0), 0) / recent.length;
+          tips.push({
+            subid: s.subid,
+            kind: "escalar",
+            reason: "4 dias com ROI ≥ 0 e ROI 15d ≥ 40%",
+            action: `Escalar ~${fmt(avg * 0.2)} (+20%)`,
+          });
+        }
+      } else if (st === "teste" && Number.isFinite(roi) && roi <= -70) {
+        tips.push({
+          subid: s.subid,
+          kind: "desativar",
+          reason: `Teste com ROI ${fmtPct(roi)} (≤ −70%)`,
+          action: "Encerrar teste",
+        });
+      } else if (st === "teste" && lucro > 0 && Number.isFinite(roi) && roi > 0) {
+        tips.push({
+          subid: s.subid,
+          kind: "promover",
+          reason: "Teste com ROI positivo",
+          action: "Promover para Ativa",
+        });
+      }
+    }
+    if (!tips.length) {
+      el.innerHTML = `<div class="banner ok" style="margin:12px 16px">Sem sugestões no momento — Meta está estável no período.</div>`;
+      return;
+    }
+    el.innerHTML = `<div class="table-wrap"><table class="data-table">
+      <thead><tr><th>SubID</th><th>Tipo</th><th>Motivo</th><th>Sugestão</th></tr></thead>
+      <tbody>${tips.map((t) => `<tr>
+        <td class="subid">${escapeHtml(t.subid)}</td>
+        <td>${escapeHtml(t.kind)}</td>
+        <td>${escapeHtml(t.reason)}</td>
+        <td>${escapeHtml(t.action)}</td>
+      </tr>`).join("")}</tbody>
+    </table></div>`;
   }
 
   function parseSortable(v) {
@@ -454,9 +549,189 @@
     } else $("#daily-tfoot").innerHTML = "";
   }
 
-  function filteredSubIds(list, q) {
+  function canalLabel(c) {
+    if (c === "meta") return "Meta";
+    if (c === "pinterest") return "Pinterest";
+    if (c === "organico") return "Orgânico";
+    return c || "—";
+  }
+
+  function statusLabel(s) {
+    if (s === "teste") return "Em Teste";
+    if (s === "pausada") return "Pausada";
+    return "Ativa";
+  }
+
+  function statusPillHtml(status) {
+    const st = status || "ativa";
+    return `<span class="status-pill st-${st}"><i></i>${statusLabel(st)}</span>`;
+  }
+
+  function canalChipHtml(canal) {
+    const c = canal || "meta";
+    return `<span class="canal-chip ch-${c}">${canalLabel(c)}</span>`;
+  }
+
+  function filteredSubIds(list, q, channel) {
     const query = (q || "").trim().toLowerCase();
-    return (list || []).filter((r) => !query || String(r.subid).toLowerCase().includes(query));
+    const ch = channel != null ? channel : state.channel;
+    return (list || []).filter((r) => {
+      if (query && !String(r.subid).toLowerCase().includes(query)) return false;
+      if (!ch || ch === "geral" || ch === "subid") return true;
+      return (r.canal || "meta") === ch;
+    });
+  }
+
+  function kpisFromSubIds(subs, baseKpis) {
+    const list = subs || [];
+    const fat = list.reduce((a, r) => a + Number(r.faturamento || 0), 0);
+    const com = list.reduce((a, r) => a + Number(r.comissao || 0), 0);
+    const invMeta = list.reduce((a, r) => a + Number(r.inv_meta || 0), 0);
+    const invPin = list.reduce((a, r) => a + Number(r.inv_pin || 0), 0);
+    const pedidos = list.reduce((a, r) => a + Number(r.pedidos || 0), 0);
+    const tax = {
+      taxRate: state.settings.taxRate,
+      metaTaxRate: state.settings.metaTaxRate,
+    };
+    const gov = Number(tax.taxRate || 0) / 100;
+    const metaTax = Number(tax.metaTaxRate != null ? tax.metaTaxRate : 12) / 100;
+    const invMetaTaxed = invMeta * (1 + metaTax);
+    const invForRoi = invMetaTaxed + invPin;
+    const comissaoLiq = com * (1 - gov);
+    const lucro = Math.round((comissaoLiq - invForRoi) * 100) / 100;
+    const roi = invForRoi > 0 ? Math.round((lucro / invForRoi) * 10000) / 100 : null;
+    return {
+      ...(baseKpis || {}),
+      faturamento: Math.round(fat * 100) / 100,
+      comissao: Math.round(com * 100) / 100,
+      inv_meta: Math.round(invMeta * 100) / 100,
+      inv_pin: Math.round(invPin * 100) / 100,
+      inv_meta_taxed: Math.round(invMetaTaxed * 100) / 100,
+      inv_total: Math.round(invForRoi * 100) / 100,
+      lucro,
+      roi,
+      pedidos,
+      abatimento: fat > 0 ? Math.round((com / fat) * 10000) / 100 : null,
+    };
+  }
+
+  async function saveSubidOp(subid, partial) {
+    await api("/api/subid-ops", {
+      method: "POST",
+      body: JSON.stringify({ subid, ...partial }),
+    });
+    const list = state.dash?.subIds || [];
+    const key = String(subid).toLowerCase();
+    for (const r of list) {
+      if (String(r.subid || "").toLowerCase() === key) {
+        if (partial.canal != null) r.canal = partial.canal;
+        if (partial.status != null) r.status = partial.status;
+      }
+    }
+    applyChannelView();
+    renderOpsTable();
+  }
+
+  function wireOpsSelects(root) {
+    const el = typeof root === "string" ? $(root) : root;
+    if (!el || el.dataset.opsWired) return;
+    el.dataset.opsWired = "1";
+    el.addEventListener("change", async (e) => {
+      const sel = e.target.closest("select[data-op]");
+      if (!sel) return;
+      e.stopPropagation();
+      const subid = sel.dataset.subid;
+      const field = sel.dataset.op;
+      try {
+        await saveSubidOp(subid, { [field]: sel.value });
+      } catch (err) {
+        alert(err.message || String(err));
+      }
+    });
+    el.addEventListener("click", (e) => {
+      if (e.target.closest("select[data-op]")) e.stopPropagation();
+    });
+  }
+
+  function applyChannelView() {
+    const ch = state.channel || "geral";
+    $$("#channel-tabs .channel-tab").forEach((b) => {
+      b.classList.toggle("active", b.dataset.channel === ch);
+    });
+    const dash = state.dash;
+    if (!dash) {
+      renderKpis({});
+      renderProjection({});
+      renderSuggestions(null);
+      renderChart([]);
+      return;
+    }
+
+    const channelSubs = filteredSubIds(dash.subIds || [], "", ch === "subid" ? "geral" : ch);
+    const k = !ch || ch === "geral" || ch === "subid"
+      ? (dash.kpis || {})
+      : kpisFromSubIds(channelSubs, dash.kpis);
+    renderKpis(k);
+    renderProjection(dash.kpis || {});
+    renderSuggestions(dash);
+    renderChart(dash.daily || []);
+    renderDailyTable(dash.daily || [], dash.kpis || {});
+    renderSubIdsDash();
+
+    const showMetas = ch === "geral";
+    const showSug = ch === "geral" || ch === "meta";
+    $("#dash-metas-panel")?.classList.toggle("hidden", !showMetas);
+    $("#dash-suggestions-panel")?.classList.toggle("hidden", !showSug);
+  }
+
+  function renderOpsTable() {
+    const tb = $("#ops-tbody");
+    if (!tb) return;
+    const q = ($("#ops-search")?.value || "").trim().toLowerCase();
+    let list = sortRows(state.dash?.subIds || [], "subid", "asc", (r) => r.subid);
+    if (q) list = list.filter((r) => String(r.subid || "").toLowerCase().includes(q));
+
+    const pageSize = Number(state.opsPageSize) || 25;
+    const total = list.length;
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    if (state.opsPage > pages) state.opsPage = pages;
+    if (state.opsPage < 1) state.opsPage = 1;
+    const slice = list.slice((state.opsPage - 1) * pageSize, state.opsPage * pageSize);
+
+    const countPill = $("#ops-count-pill");
+    if (countPill) countPill.textContent = fmtNum(total);
+
+    tb.innerHTML = slice.map((r) => {
+      const id = String(r.subid || "");
+      const canal = r.canal || "meta";
+      const status = r.status || "ativa";
+      return `<tr>
+        <td class="subid">${escapeHtml(id)}</td>
+        <td>
+          <select class="op-select" data-op="canal" data-subid="${escapeHtml(id)}">
+            <option value="meta" ${canal === "meta" ? "selected" : ""}>Meta</option>
+            <option value="pinterest" ${canal === "pinterest" ? "selected" : ""}>Pinterest</option>
+            <option value="organico" ${canal === "organico" ? "selected" : ""}>Orgânico</option>
+          </select>
+        </td>
+        <td>
+          <select class="op-select" data-op="status" data-subid="${escapeHtml(id)}">
+            <option value="ativa" ${status === "ativa" ? "selected" : ""}>Ativa</option>
+            <option value="teste" ${status === "teste" ? "selected" : ""}>Em Teste</option>
+            <option value="pausada" ${status === "pausada" ? "selected" : ""}>Pausada</option>
+          </select>
+        </td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="3">${state.dash ? "Nenhum SubID encontrado." : "Carregue o painel para listar SubIDs."}</td></tr>`;
+    wireOpsSelects("#ops-tbody");
+
+    const pager = $("#ops-pager");
+    if (pager) {
+      renderPager(pager, state.opsPage, total, pageSize, (p) => {
+        state.opsPage = p;
+        renderOpsTable();
+      });
+    }
   }
 
   function renderPager(el, page, total, pageSize, onPage) {
@@ -508,17 +783,22 @@
       </tr>`;
     }
     const totCom = days.reduce((a, d) => a + Number(d.comissao || 0), 0);
-    const totInv = days.reduce((a, d) => a + Number(d.inv_total || 0), 0);
-    const totLucro = days.reduce((a, d) => a + Number(d.lucro != null ? d.lucro : (d.comissao || 0) - (d.inv_total || 0)), 0);
+    const totInv = days.reduce((a, d) => a + investForRoi(d), 0);
+    const totLucro = days.reduce((a, d) => {
+      if (d.lucro != null) return a + Number(d.lucro);
+      return a + (Number(d.comissao || 0) - investForRoi(d));
+    }, 0);
     const totRoi = totInv > 0 ? (totLucro / totInv) * 100 : null;
     const rows = days.map((d) => {
-      const lucro = d.lucro != null ? Number(d.lucro) : Number(d.comissao || 0) - Number(d.inv_total || 0);
+      const inv = investForRoi(d);
+      const lucro = d.lucro != null ? Number(d.lucro) : Number(d.comissao || 0) - inv;
+      const roi = displayRoi(d);
       return `<tr>
         <td>${escapeHtml(shortDayLabel(d.data))}</td>
         <td class="num">${fmt(d.comissao)}</td>
-        <td class="num">${fmt(d.inv_total)}</td>
-        <td class="num ${lucro >= 0 ? "green" : ""}">${fmt(lucro)}</td>
-        <td class="num">${fmtPct(d.roi != null ? d.roi : (Number(d.inv_total || 0) > 0 ? (lucro / Number(d.inv_total)) * 100 : null))}</td>
+        <td class="num">${fmt(inv)}</td>
+        <td class="num ${lucro >= 0 ? "green" : "neg"}">${fmt(lucro)}</td>
+        <td class="num ${roiClass(roi)}">${fmtPct(roi)}</td>
       </tr>`;
     }).join("");
     return `<tr class="subid-detail" data-parent="${escapeHtml(key)}">
@@ -544,8 +824,8 @@
                 <td>Total ${days.length}d</td>
                 <td class="num">${fmt(totCom)}</td>
                 <td class="num">${fmt(totInv)}</td>
-                <td class="num ${totLucro >= 0 ? "green" : ""}">${fmt(totLucro)}</td>
-                <td class="num">${fmtPct(totRoi)}</td>
+                <td class="num ${totLucro >= 0 ? "green" : "neg"}">${fmt(totLucro)}</td>
+                <td class="num ${roiClass(totRoi)}">${fmtPct(totRoi)}</td>
               </tr>
             </tbody>
           </table>
@@ -570,9 +850,14 @@
 
   function renderSubIdsDash() {
     let all = filteredSubIds(state.dash?.subIds || [], $("#subid-search")?.value);
-    all = sortRows(all, state.subidSort.key, state.subidSort.dir, (r) => {
+    const statusRank = { ativa: 0, teste: 1, pausada: 2 };
+    all = sortRows(all, state.subidSort.key || "status", state.subidSort.dir || "asc", (r) => {
       if (state.subidSort.key === "subid") return r.subid;
-      if (state.subidSort.key === "status") return "Ativa";
+      if (state.subidSort.key === "canal") return r.canal || "";
+      if (state.subidSort.key === "status" || !state.subidSort.key) return statusRank[r.status || "ativa"] ?? 9;
+      if (state.subidSort.key === "roi") return displayRoi(r);
+      if (state.subidSort.key === "inv_total") return investForRoi(r);
+      if (state.subidSort.key === "lucro") return r.lucro != null ? Number(r.lucro) : Number(r.comissao || 0) - investForRoi(r);
       return r[state.subidSort.key];
     });
     paintSortHeaders("#subid-table thead", state.subidSort);
@@ -582,28 +867,28 @@
     const slice = all.slice((state.subidPage - 1) * state.pageSize, state.subidPage * state.pageSize);
     $("#subid-count-pill").textContent = fmtNum(total);
     $("#nav-subid-count").textContent = fmtNum(state.dash?.subIds?.length || 0);
-    const perfBadge = document.querySelector('.nav-item[data-view="performance"] .nav-badge');
-    if (perfBadge) perfBadge.textContent = fmtNum((state.dash?.subIds || []).length);
     $("#subid-tbody").innerHTML = slice.map((r) => {
       const id = String(r.subid || "");
       const open = Boolean(state.expandedSubIds[id]);
+      const inv = investForRoi(r);
+      const roi = displayRoi(r);
+      const lucro = r.lucro != null ? Number(r.lucro) : Number(r.comissao || 0) - inv;
       const main = `<tr class="subid-row ${open ? "is-open" : ""}" data-subid="${escapeHtml(id)}">
         <td class="subid" data-subid="${escapeHtml(id)}" title="Clique para ver o historico diario">
           <span class="subid-caret"></span>
           ${escapeHtml(id)}
         </td>
+        <td>${canalChipHtml(r.canal)}</td>
         <td class="num">${fmt(r.faturamento)}</td>
         <td class="num">${fmt(r.comissao)}</td>
-        <td class="num">${fmt(r.inv_total)}</td>
-        <td class="num ${(r.lucro || 0) >= 0 ? "green" : ""}">${fmt(r.lucro)}</td>
-        <td class="num">${fmtPct(r.roi)}</td>
+        <td class="num">${fmt(inv)}</td>
+        <td class="num ${lucro >= 0 ? "green" : "neg"}">${fmt(lucro)}</td>
+        <td class="num ${roiClass(roi)}">${fmtPct(roi)}</td>
         <td class="num">${fmtNum(r.pedidos)}</td>
-        <td class="num">${fmtNum(r.concluidos)}</td>
-        <td class="num">${fmtNum(r.pendentes)}</td>
-        <td><span class="status-pill"><i></i>Ativa</span></td>
+        <td>${statusPillHtml(r.status)}</td>
       </tr>`;
-      return open ? main + subIdDailyHistoryHtml(r, 10) : main;
-    }).join("") || `<tr><td colspan="10">Nenhum SubID neste período.</td></tr>`;
+      return open ? main + subIdDailyHistoryHtml(r, 9) : main;
+    }).join("") || `<tr><td colspan="9">Nenhum SubID neste período.</td></tr>`;
     wireSubIdExpand("#subid-tbody", renderSubIdsDash);
     renderPager($("#subid-pager"), state.subidPage, total, state.pageSize, (p) => {
       state.subidPage = p;
@@ -612,13 +897,15 @@
   }
 
   function renderSubIdsFull() {
-    let all = filteredSubIds(state.dash?.subIds || [], $("#subid-search-full")?.value);
+    let all = filteredSubIds(state.dash?.subIds || [], $("#subid-search-full")?.value, "geral");
+    const statusRank = { ativa: 0, teste: 1, pausada: 2 };
     all = sortRows(all, state.subidSort.key, state.subidSort.dir, (r) => {
       if (state.subidSort.key === "subid") return r.subid;
-      if (state.subidSort.key === "inv_total" || state.subidSort.key === "lucro" || state.subidSort.key === "roi" || state.subidSort.key === "status") {
-        if (state.subidSort.key === "status") return "";
-        return r[state.subidSort.key];
-      }
+      if (state.subidSort.key === "canal") return r.canal || "";
+      if (state.subidSort.key === "status") return statusRank[r.status || "ativa"] ?? 9;
+      if (state.subidSort.key === "roi") return displayRoi(r);
+      if (state.subidSort.key === "inv_total") return investForRoi(r);
+      if (state.subidSort.key === "lucro") return r.lucro != null ? Number(r.lucro) : Number(r.comissao || 0) - investForRoi(r);
       return r[state.subidSort.key];
     });
     paintSortHeaders("#subid-table-full thead", state.subidSort);
@@ -629,21 +916,25 @@
     $("#subid-tbody-full").innerHTML = slice.map((r) => {
       const id = String(r.subid || "");
       const open = Boolean(state.expandedSubIds[id]);
+      const inv = investForRoi(r);
+      const roi = displayRoi(r);
+      const lucro = r.lucro != null ? Number(r.lucro) : Number(r.comissao || 0) - inv;
       const main = `<tr class="subid-row ${open ? "is-open" : ""}" data-subid="${escapeHtml(id)}">
         <td class="subid" data-subid="${escapeHtml(id)}" title="Clique para ver o historico diario">
           <span class="subid-caret"></span>
           ${escapeHtml(id)}
         </td>
+        <td>${canalChipHtml(r.canal)}</td>
+        <td>${statusPillHtml(r.status)}</td>
         <td class="num">${fmt(r.faturamento)}</td>
         <td class="num">${fmt(r.comissao)}</td>
-        <td class="num">${fmtPct(r.abatimento)}</td>
+        <td class="num">${fmt(inv)}</td>
+        <td class="num ${lucro >= 0 ? "green" : "neg"}">${fmt(lucro)}</td>
+        <td class="num ${roiClass(roi)}">${fmtPct(roi)}</td>
         <td class="num">${fmtNum(r.pedidos)}</td>
-        <td class="num">${fmtNum(r.concluidos)}</td>
-        <td class="num">${fmtNum(r.pendentes)}</td>
-        <td class="num">${fmtNum(r.cancelados)}</td>
       </tr>`;
-      return open ? main + subIdDailyHistoryHtml(r, 8) : main;
-    }).join("") || `<tr><td colspan="8">Nenhum SubID.</td></tr>`;
+      return open ? main + subIdDailyHistoryHtml(r, 9) : main;
+    }).join("") || `<tr><td colspan="9">Nenhum SubID.</td></tr>`;
     wireSubIdExpand("#subid-tbody-full", renderSubIdsFull);
     renderPager($("#subid-pager-full"), state.subidPageFull, total, state.pageSize, (p) => {
       state.subidPageFull = p;
@@ -949,13 +1240,9 @@
     state.subidPage = 1;
     state.subidPageFull = 1;
     const k = dash.kpis || {};
-    renderKpis(k);
-    renderMetaStrip(k);
-    renderProjection(k);
-    renderChart(dash.daily || []);
-    renderDailyTable(dash.daily || [], k);
-    renderSubIdsDash();
+    applyChannelView();
     renderSubIdsFull();
+    renderOpsTable();
     const when = dash.syncedAt ? new Date(dash.syncedAt).toLocaleString("pt-BR") : "—";
     $("#sync-meta").textContent = `${cached ? "cache · " : ""}${dash.nodes || 0} nodes · ${when}`;
     $("#footer-sync").textContent = `Última sincronização ${when}`;
@@ -1003,11 +1290,13 @@
       state.settings = {
         metaBase: s.metaBase,
         taxRate: s.taxRate,
+        metaTaxRate: s.metaTaxRate != null ? s.metaTaxRate : 12,
         teamName: s.teamName,
         teamPlan: s.teamPlan,
       };
       $("#set-meta-base").value = formatBrMoneyInput(s.metaBase);
       $("#set-tax").value = formatBrPctInput(s.taxRate);
+      if ($("#set-meta-tax")) $("#set-meta-tax").value = formatBrPctInput(state.settings.metaTaxRate);
       $("#set-team-name").value = s.teamName;
       $("#set-team-plan").value = s.teamPlan;
       $("#team-name").textContent = s.teamName;
@@ -1015,6 +1304,50 @@
       state.metaBase = s.metaBase;
     } catch (e) {
       console.warn(e);
+    }
+  }
+
+  async function syncMetaAds(statusEl, btnEl) {
+    const status = statusEl || $("#meta-status");
+    const isBanner = status?.classList?.contains("banner") || status?.id === "sync-banner";
+    if (status) {
+      if (isBanner) {
+        status.className = "banner";
+        status.textContent = "Sincronizando Meta (pode levar 1–2 min)…";
+      } else {
+        status.className = "form-status";
+        status.textContent = "Sincronizando Meta (pode levar 1–2 min)…";
+      }
+    }
+    if (btnEl) btnEl.disabled = true;
+    try {
+      const r = await api("/api/meta/sync", { method: "POST", body: JSON.stringify({ daysBack: 7 }) });
+      if (status) {
+        if (isBanner) {
+          status.className = "banner ok";
+          status.textContent = `Meta sync: ${r.gravados} linhas (${r.range?.since} a ${r.range?.until})`;
+        } else {
+          status.className = "form-status ok";
+          status.textContent = `Meta sync: ${r.gravados} linhas (${r.range?.since} a ${r.range?.until})` +
+            (r.erros?.length ? ` · avisos: ${r.erros.join("; ")}` : "");
+        }
+      }
+      await loadMetaCreds();
+      await loadDashboard({ force: false });
+      return r;
+    } catch (err) {
+      if (status) {
+        if (isBanner) {
+          status.className = "banner";
+          status.textContent = err.message;
+        } else {
+          status.className = "form-status err";
+          status.textContent = err.message;
+        }
+      }
+      throw err;
+    } finally {
+      if (btnEl) btnEl.disabled = false;
     }
   }
 
@@ -1186,9 +1519,41 @@
     $("#btn-sync").addEventListener("click", () => loadDashboard({ force: true }));
     $("#btn-export").addEventListener("click", exportCsv);
     $("#btn-edit-meta")?.addEventListener("click", () => setView("config"));
+    $("#btn-meta-sync-top")?.addEventListener("click", async () => {
+      const btn = $("#btn-meta-sync-top");
+      const prev = btn.textContent;
+      try {
+        await syncMetaAds($("#sync-banner"), btn);
+      } catch {
+        /* status already set */
+      } finally {
+        btn.textContent = prev;
+        btn.disabled = false;
+      }
+    });
+
+    $$("#channel-tabs .channel-tab").forEach((b) => {
+      b.addEventListener("click", () => {
+        const ch = b.dataset.channel;
+        if (ch === "subid") {
+          state.channel = "geral";
+          setView("subids");
+          return;
+        }
+        state.channel = ch || "geral";
+        if (state.view !== "dashboard") setView("dashboard");
+        else applyChannelView();
+      });
+    });
 
     $("#subid-search")?.addEventListener("input", () => { state.subidPage = 1; renderSubIdsDash(); });
     $("#subid-search-full")?.addEventListener("input", () => { state.subidPageFull = 1; renderSubIdsFull(); });
+    $("#ops-search")?.addEventListener("input", () => { state.opsPage = 1; renderOpsTable(); });
+    $("#ops-page-size")?.addEventListener("change", () => {
+      state.opsPageSize = Number($("#ops-page-size").value) || 25;
+      state.opsPage = 1;
+      renderOpsTable();
+    });
     wireSortHeaders("#subid-table thead", () => state.subidSort, () => {
       state.subidPage = 1;
       renderSubIdsDash();
@@ -1291,22 +1656,10 @@
     });
 
     $("#btn-meta-sync").addEventListener("click", async () => {
-      const status = $("#meta-status");
-      status.className = "form-status";
-      status.textContent = "Sincronizando Meta (pode levar 1–2 min)…";
-      $("#btn-meta-sync").disabled = true;
       try {
-        const r = await api("/api/meta/sync", { method: "POST", body: JSON.stringify({ daysBack: 7 }) });
-        status.className = "form-status ok";
-        status.textContent = `Meta sync: ${r.gravados} linhas (${r.range?.since} a ${r.range?.until})` +
-          (r.erros?.length ? ` · avisos: ${r.erros.join("; ")}` : "");
-        await loadMetaCreds();
-        await loadDashboard({ force: false });
-      } catch (err) {
-        status.className = "form-status err";
-        status.textContent = err.message;
-      } finally {
-        $("#btn-meta-sync").disabled = false;
+        await syncMetaAds($("#meta-status"), $("#btn-meta-sync"));
+      } catch {
+        /* status already set */
       }
     });
 
@@ -1341,24 +1694,30 @@
       try {
         const metaBase = parseBrNumber($("#set-meta-base").value);
         const taxRate = parseBrNumber($("#set-tax").value);
+        const metaTaxRate = parseBrNumber($("#set-meta-tax")?.value || "12");
         const s = await api("/api/settings", {
           method: "POST",
           body: JSON.stringify({
             metaBase,
             taxRate,
+            metaTaxRate,
             teamName: $("#set-team-name").value.trim(),
             teamPlan: $("#set-team-plan").value.trim(),
           }),
         });
-        state.settings = s;
+        state.settings = {
+          metaBase: s.metaBase,
+          taxRate: s.taxRate,
+          metaTaxRate: s.metaTaxRate != null ? s.metaTaxRate : metaTaxRate,
+          teamName: s.teamName,
+          teamPlan: s.teamPlan,
+        };
         $("#set-meta-base").value = formatBrMoneyInput(s.metaBase);
         $("#set-tax").value = formatBrPctInput(s.taxRate);
+        if ($("#set-meta-tax")) $("#set-meta-tax").value = formatBrPctInput(state.settings.metaTaxRate);
         $("#team-name").textContent = s.teamName;
         $("#team-plan").textContent = s.teamPlan;
-        if (state.dash) {
-          renderMetaStrip(state.dash.kpis || {});
-          renderProjection(state.dash.kpis || {});
-        }
+        await loadDashboard({ force: false });
         status.className = "form-status ok";
         status.textContent = "Ajustes salvos.";
       } catch (err) {
@@ -1375,6 +1734,10 @@
     taxInput?.addEventListener("blur", () => {
       taxInput.value = formatBrPctInput(parseBrNumber(taxInput.value));
     });
+    const metaTaxInput = $("#set-meta-tax");
+    metaTaxInput?.addEventListener("blur", () => {
+      metaTaxInput.value = formatBrPctInput(parseBrNumber(metaTaxInput.value));
+    });
   }
 
   async function bootApp() {
@@ -1382,8 +1745,8 @@
     if (state.configured) await loadDashboard({ force: false });
     else {
       renderKpis({});
-      renderMetaStrip({});
       renderProjection({});
+      renderSuggestions(null);
       renderChart([]);
     }
   }

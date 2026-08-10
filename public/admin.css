@@ -1,45 +1,45 @@
 :root {
-  --bg: #0a0b0d;
+  --bg: #0f1116;
   --bg-grad:
-    radial-gradient(ellipse 70% 45% at 15% -5%, rgba(228, 184, 74, 0.05), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 92% 8%, rgba(34, 211, 164, 0.05), transparent 55%);
-  --surface-1: #101217;
-  --surface-2: #161922;
-  --surface-3: #1c2029;
-  --surface: #101217;
-  --line: #1e222c;
-  --line2: #2a3040;
-  --line-strong: #2a3040;
-  --text: #e6e8ee;
-  --muted: #8a8f9c;
-  --dim: #5a5f6b;
-  --ink: #e6e8ee;
-  --accent: #22d3a4;
-  --accent-dim: #14b892;
-  --accent-bg: rgba(34, 211, 164, 0.10);
-  --accent-bd: rgba(34, 211, 164, 0.32);
-  --accent-glow: rgba(34, 211, 164, 0.15);
-  --ok: #22d3a4;
-  --ok-bg: rgba(34, 211, 164, 0.10);
-  --ok-bd: rgba(34, 211, 164, 0.32);
-  --warn: #e4b84a;
-  --warn-bg: rgba(228, 184, 74, 0.10);
-  --warn-bd: rgba(228, 184, 74, 0.32);
-  --danger: #f87171;
-  --danger-bg: rgba(248, 113, 113, 0.10);
-  --danger-bd: rgba(248, 113, 113, 0.32);
-  --info: #60a5fa;
-  --info-bg: rgba(96, 165, 250, 0.10);
-  --info-bd: rgba(96, 165, 250, 0.32);
+    radial-gradient(ellipse 70% 45% at 12% -8%, rgba(232, 179, 77, 0.07), transparent 55%),
+    radial-gradient(ellipse 55% 40% at 95% 5%, rgba(62, 207, 142, 0.05), transparent 50%);
+  --surface-1: #181b24;
+  --surface-2: #20232f;
+  --surface-3: #262a37;
+  --surface: #181b24;
+  --line: #282c39;
+  --line2: #333849;
+  --line-strong: #333849;
+  --text: #eef0f5;
+  --muted: #8890a4;
+  --dim: #6a7285;
+  --ink: #eef0f5;
+  --accent: #3ecf8e;
+  --accent-dim: #2fb87a;
+  --accent-bg: rgba(62, 207, 142, 0.13);
+  --accent-bd: rgba(62, 207, 142, 0.35);
+  --accent-glow: rgba(62, 207, 142, 0.16);
+  --ok: #3ecf8e;
+  --ok-bg: rgba(62, 207, 142, 0.13);
+  --ok-bd: rgba(62, 207, 142, 0.35);
+  --warn: #e8b34d;
+  --warn-bg: rgba(232, 179, 77, 0.13);
+  --warn-bd: rgba(232, 179, 77, 0.35);
+  --danger: #f0707a;
+  --danger-bg: rgba(240, 112, 122, 0.13);
+  --danger-bd: rgba(240, 112, 122, 0.35);
+  --info: #6c9bf5;
+  --info-bg: rgba(108, 155, 245, 0.12);
+  --info-bd: rgba(108, 155, 245, 0.35);
   --radius: 10px;
-  --font: "DM Sans", system-ui, -apple-system, sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, monospace;
+  --font: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
   --shadow-card:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 10px 28px -12px rgba(0, 0, 0, 0.6);
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 8px 24px -12px rgba(0, 0, 0, 0.55);
   --shadow-lift:
-    0 1px 0 rgba(255, 255, 255, 0.05) inset,
-    0 24px 60px -16px rgba(0, 0, 0, 0.7);
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 24px 48px -16px rgba(0, 0, 0, 0.65);
   color-scheme: dark;
 }
 

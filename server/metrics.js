@@ -261,6 +261,12 @@ async function buildDashboard({ startDate, endDate, persist = true }) {
     syncedAt: new Date().toISOString(),
   };
 
+  try {
+    dash = await enrichDashboardWithAds(dash);
+  } catch (err) {
+    console.warn("[metrics] finance enrich:", err.message || err);
+  }
+
   if (persist) {
     try {
       await saveDashboardSnapshot(dash);
@@ -272,12 +278,6 @@ async function buildDashboard({ startDate, endDate, persist = true }) {
     } catch (err) {
       console.warn("[metrics] falha ao gravar Supabase:", err.message || err);
     }
-  }
-
-  try {
-    dash = await enrichDashboardWithAds(dash);
-  } catch (err) {
-    console.warn("[metrics] finance enrich:", err.message || err);
   }
 
   // keep lists for API consumers without bloating sync_runs
