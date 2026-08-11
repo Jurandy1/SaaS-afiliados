@@ -44,8 +44,26 @@
 
   const DATA_VIEWS = new Set(["produtos", "campanhas", "pedidos"]);
 
+  const CHANNEL_VIEWS = {
+    dashboard: "geral",
+    "campanhas-meta": "meta",
+    "campanhas-pinterest": "pinterest",
+    "campanhas-organicas": "organico",
+  };
+
+  const CHANNEL_LABELS = {
+    geral: "Geral",
+    meta: "Meta",
+    pinterest: "Pinterest",
+    organico: "Orgânico",
+    subid: "Geral",
+  };
+
   const VIEW_LABELS = {
-    dashboard: "Painel de Lucro",
+    dashboard: "Dashboard",
+    "campanhas-meta": "Campanhas Meta",
+    "campanhas-pinterest": "Campanhas Pinterest",
+    "campanhas-organicas": "Campanhas orgânicas",
     subids: "SubIDs",
     canais: "Canais e status",
     config: "Configurações",
@@ -54,16 +72,16 @@
     pedidos: "Pedidos",
   };
 
-  const SPARK = {
-    up: "M0,18 L14,14 L28,15 L42,10 L56,11 L70,7 L84,5 L100,3",
-    upFill: "M0,18 L14,14 L28,15 L42,10 L56,11 L70,7 L84,5 L100,3 L100,22 L0,22 Z",
-    flat: "M0,11 L14,10 L28,12 L42,9 L56,11 L70,10 L84,12 L100,11",
-    flatFill: "M0,11 L14,10 L28,12 L42,9 L56,11 L70,10 L84,12 L100,11 L100,22 L0,22 Z",
+  const CHANNEL_ICONS = {
+    meta: `<img src="/assets/meta.png" alt="" />`,
+    pinterest: `<img class="is-square" src="/assets/pinterest.png" alt="" />`,
+    organico: `<img class="is-square" src="/assets/shopee.png" alt="" />`,
   };
 
   const state = {
     view: "dashboard",
     channel: "geral",
+    navKey: "dashboard",
     tab: "Geral",
     dash: null,
     configured: false,
@@ -96,6 +114,20 @@
   function fmtPct(v) {
     if (v == null || Number.isNaN(Number(v))) return "—";
     return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
+  }
+  /** Valor com centavos rebaixados — usado no herói de lucro. */
+  function fmtDisplay(v) {
+    const full = fmt(v);
+    const i = full.lastIndexOf(",");
+    if (i < 0) return escapeHtml(full);
+    return `${escapeHtml(full.slice(0, i))}<span class="cents">${escapeHtml(full.slice(i))}</span>`;
+  }
+  function fmtShort(v) {
+    const n = Number(v || 0);
+    const abs = Math.abs(n);
+    const sign = n < 0 ? "-" : "";
+    if (abs >= 1000) return `${sign}R$${Math.round(abs / 1000).toLocaleString("pt-BR")}k`;
+    return `${sign}R$${Math.round(abs).toLocaleString("pt-BR")}`;
   }
 
   /** Invest usado no ROI (Meta com imposto + Pin), alinhado ao painel de referência. */
@@ -224,15 +256,30 @@
   }
 
   function setView(navKey) {
-    const view = navKey === "integracoes" ? "config" : navKey;
+    let view = navKey === "integracoes" ? "config" : navKey;
+
+    if (CHANNEL_VIEWS[navKey] != null) {
+      state.channel = CHANNEL_VIEWS[navKey];
+      view = "dashboard";
+      state.navKey = navKey;
+    } else if (view === "dashboard") {
+      state.channel = "geral";
+      state.navKey = "dashboard";
+    } else {
+      state.navKey = navKey;
+    }
+
     state.view = view;
     if (view === "dashboard" && state.channel === "subid") state.channel = "geral";
 
     $$(".nav-item").forEach((b) => {
-      if (view === "config") {
-        b.classList.toggle("active", b.dataset.view === "config" || b.dataset.view === "integracoes");
+      const key = b.dataset.view;
+      if (view === "dashboard") {
+        b.classList.toggle("active", key === (state.navKey || "dashboard"));
+      } else if (view === "config") {
+        b.classList.toggle("active", key === "config" || key === "integracoes");
       } else {
-        b.classList.toggle("active", b.dataset.view === navKey);
+        b.classList.toggle("active", key === navKey);
       }
     });
 
@@ -242,7 +289,8 @@
     $("#view-canais")?.classList.toggle("hidden", view !== "canais");
     $("#view-config").classList.toggle("hidden", view !== "config");
     $("#view-data").classList.toggle("hidden", !isData);
-    $("#crumb-label").textContent = VIEW_LABELS[navKey] || VIEW_LABELS[view] || view;
+    const label = VIEW_LABELS[state.navKey] || VIEW_LABELS[navKey] || VIEW_LABELS[view] || view;
+    $("#crumb-label").textContent = label;
     setSidebarOpen(false);
 
     if (view === "dashboard") applyChannelView();
@@ -251,72 +299,147 @@
     if (isData) loadDataView(view);
   }
 
-  function sparkSvg(path, fill, color) {
-    return `<svg viewBox="0 0 100 22" preserveAspectRatio="none">
-      <path d="${path}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="${fill}" fill="${color}" fill-opacity="0.08"/>
-    </svg>`;
+  function syncDashHeading() {
+    const ch = state.channel || "geral";
+    const titleEl = $("#dash-title");
+    const map = {
+      geral: { title: "Dashboard", nav: "dashboard" },
+      meta: { title: "Campanhas Meta", nav: "campanhas-meta" },
+      pinterest: { title: "Campanhas Pinterest", nav: "campanhas-pinterest" },
+      organico: { title: "Campanhas orgânicas", nav: "campanhas-organicas" },
+    };
+    const info = map[ch] || map.geral;
+    if (titleEl) titleEl.textContent = info.title;
+    const crumbView = $("#dash-crumb-view");
+    if (crumbView) crumbView.textContent = info.title;
+    const crumbChannel = $("#dash-crumb-channel");
+    if (crumbChannel) crumbChannel.textContent = (CHANNEL_LABELS[ch] || "Geral").toUpperCase();
+    if (state.view === "dashboard") {
+      state.navKey = info.nav;
+      $$(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.view === info.nav));
+      $("#crumb-label").textContent = VIEW_LABELS[info.nav] || info.title;
+    }
   }
 
-  function renderKpis(k) {
+  /**
+   * Composição executiva: herói de Lucro (ROI, abatimento e SubIDs no pé)
+   * seguido da linha secundária — receita Shopee e investimento por canal.
+   */
+  function renderKpis(k, subCount) {
     const invMeta = Number(k.inv_meta || 0);
     const invPin = Number(k.inv_pin || 0);
     const invTotal = Number(k.inv_total || 0);
     const lucro = k.lucro != null ? Number(k.lucro) : Number(k.comissao || 0) - invTotal;
-    const C_ACCENT = "#22d3a4";
-    const C_GOLD = "#e4b84a";
-    const C_MUTED = "#5a5f6b";
-    const C_RED = "#f87171";
-    const C_META = "#6c9bf5";
-    const C_PIN = "#ea5c86";
-    const cards = [
-      { label: "Lucro", value: fmt(lucro), delta: "após impostos", on: true, color: lucro >= 0 ? C_ACCENT : C_RED, spark: SPARK.up, fill: SPARK.upFill, tone: lucro >= 0 ? "pos" : "neg", hero: true },
-      { label: "Faturamento", value: fmt(k.faturamento), delta: "Shopee", on: true, color: C_GOLD, spark: SPARK.up, fill: SPARK.upFill, tone: "" },
-      { label: "Comissão", value: fmt(k.comissao), delta: "Shopee", on: true, color: C_ACCENT, spark: SPARK.up, fill: SPARK.upFill, tone: "" },
-      { label: "Invest. Meta", value: fmt(invMeta), delta: invMeta ? "bruto API" : "sem sync", on: invMeta > 0, color: invMeta ? C_META : C_MUTED, spark: SPARK.flat, fill: SPARK.flatFill, tone: "" },
-      { label: "Invest. Pin", value: fmt(invPin), delta: invPin ? "CSV" : "manual", on: invPin > 0, color: invPin ? C_PIN : C_MUTED, spark: SPARK.flat, fill: SPARK.flatFill, tone: "" },
-      { label: "Invest. Total", value: fmt(invTotal), delta: invTotal ? "c/ imposto Meta" : "bruto", on: invTotal > 0, color: invTotal ? C_GOLD : C_MUTED, spark: SPARK.flat, fill: SPARK.flatFill, tone: "" },
-      { label: "ROI", value: fmtPct(k.roi), delta: invTotal ? "lucro/invest*" : "—", on: invTotal > 0, color: C_ACCENT, spark: SPARK.up, fill: SPARK.upFill, tone: invTotal > 0 ? "pos" : "" },
-      { label: "Abatimento", value: fmtPct(k.abatimento), delta: `${fmtNum(k.pedidos)} ped.`, on: true, color: C_MUTED, spark: SPARK.flat, fill: SPARK.flatFill, tone: "" },
-    ];
-    $("#kpi-grid").innerHTML = cards.map((c) => `
-      <div class="kpi${c.hero ? " kpi--hero" : ""}">
-        <div class="kpi-top">
-          <div class="kpi-label">${c.label}</div>
-          <span class="kpi-delta ${c.on ? "on" : "off"}">${c.delta}</span>
+    const roi = k.roi;
+    const hasRoi = invTotal > 0 && Number.isFinite(Number(roi));
+    const roiTone = hasRoi ? (Number(roi) >= 0 ? "pos" : "neg") : "";
+    const trendTone = lucro > 0 ? "" : lucro < 0 ? "neg" : "off";
+    const trendText = lucro > 0 ? "▲ lucro" : lucro < 0 ? "▼ prejuízo" : "— neutro";
+    const subs = subCount != null ? fmtNum(subCount) : "—";
+
+    $("#kpi-grid").innerHTML = `
+      <article class="kpi--hero">
+        <div class="kpi-hero-inner">
+          <div class="kpi-top">
+            <span class="kpi-label">Lucro líquido</span>
+            <span class="kpi-hero-note">Após impostos · período selecionado</span>
+            <span class="kpi-trend ${trendTone}">${trendText}</span>
+          </div>
+          <div class="kpi-hero-value ${lucro >= 0 ? "pos" : "neg"}">${fmtDisplay(lucro)}</div>
+          <div class="kpi-hero-foot">
+            <div class="kpi-mini">
+              <span class="kpi-mini-label">ROI</span>
+              <span class="kpi-mini-value ${roiTone}">${fmtPct(hasRoi ? roi : null)}</span>
+            </div>
+            <div class="kpi-mini">
+              <span class="kpi-mini-label">Abatimento</span>
+              <span class="kpi-mini-value">${fmtPct(k.abatimento)}</span>
+            </div>
+            <div class="kpi-mini">
+              <span class="kpi-mini-label">SubIDs</span>
+              <span class="kpi-mini-value">${subs}</span>
+            </div>
+            <div class="kpi-mini">
+              <span class="kpi-mini-label">Pedidos</span>
+              <span class="kpi-mini-value">${fmtNum(k.pedidos)}</span>
+            </div>
+          </div>
         </div>
-        <div class="kpi-value ${c.tone || ""}">${c.value}</div>
-        <div class="kpi-spark">${sparkSvg(c.spark, c.fill, c.color)}</div>
-      </div>
-    `).join("");
+      </article>
+
+      <div class="kpi-row">
+        <div class="kpi">
+          <div class="kpi-head">
+            <span class="kpi-label">Faturamento</span>
+            <span class="kpi-delta on">bruto Shopee</span>
+          </div>
+          <div class="kpi-value">${fmt(k.faturamento)}</div>
+          <div class="kpi-foot">GMV do período</div>
+        </div>
+
+        <div class="kpi">
+          <div class="kpi-head">
+            <span class="kpi-label">Comissão</span>
+            <span class="kpi-delta on">antes do imposto</span>
+          </div>
+          <div class="kpi-value">${fmt(k.comissao)}</div>
+          <div class="kpi-foot">${fmtPct(k.abatimento)} do faturamento</div>
+        </div>
+
+        <div class="kpi${invMeta > 0 ? "" : " is-off"}">
+          <div class="kpi-head">
+            <span class="kpi-label">${CHANNEL_ICONS.meta}Invest Meta</span>
+            <span class="kpi-delta ${invMeta > 0 ? "on" : "off"}">${invMeta > 0 ? "bruto API" : "sem sync"}</span>
+          </div>
+          <div class="kpi-value">${fmt(invMeta)}</div>
+          <div class="kpi-foot">taxado para o ROI</div>
+        </div>
+
+        <div class="kpi${invPin > 0 ? "" : " is-off"}">
+          <div class="kpi-head">
+            <span class="kpi-label">${CHANNEL_ICONS.pinterest}Invest Pin + Total</span>
+            <span class="kpi-delta ${invPin > 0 ? "on" : "off"}">${invPin > 0 ? "CSV importado" : "CSV"}</span>
+          </div>
+          <div class="kpi-value">${fmt(invPin)} · <span class="split">${fmt(invTotal)}</span></div>
+          <div class="kpi-foot">Pin bruto · total com imposto Meta</div>
+        </div>
+      </div>`;
   }
 
   function renderProjection(k) {
     const fat = Number(k.faturamento || 0);
     const base = Number(state.settings.metaBase || 863959);
     const targets = [
-      { label: "Meta 100% · 1%", mult: 1, bonusPct: 0.01 },
-      { label: "Meta 125% · 2%", mult: 1.25, bonusPct: 0.02 },
-      { label: "Meta 150% · 3%", mult: 1.5, bonusPct: 0.03 },
+      { pct: "100%", label: "bônus 1%", mult: 1, bonusPct: 0.01 },
+      { pct: "125%", label: "bônus 2%", mult: 1.25, bonusPct: 0.02 },
+      { pct: "150%", label: "bônus 3%", mult: 1.5, bonusPct: 0.03 },
     ];
     const left = Math.max(1, daysLeftInMonth());
     const sub = $("#proj-sub");
     if (sub) {
       sub.innerHTML = `Faturamento <strong class="mono">${fmt(fat)}</strong> · base <strong class="mono">${fmt(base)}</strong> · ${left} dias restantes`;
     }
-    const headers = [`<div class="h">% Bônus s/ faturamento</div>`].concat(targets.map((t) => `<div class="h r">${t.label}</div>`)).join("");
-    const rowFat = [`<div class="c">Faturamento para atingir</div>`].concat(targets.map((t) => `<div class="c r mono">${fmt(base * t.mult)}</div>`)).join("");
-    const rowBonus = [`<div class="c hi">Valor do bônus meta</div>`].concat(targets.map((t) => `<div class="c r green">${fmt(base * t.mult * t.bonusPct)}</div>`)).join("");
-    const rowDaily = [`<div class="c">Faturamento diário necessário</div>`].concat(targets.map((t) => {
-      const need = Math.max(0, base * t.mult - fat) / left;
-      return `<div class="c r mono">${fmt(need)}</div>`;
-    })).join("");
-    const rowProg = [`<div class="c">Progresso da meta</div>`].concat(targets.map((t) => {
-      const pct = Math.min(100, (fat / (base * t.mult)) * 100);
-      const bg = pct >= 100 ? "#22d3a4" : pct >= 66 ? "#e4b84a" : "#f0888a";
-      return `<div class="c r"><div class="prog-row"><div class="prog-bar"><i style="width:${pct.toFixed(1)}%;background:${bg}"></i></div><span class="prog-pct" style="color:${bg}">${pct.toFixed(1).replace(".", ",")}%</span></div></div>`;
-    })).join("");
-    const html = headers + rowFat + rowBonus + rowDaily + rowProg;
+    const html = targets.map((t) => {
+      const target = base * t.mult;
+      const pct = target > 0 ? Math.min(100, (fat / target) * 100) : 0;
+      const need = Math.max(0, target - fat) / left;
+      const tone = pct >= 100 ? "is-done" : pct >= 60 ? "is-route" : "is-far";
+      const badge = pct >= 100 ? "Atingida" : pct >= 60 ? "Em rota" : "Desafio";
+      return `
+        <div class="proj-tier ${tone}">
+          <div class="proj-tier-head">
+            <div class="proj-tier-title">
+              <span class="proj-pct">${t.pct}</span>
+              <span class="proj-badge">${badge}</span>
+            </div>
+            <span class="proj-bonus">bônus <b>${fmt(target * t.bonusPct)}</b></span>
+          </div>
+          <div class="proj-target">${fmt(target)}</div>
+          <div class="proj-daily">faltam <b>${fmt(need)}</b> por dia · ${t.label}</div>
+          <div class="prog-bar"><i style="width:${pct.toFixed(1)}%"></i></div>
+          <div class="prog-row"><span class="prog-pct">${pct.toFixed(1).replace(".", ",")}% da meta</span></div>
+        </div>`;
+    }).join("");
     const dashGrid = $("#proj-grid-dash");
     const cfgGrid = $("#proj-grid");
     if (dashGrid) dashGrid.innerHTML = html;
@@ -326,39 +449,28 @@
   function renderChart(daily) {
     const rows = daily || [];
     if (!rows.length) {
-      $("#daily-chart").innerHTML = `<div class="panel-sub" style="padding:8px 0">Sem dados no período.</div>`;
+      $("#daily-chart").innerHTML = `<div class="chart-empty">Sem dados no período. Sincronize a Shopee para preencher a curva.</div>`;
       return;
     }
     const vals = rows.map((d) => Number(d.lucro != null ? d.lucro : Number(d.comissao || 0) - Number(d.inv_total || 0)));
     const maxAbs = Math.max(...vals.map((v) => Math.abs(v)), 1);
     const n = rows.length;
+    const avg = vals.reduce((a, v) => a + v, 0) / n;
     const cols = rows.map((d, i) => {
       const lucro = vals[i];
-      const h = Math.max(4, Math.round((Math.abs(lucro) / maxAbs) * 100));
+      const h = Math.max(3, Math.round((Math.abs(lucro) / maxAbs) * 100));
       const cls = lucro >= 0 ? "fat" : "loss";
-      const sign = lucro >= 0 ? "+" : "";
       return `
-        <div class="chart-col" title="${d.data}: ${fmt(lucro)}">
-          <div class="chart-val ${lucro >= 0 ? "pos" : "neg"}">${sign}${fmt(lucro).replace("R$ ", "")}</div>
-          <div class="chart-pair">
-            <div class="chart-bar ${cls}" style="height:${h}%"></div>
-          </div>
+        <div class="chart-col" title="${escapeHtml(String(d.data))}: ${fmt(lucro)}">
+          <div class="chart-val ${lucro >= 0 ? "pos" : "neg"}">${fmtShort(lucro)}</div>
+          <div class="chart-bar ${cls}" style="height:${h}%"></div>
         </div>`;
     }).join("");
     const labels = rows.map((d) => `<span>${chartDay(d.data)}</span>`).join("");
     $("#daily-chart").innerHTML = `
-      <div class="chart-inner">
-        <div class="chart-ylabels">
-          <span>${fmt(maxAbs).replace("R$ ", "")}</span>
-          <span>${fmt(maxAbs * 0.5).replace("R$ ", "")}</span>
-          <span>0</span>
-        </div>
-        <div class="chart-plot">
-          <div class="chart-grid"><i style="top:0"></i><i style="top:50%"></i><i style="top:100%"></i></div>
-          <div class="chart-bars" style="grid-template-columns:repeat(${n},1fr)">${cols}</div>
-          <div class="chart-labels" style="grid-template-columns:repeat(${n},1fr)">${labels}</div>
-        </div>
-      </div>`;
+      <div class="chart-plot">${cols}</div>
+      <div class="chart-axis" style="grid-template-columns:repeat(${n},minmax(0,1fr))">${labels}</div>
+      <div class="chart-foot">valores em R$ · média ${fmt(avg)}/dia</div>`;
   }
 
   function renderSuggestions(dash) {
@@ -366,7 +478,7 @@
     if (!el) return;
     const ch = state.channel;
     if (ch !== "geral" && ch !== "meta") {
-      el.innerHTML = `<div class="panel-sub" style="padding:12px 20px">Sugestões disponíveis na visão Geral ou Meta.</div>`;
+      el.innerHTML = `<div class="sec-empty">Sugestões disponíveis na visão Geral ou Meta.</div>`;
       return;
     }
     const subs = (dash?.subIds || []).filter((s) => (s.canal || "meta") === "meta");
@@ -417,18 +529,19 @@
       }
     }
     if (!tips.length) {
-      el.innerHTML = `<div class="banner ok" style="margin:12px 16px">Sem sugestões no momento — Meta está estável no período.</div>`;
+      el.innerHTML = `<div class="sec-empty">Nenhum sinal de corte ou escala no período — Meta está estável.</div>`;
       return;
     }
-    el.innerHTML = `<div class="table-wrap"><table class="data-table">
-      <thead><tr><th>SubID</th><th>Tipo</th><th>Motivo</th><th>Sugestão</th></tr></thead>
-      <tbody>${tips.map((t) => `<tr>
-        <td class="subid">${escapeHtml(t.subid)}</td>
-        <td>${escapeHtml(t.kind)}</td>
-        <td>${escapeHtml(t.reason)}</td>
-        <td>${escapeHtml(t.action)}</td>
-      </tr>`).join("")}</tbody>
-    </table></div>`;
+    const kindLabel = { escalar: "Escalar +20%", desativar: "Desativar", promover: "Promover" };
+    el.innerHTML = tips.map((t) => `
+      <div class="sug-row">
+        <div class="sug-main">
+          <div class="sug-subid">${escapeHtml(t.subid)}</div>
+          <div class="sug-reason">${escapeHtml(t.reason)}</div>
+        </div>
+        <span class="sug-pill is-${escapeHtml(t.kind)}">${kindLabel[t.kind] || escapeHtml(t.kind)}</span>
+        <span class="sug-action">${escapeHtml(t.action)}</span>
+      </div>`).join("");
   }
 
   function parseSortable(v) {
@@ -569,7 +682,7 @@
 
   function canalChipHtml(canal) {
     const c = canal || "meta";
-    return `<span class="canal-chip ch-${c}">${canalLabel(c)}</span>`;
+    return `<span class="canal-chip ch-${c}">${CHANNEL_ICONS[c] || ""}${canalLabel(c)}</span>`;
   }
 
   function filteredSubIds(list, q, channel) {
@@ -653,11 +766,113 @@
     });
   }
 
+  /** Série diária do canal, somando o histórico dos SubIDs filtrados. */
+  function dailyFromSubIds(subs) {
+    const metaTax = Number(state.settings.metaTaxRate != null ? state.settings.metaTaxRate : 12) / 100;
+    const gov = Number(state.settings.taxRate || 0) / 100;
+    const byDay = new Map();
+    for (const s of subs || []) {
+      for (const d of s.daily || []) {
+        const key = String(d.data || "");
+        if (!key) continue;
+        let row = byDay.get(key);
+        if (!row) {
+          row = { data: key, faturamento: 0, comissao: 0, pedidos: 0, inv_meta: 0, inv_pin: 0, inv_meta_taxed: 0 };
+          byDay.set(key, row);
+        }
+        row.faturamento += Number(d.faturamento || 0);
+        row.comissao += Number(d.comissao || 0);
+        row.pedidos += Number(d.pedidos || 0);
+        row.inv_meta += Number(d.inv_meta || 0);
+        row.inv_pin += Number(d.inv_pin || 0);
+        row.inv_meta_taxed += d.inv_meta_taxed != null
+          ? Number(d.inv_meta_taxed)
+          : Number(d.inv_meta || 0) * (1 + metaTax);
+      }
+    }
+    return [...byDay.values()]
+      .sort((a, b) => a.data.localeCompare(b.data))
+      .map((r) => {
+        const invTotal = r.inv_meta_taxed + r.inv_pin;
+        const lucro = Math.round((r.comissao * (1 - gov) - invTotal) * 100) / 100;
+        return {
+          ...r,
+          faturamento: Math.round(r.faturamento * 100) / 100,
+          comissao: Math.round(r.comissao * 100) / 100,
+          inv_meta: Math.round(r.inv_meta * 100) / 100,
+          inv_pin: Math.round(r.inv_pin * 100) / 100,
+          inv_total: Math.round(invTotal * 100) / 100,
+          lucro,
+          roi: invTotal > 0 ? Math.round((lucro / invTotal) * 10000) / 100 : null,
+          abatimento: r.faturamento > 0 ? Math.round((r.comissao / r.faturamento) * 10000) / 100 : null,
+        };
+      });
+  }
+
+  function paintChannelChrome(ch, isChannel) {
+    const root = $("#view-dashboard");
+    if (root) {
+      root.classList.toggle("is-channel", isChannel);
+      ["geral", "meta", "pinterest", "organico"].forEach((c) => root.classList.remove(`ch-${c}`));
+      root.classList.add(`ch-${ch === "subid" ? "geral" : ch}`);
+    }
+    const label = CHANNEL_LABELS[ch] || "Geral";
+    const eyebrow = $("#dash-subids-eyebrow");
+    if (eyebrow) eyebrow.textContent = isChannel ? `canal ${label} · clique para o histórico` : "clique para abrir histórico";
+    const chip = $("#dash-crumb-channel");
+    if (chip) chip.textContent = label.toUpperCase();
+    const chartSub = $("#dash-chart-sub");
+    if (chartSub) chartSub.textContent = isChannel ? `somente ${label}` : "todos os canais";
+    const dailySub = $("#dash-daily-sub");
+    if (dailySub) {
+      dailySub.textContent = isChannel
+        ? `${label} · Fat · Com · Inv · Lucro · ROI · Abat.`
+        : "Fat · Com · Inv · Lucro · ROI · Abat.";
+    }
+  }
+
+  /** Contadores de SubIDs por canal no rail e na página de classificação. */
+  function paintChannelCounts() {
+    const list = state.dash?.subIds || [];
+    const count = (c) => list.filter((r) => (r.canal || "meta") === c).length;
+    const totals = {
+      meta: count("meta"),
+      pinterest: count("pinterest"),
+      organico: count("organico"),
+      all: list.length,
+    };
+    const set = (sel, v) => {
+      const el = $(sel);
+      if (el) el.textContent = list.length ? fmtNum(v) : "";
+    };
+    set("#nav-subid-count", totals.all);
+    set("#nav-count-meta", totals.meta);
+    set("#nav-count-pin", totals.pinterest);
+    set("#nav-count-org", totals.organico);
+    const setHard = (sel, v) => {
+      const el = $(sel);
+      if (el) el.textContent = fmtNum(v);
+    };
+    setHard("#canais-count-meta", totals.meta);
+    setHard("#canais-count-pin", totals.pinterest);
+    setHard("#canais-count-org", totals.organico);
+  }
+
   function applyChannelView() {
     const ch = state.channel || "geral";
+    const isChannel = ch === "meta" || ch === "pinterest" || ch === "organico";
     $$("#channel-tabs .channel-tab").forEach((b) => {
       b.classList.toggle("active", b.dataset.channel === ch);
     });
+    paintChannelChrome(ch, isChannel);
+    syncDashHeading();
+    paintChannelCounts();
+
+    const showMetas = !isChannel;
+    const showSug = ch === "geral" || ch === "meta";
+    $("#dash-metas-panel")?.classList.toggle("hidden", !showMetas);
+    $("#dash-suggestions-panel")?.classList.toggle("hidden", !showSug);
+
     const dash = state.dash;
     if (!dash) {
       renderKpis({});
@@ -668,20 +883,19 @@
     }
 
     const channelSubs = filteredSubIds(dash.subIds || [], "", ch === "subid" ? "geral" : ch);
-    const k = !ch || ch === "geral" || ch === "subid"
-      ? (dash.kpis || {})
-      : kpisFromSubIds(channelSubs, dash.kpis);
-    renderKpis(k);
+    const k = isChannel ? kpisFromSubIds(channelSubs, dash.kpis) : (dash.kpis || {});
+    const daily = isChannel ? dailyFromSubIds(channelSubs) : (dash.daily || []);
+    renderKpis(k, channelSubs.length);
     renderProjection(dash.kpis || {});
     renderSuggestions(dash);
-    renderChart(dash.daily || []);
-    renderDailyTable(dash.daily || [], dash.kpis || {});
+    renderChart(daily);
+    renderDailyTable(daily, k);
     renderSubIdsDash();
 
-    const showMetas = ch === "geral";
-    const showSug = ch === "geral" || ch === "meta";
-    $("#dash-metas-panel")?.classList.toggle("hidden", !showMetas);
-    $("#dash-suggestions-panel")?.classList.toggle("hidden", !showSug);
+    const base = `Comissão ${fmt(k.comissao)} · invest ${fmt(k.inv_total)} · ROI ${fmtPct(k.roi)}`;
+    $("#page-sub").textContent = isChannel
+      ? `${base} · ${fmtNum(channelSubs.length)} SubIDs no canal`
+      : base;
   }
 
   function renderOpsTable() {
@@ -746,13 +960,13 @@
     }
     let last = 0;
     window.forEach((i) => {
-      if (last && i - last > 1) btns.push(`<span style="padding:5px 4px;color:#a3a3a3">...</span>`);
+      if (last && i - last > 1) btns.push(`<span class="pager-gap">…</span>`);
       btns.push(`<button type="button" class="${i === page ? "active" : ""}" data-p="${i}">${i}</button>`);
       last = i;
     });
-    btns.push(`<button type="button" data-p="${page + 1}" ${page >= pages ? "disabled" : ""}>Proximo</button>`);
+    btns.push(`<button type="button" data-p="${page + 1}" ${page >= pages ? "disabled" : ""}>Próximo</button>`);
     el.innerHTML = `
-      <div>Exibindo <strong style="color:var(--text)">${from}–${to}</strong> de <strong style="color:var(--text)">${fmtNum(total)}</strong></div>
+      <div class="pager-info">Exibindo <strong>${from}–${to}</strong> de <strong>${fmtNum(total)}</strong></div>
       <div class="pager-btns">${btns.join("")}</div>`;
     el.querySelectorAll("button[data-p]").forEach((b) => {
       b.addEventListener("click", () => {
@@ -866,7 +1080,8 @@
     if (state.subidPage > pages) state.subidPage = pages;
     const slice = all.slice((state.subidPage - 1) * state.pageSize, state.subidPage * state.pageSize);
     $("#subid-count-pill").textContent = fmtNum(total);
-    $("#nav-subid-count").textContent = fmtNum(state.dash?.subIds?.length || 0);
+    const navCount = $("#nav-subid-count");
+    if (navCount) navCount.textContent = fmtNum(state.dash?.subIds?.length || 0);
     $("#subid-tbody").innerHTML = slice.map((r) => {
       const id = String(r.subid || "");
       const open = Boolean(state.expandedSubIds[id]);
@@ -1246,13 +1461,37 @@
     const when = dash.syncedAt ? new Date(dash.syncedAt).toLocaleString("pt-BR") : "—";
     $("#sync-meta").textContent = `${cached ? "cache · " : ""}${dash.nodes || 0} nodes · ${when}`;
     $("#footer-sync").textContent = `Última sincronização ${when}`;
-    $("#page-sub").textContent = `Comissão ${fmt(k.comissao)} · invest ${fmt(k.inv_total)} · ROI ${fmtPct(k.roi)}`;
+  }
+
+  function setStateChip(sel, ok, okText, offText) {
+    const el = $(sel);
+    if (!el) return;
+    el.textContent = ok ? okText : offText;
+    el.classList.toggle("is-ok", Boolean(ok));
+  }
+
+  function brShortDate(iso) {
+    if (!iso) return "—";
+    const [, m, d] = String(iso).split("-");
+    return d && m ? `${d}/${m}` : iso;
+  }
+
+  function syncTopbarRange() {
+    const el = $("#topbar-range");
+    if (!el) return;
+    const start = $("#start-date")?.value;
+    const end = $("#end-date")?.value;
+    el.textContent = start && end ? `${brShortDate(start)} → ${brShortDate(end)}` : "—";
   }
 
   async function loadCredentials() {
     const c = await api("/api/credentials");
     state.configured = Boolean(c.configured);
-    $("#sidebar-status").textContent = c.configured ? `APP ${c.appId}` : "API não configurada";
+    $("#sidebar-status").textContent = c.configured ? `Shopee APP ${c.appId}` : "Shopee sem credencial";
+    $("#api-status")?.classList.toggle("is-off", !c.configured);
+    const apiLabel = $("#api-state-label");
+    if (apiLabel) apiLabel.textContent = c.configured ? "APIs online" : "APIs pendentes";
+    setStateChip("#cfg-shopee-state", c.configured, "Conectada", "Pendente");
     if (c.appId) $("#app-id").value = c.appId;
     const banner = $("#sync-banner");
     if (c.configured) {
@@ -1270,6 +1509,7 @@
     try {
       const m = await api("/api/meta/credentials");
       state.metaConfigured = Boolean(m.configured);
+      setStateChip("#cfg-meta-state", m.configured, "Conectada", "Pendente");
       if (m.adAccountIds) $("#meta-accounts").value = m.adAccountIds;
       if (m.apiVersion) $("#meta-version").value = m.apiVersion;
       const when = m.lastSyncAt ? new Date(m.lastSyncAt).toLocaleString("pt-BR") : "nunca";
@@ -1386,6 +1626,7 @@
       $("#start-date").value = monthStartISO();
       $("#end-date").value = todayISO();
     }
+    syncTopbarRange();
     loadDashboard({ force: false });
   }
 
@@ -1406,6 +1647,7 @@
   function wire() {
     $("#start-date").value = daysAgoISO(6);
     $("#end-date").value = todayISO();
+    syncTopbarRange();
 
     let authMode = "login";
     function setAuthMode(mode) {
@@ -1544,6 +1786,32 @@
         if (state.view !== "dashboard") setView("dashboard");
         else applyChannelView();
       });
+    });
+
+    $("#start-date")?.addEventListener("change", syncTopbarRange);
+    $("#end-date")?.addEventListener("change", syncTopbarRange);
+
+    const globalSearch = $("#global-search");
+    globalSearch?.addEventListener("input", () => {
+      const q = globalSearch.value;
+      const dashSearch = $("#subid-search");
+      if (dashSearch) {
+        dashSearch.value = q;
+        state.subidPage = 1;
+        renderSubIdsDash();
+      }
+      const fullSearch = $("#subid-search-full");
+      if (fullSearch) {
+        fullSearch.value = q;
+        state.subidPageFull = 1;
+        renderSubIdsFull();
+      }
+    });
+    globalSearch?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && globalSearch.value.trim()) {
+        e.preventDefault();
+        setView("subids");
+      }
     });
 
     $("#subid-search")?.addEventListener("input", () => { state.subidPage = 1; renderSubIdsDash(); });
