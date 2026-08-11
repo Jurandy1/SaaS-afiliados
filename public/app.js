@@ -86,7 +86,7 @@
     dash: null,
     configured: false,
     metaConfigured: false,
-    settings: { metaBase: 863959, taxRate: 11.7, metaTaxRate: 12, teamName: "SaaS SHOPPE", teamPlan: "Shopee · Meta" },
+    settings: { taxRate: 11.7, metaTaxRate: 12, teamName: "SaaS SHOPPE", teamPlan: "Shopee · Meta" },
     subidPage: 1,
     subidPageFull: 1,
     opsPage: 1,
@@ -170,9 +170,6 @@
     const n = Number(s);
     return Number.isFinite(n) ? n : 0;
   }
-  function formatBrMoneyInput(v) {
-    return Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
   function formatBrPctInput(v) {
     return Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
@@ -201,12 +198,6 @@
     const months = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
     return `${d} ${months[Number(m) - 1]}`;
   }
-  function daysLeftInMonth() {
-    const now = new Date();
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return Math.max(1, end.getDate() - now.getDate());
-  }
-
   async function readJsonResponse(res) {
     const text = await res.text();
     const trimmed = (text || "").trim();
@@ -404,46 +395,6 @@
           <div class="kpi-foot">Pin bruto · total com imposto Meta</div>
         </div>
       </div>`;
-  }
-
-  function renderProjection(k) {
-    const fat = Number(k.faturamento || 0);
-    const base = Number(state.settings.metaBase || 863959);
-    const targets = [
-      { pct: "100%", label: "bônus 1%", mult: 1, bonusPct: 0.01 },
-      { pct: "125%", label: "bônus 2%", mult: 1.25, bonusPct: 0.02 },
-      { pct: "150%", label: "bônus 3%", mult: 1.5, bonusPct: 0.03 },
-    ];
-    const left = Math.max(1, daysLeftInMonth());
-    const sub = $("#proj-sub");
-    if (sub) {
-      sub.innerHTML = `Faturamento <strong class="mono">${fmt(fat)}</strong> · base <strong class="mono">${fmt(base)}</strong> · ${left} dias restantes`;
-    }
-    const html = targets.map((t) => {
-      const target = base * t.mult;
-      const pct = target > 0 ? Math.min(100, (fat / target) * 100) : 0;
-      const need = Math.max(0, target - fat) / left;
-      const tone = pct >= 100 ? "is-done" : pct >= 60 ? "is-route" : "is-far";
-      const badge = pct >= 100 ? "Atingida" : pct >= 60 ? "Em rota" : "Desafio";
-      return `
-        <div class="proj-tier ${tone}">
-          <div class="proj-tier-head">
-            <div class="proj-tier-title">
-              <span class="proj-pct">${t.pct}</span>
-              <span class="proj-badge">${badge}</span>
-            </div>
-            <span class="proj-bonus">bônus <b>${fmt(target * t.bonusPct)}</b></span>
-          </div>
-          <div class="proj-target">${fmt(target)}</div>
-          <div class="proj-daily">faltam <b>${fmt(need)}</b> por dia · ${t.label}</div>
-          <div class="prog-bar"><i style="width:${pct.toFixed(1)}%"></i></div>
-          <div class="prog-row"><span class="prog-pct">${pct.toFixed(1).replace(".", ",")}% da meta</span></div>
-        </div>`;
-    }).join("");
-    const dashGrid = $("#proj-grid-dash");
-    const cfgGrid = $("#proj-grid");
-    if (dashGrid) dashGrid.innerHTML = html;
-    if (cfgGrid) cfgGrid.innerHTML = html;
   }
 
   function renderChart(daily) {
@@ -868,15 +819,12 @@
     syncDashHeading();
     paintChannelCounts();
 
-    const showMetas = !isChannel;
     const showSug = ch === "geral" || ch === "meta";
-    $("#dash-metas-panel")?.classList.toggle("hidden", !showMetas);
     $("#dash-suggestions-panel")?.classList.toggle("hidden", !showSug);
 
     const dash = state.dash;
     if (!dash) {
       renderKpis({});
-      renderProjection({});
       renderSuggestions(null);
       renderChart([]);
       return;
@@ -886,7 +834,6 @@
     const k = isChannel ? kpisFromSubIds(channelSubs, dash.kpis) : (dash.kpis || {});
     const daily = isChannel ? dailyFromSubIds(channelSubs) : (dash.daily || []);
     renderKpis(k, channelSubs.length);
-    renderProjection(dash.kpis || {});
     renderSuggestions(dash);
     renderChart(daily);
     renderDailyTable(daily, k);
@@ -1396,20 +1343,6 @@
           daily,
         );
         $("#data-sub").textContent = "Comparativo dia a dia do período";
-      } else if (view === "metas") {
-        const base = Number(state.settings.metaBase || 0);
-        paintDataTable(
-          [{ label: "Campo", key: "label" }, { label: "Valor", num: true, key: "value" }],
-          [
-            { label: "Meta base", value: fmt(base) },
-            { label: "Faturamento do período", value: fmt(k.faturamento) },
-            { label: "Progresso da meta (100%)", value: fmtPct(base ? (Number(k.faturamento || 0) / base) * 100 : 0) },
-            { label: "Bônus 1% ao atingir 100%", value: fmt(base * 0.01) },
-            { label: "Bônus 2% ao atingir 125%", value: fmt(base * 1.25 * 0.02) },
-            { label: "Bônus 3% ao atingir 150%", value: fmt(base * 1.5 * 0.03) },
-          ],
-        );
-        $("#data-sub").textContent = `Meta base ${fmt(base)} · faturamento ${fmt(k.faturamento)}`;
       } else if (view === "impostos") {
         const tax = Number(state.settings.taxRate || 0);
         const imposto = (Number(k.comissao || 0) * tax) / 100;
@@ -1431,7 +1364,6 @@
             { label: "Nome da equipe", value: state.settings.teamName || "—" },
             { label: "Plano", value: state.settings.teamPlan || "—" },
             { label: "Email", value: getStoredUser().email || "—" },
-            { label: "Meta base", value: fmt(state.settings.metaBase) },
             { label: "Alíquota de imposto", value: fmtPct(state.settings.taxRate) },
             { label: "Comissão do período", value: fmt(k.comissao) },
             { label: "Faturamento do período", value: fmt(k.faturamento) },
@@ -1528,20 +1460,17 @@
     try {
       const s = await api("/api/settings");
       state.settings = {
-        metaBase: s.metaBase,
         taxRate: s.taxRate,
         metaTaxRate: s.metaTaxRate != null ? s.metaTaxRate : 12,
         teamName: s.teamName,
         teamPlan: s.teamPlan,
       };
-      $("#set-meta-base").value = formatBrMoneyInput(s.metaBase);
       $("#set-tax").value = formatBrPctInput(s.taxRate);
       if ($("#set-meta-tax")) $("#set-meta-tax").value = formatBrPctInput(state.settings.metaTaxRate);
       $("#set-team-name").value = s.teamName;
       $("#set-team-plan").value = s.teamPlan;
       $("#team-name").textContent = s.teamName;
       $("#team-plan").textContent = s.teamPlan;
-      state.metaBase = s.metaBase;
     } catch (e) {
       console.warn(e);
     }
@@ -1760,7 +1689,6 @@
     $("#btn-load").addEventListener("click", () => loadDashboard({ force: false }));
     $("#btn-sync").addEventListener("click", () => loadDashboard({ force: true }));
     $("#btn-export").addEventListener("click", exportCsv);
-    $("#btn-edit-meta")?.addEventListener("click", () => setView("config"));
     $("#btn-meta-sync-top")?.addEventListener("click", async () => {
       const btn = $("#btn-meta-sync-top");
       const prev = btn.textContent;
@@ -1960,13 +1888,11 @@
       e.preventDefault();
       const status = $("#settings-status");
       try {
-        const metaBase = parseBrNumber($("#set-meta-base").value);
         const taxRate = parseBrNumber($("#set-tax").value);
         const metaTaxRate = parseBrNumber($("#set-meta-tax")?.value || "12");
         const s = await api("/api/settings", {
           method: "POST",
           body: JSON.stringify({
-            metaBase,
             taxRate,
             metaTaxRate,
             teamName: $("#set-team-name").value.trim(),
@@ -1974,13 +1900,11 @@
           }),
         });
         state.settings = {
-          metaBase: s.metaBase,
           taxRate: s.taxRate,
           metaTaxRate: s.metaTaxRate != null ? s.metaTaxRate : metaTaxRate,
           teamName: s.teamName,
           teamPlan: s.teamPlan,
         };
-        $("#set-meta-base").value = formatBrMoneyInput(s.metaBase);
         $("#set-tax").value = formatBrPctInput(s.taxRate);
         if ($("#set-meta-tax")) $("#set-meta-tax").value = formatBrPctInput(state.settings.metaTaxRate);
         $("#team-name").textContent = s.teamName;
@@ -1994,10 +1918,6 @@
       }
     });
 
-    const moneyInput = $("#set-meta-base");
-    moneyInput?.addEventListener("blur", () => {
-      moneyInput.value = formatBrMoneyInput(parseBrNumber(moneyInput.value));
-    });
     const taxInput = $("#set-tax");
     taxInput?.addEventListener("blur", () => {
       taxInput.value = formatBrPctInput(parseBrNumber(taxInput.value));
@@ -2013,7 +1933,6 @@
     if (state.configured) await loadDashboard({ force: false });
     else {
       renderKpis({});
-      renderProjection({});
       renderSuggestions(null);
       renderChart([]);
     }

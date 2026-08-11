@@ -1417,90 +1417,6 @@ h1, h2, h3, .sec-title, .panel-title, .brand-name { font-optical-sizing: auto; }
 .kpi.is-off .kpi-value { color: var(--muted); }
 
 /* ============================================================
-   METAS — 3 níveis
-   ============================================================ */
-.proj-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  background: var(--line);
-  align-items: stretch;
-}
-.proj-tier { padding: 16px 18px; background: var(--card); min-width: 0; }
-.proj-tier-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-.proj-tier-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.proj-pct {
-  font-family: var(--display);
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--soft-text);
-}
-.proj-tier.is-done .proj-pct { color: var(--bright); }
-.proj-tier.is-route .proj-pct { color: var(--gold); }
-.proj-tier.is-far .proj-pct { color: var(--dim); }
-.proj-badge {
-  font-size: 10px;
-  padding: 2px 7px;
-  border-radius: 4px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
-  background: var(--surface-3);
-  color: var(--dim);
-  text-transform: uppercase;
-}
-.proj-tier.is-done .proj-badge { background: var(--green-bg); color: var(--green); }
-.proj-tier.is-route .proj-badge { background: var(--gold-bg); color: var(--gold); }
-.proj-bonus {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--dim);
-  white-space: nowrap;
-}
-.proj-bonus b { color: var(--green); font-weight: 600; }
-.proj-target {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 15px;
-  color: var(--soft-text);
-  margin-bottom: 4px;
-}
-.proj-daily { font-size: 11.5px; color: var(--faint); margin-bottom: 12px; }
-.proj-daily b { font-family: var(--mono); color: var(--muted); font-weight: 500; }
-.prog-bar {
-  height: 6px;
-  background: var(--surface-3);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.prog-bar > i {
-  display: block;
-  height: 100%;
-  border-radius: 3px;
-  background: #3a4054;
-  transition: width .45s var(--ease);
-}
-.proj-tier.is-done .prog-bar > i { background: linear-gradient(90deg, var(--green-dim), var(--green)); }
-.proj-tier.is-route .prog-bar > i { background: linear-gradient(90deg, var(--gold-dim), var(--gold-hi)); }
-.prog-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
-.prog-pct {
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  font-size: 11px;
-  color: var(--dim);
-}
-.proj-tier.is-done .prog-pct { color: var(--green); }
-.proj-tier.is-route .prog-pct { color: var(--gold); }
-
-/* ============================================================
    SUGESTÕES
    ============================================================ */
 .suggestions-body { min-height: 48px; }
@@ -2219,7 +2135,6 @@ select.search {
   .page-head h1 { font-size: 23px; }
   .sec-title { font-size: 15px; }
   .sec--primary .sec-title { font-size: 16px; }
-  .proj-grid { grid-template-columns: minmax(0, 1fr); }
   .settings-card .form, .settings-card-body { padding: 0 16px 16px; }
   .settings-card-head { padding: 14px 16px 12px; }
   .pager { padding: 10px 14px; }

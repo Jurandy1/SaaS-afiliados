@@ -186,7 +186,7 @@
                   <span class="live-pill" id="live-pill"><span class="live-dot"></span>Ao vivo</span>
                 </div>
                 <h1 id="dash-title">Dashboard</h1>
-                <p class="page-sub" id="page-sub">Lucro, metas, sugestões Meta e operação por SubID.</p>
+                <p class="page-sub" id="page-sub">Lucro, sugestões Meta e operação por SubID.</p>
               </div>
               <div class="page-actions">
                 <div class="page-actions-row">
@@ -249,22 +249,6 @@
             <div class="zone-rule"><span class="zone-tag"><b class="zone-num"></b>Executivo</span><i></i></div>
             <div class="zone-body">
               <div class="kpi-grid kpi-grid-core" id="kpi-grid"></div>
-
-              <section class="sec" id="dash-metas-panel">
-                <header class="sec-head">
-                  <div class="sec-head-text">
-                    <h2 class="sec-title">Projeção de metas e bônus</h2>
-                    <span class="sec-eyebrow">mês calendário</span>
-                    <p class="sec-sub" id="proj-sub">Faturamento até agora —</p>
-                  </div>
-                  <div class="sec-tools">
-                    <button type="button" class="btn quiet sm" id="btn-edit-meta">Editar base</button>
-                  </div>
-                </header>
-                <div class="sec-body sec-body--inset">
-                  <div class="proj-grid" id="proj-grid-dash"></div>
-                </div>
-              </section>
             </div>
           </div>
 
@@ -497,7 +481,7 @@
             <div class="page-head-main">
               <div class="page-eyebrow"><span>Sistema · Integrações</span></div>
               <h1>Configurações e integrações</h1>
-              <p class="page-sub">Credenciais, impostos e metas que alimentam o cálculo de lucro do painel.</p>
+              <p class="page-sub">Credenciais e impostos que alimentam o cálculo de lucro do painel.</p>
             </div>
             <div class="page-actions">
               <div class="page-actions-row">
@@ -597,15 +581,12 @@
                 <article class="settings-card settings-card--gold">
                   <header class="settings-card-head">
                     <div>
-                      <div class="settings-card-title">Impostos e meta</div>
+                      <div class="settings-card-title">Impostos e equipe</div>
                       <div class="settings-card-sub">Entra na fórmula de lucro e ROI de todo o painel</div>
                     </div>
                   </header>
                   <form id="settings-form" class="form">
                     <div class="form-grid">
-                      <label>Meta base de faturamento
-                        <input type="text" id="set-meta-base" inputmode="decimal" placeholder="R$ 0,00" />
-                      </label>
                       <label>Imposto governo s/ comissão (%)
                         <input type="text" id="set-tax" inputmode="decimal" placeholder="11,70" />
                       </label>
@@ -647,22 +628,6 @@
             </div>
           </div>
 
-          <div class="zone zone--detail" style="margin-top:24px">
-            <div class="zone-rule"><span class="zone-tag"><b class="zone-num"></b>Espelho das metas</span><i></i></div>
-            <div class="zone-body">
-              <section class="sec">
-                <header class="sec-head">
-                  <div class="sec-head-text">
-                    <h2 class="sec-title">Projeção de metas e bônus</h2>
-                    <span class="sec-eyebrow">mesma projeção do painel</span>
-                  </div>
-                </header>
-                <div class="sec-body sec-body--inset">
-                  <div class="proj-grid" id="proj-grid"></div>
-                </div>
-              </section>
-            </div>
-          </div>
         </section>
 
         <!-- DATA VIEWS -->
