@@ -76,6 +76,115 @@ function calcLucroRoi(comissao, invMetaRaw, invPinRaw, tax) {
   };
 }
 
+function reconcileSubIdsToPeriod(subIds, start, end, tax) {
+  if (!start || !end) return subIds || [];
+  return (subIds || []).map((sub) => {
+    const allDaily = sub.daily || [];
+    const days = allDaily.filter((d) => d.data >= start && d.data <= end);
+
+    if (!days.length) {
+      const invM = Number(sub.inv_meta || 0);
+      const invP = Number(sub.inv_pin || 0);
+      if (invM > 0 || invP > 0) {
+        const fin = calcLucroRoi(0, invM, invP, tax);
+        const clM = Number(sub.cliques_meta || 0);
+        const clP = Number(sub.cliques_pin || 0);
+        return {
+          ...sub,
+          faturamento: 0,
+          comissao: 0,
+          pedidos: 0,
+          concluidos: 0,
+          pendentes: 0,
+          cancelados: 0,
+          cliques_shopee: 0,
+          cliques_meta: clM,
+          cliques_pin: clP,
+          cliques_ads: clM + clP,
+          abatimento: null,
+          abatimento_cliques: null,
+          ...fin,
+        };
+      }
+      return {
+        ...sub,
+        faturamento: 0,
+        comissao: 0,
+        pedidos: 0,
+        concluidos: 0,
+        pendentes: 0,
+        cancelados: 0,
+        lucro: 0,
+        roi: null,
+        abatimento: null,
+      };
+    }
+
+    const agg = {
+      faturamento: 0,
+      comissao: 0,
+      pedidos: 0,
+      concluidos: 0,
+      pendentes: 0,
+      cancelados: 0,
+      inv_meta: 0,
+      inv_pin: 0,
+      cliques_meta: 0,
+      cliques_pin: 0,
+      cliques_shopee: 0,
+    };
+    for (const d of days) {
+      agg.faturamento += Number(d.faturamento || 0);
+      agg.comissao += Number(d.comissao || 0);
+      agg.pedidos += Number(d.pedidos || 0);
+      agg.concluidos += Number(d.concluidos || 0);
+      agg.pendentes += Number(d.pendentes || 0);
+      agg.cancelados += Number(d.cancelados || 0);
+      agg.inv_meta += Number(d.inv_meta || 0);
+      agg.inv_pin += Number(d.inv_pin || 0);
+      agg.cliques_meta += Number(d.cliques_meta || 0);
+      agg.cliques_pin += Number(d.cliques_pin || 0);
+      agg.cliques_shopee += Number(d.cliques_shopee || 0);
+    }
+
+    let cliquesShopee = agg.cliques_shopee;
+    if (!cliquesShopee && sub.cliques_shopee != null && days.length === allDaily.length) {
+      cliquesShopee = Number(sub.cliques_shopee);
+    }
+
+    const fin = calcLucroRoi(agg.comissao, agg.inv_meta, agg.inv_pin, tax);
+    const fat = round2(agg.faturamento);
+    const com = round2(agg.comissao);
+    const clAds = agg.cliques_meta + agg.cliques_pin;
+    let abatimentoCliques = null;
+    if (cliquesShopee > 0 && clAds > 0) {
+      abatimentoCliques = round2((cliquesShopee / clAds) * 100);
+    }
+
+    return {
+      ...sub,
+      faturamento: fat,
+      comissao: com,
+      pedidos: agg.pedidos,
+      concluidos: agg.concluidos,
+      pendentes: agg.pendentes,
+      cancelados: agg.cancelados,
+      inv_meta: fin.inv_meta,
+      inv_pin: fin.inv_pin,
+      inv_meta_taxed: fin.inv_meta_taxed,
+      inv_total: fin.inv_total,
+      lucro: fin.lucro,
+      roi: fin.roi,
+      cliques_meta: agg.cliques_meta,
+      cliques_pin: agg.cliques_pin,
+      cliques_ads: clAds,
+      cliques_shopee: cliquesShopee,
+      abatimento: fat > 0 ? round2((com / fat) * 100) : null,
+      abatimento_cliques: abatimentoCliques,
+    };
+  });
+}
+
 /**
  * Cruza comissão Shopee (daily/subid já no dash) com gasto Meta+Pin.
  * Atualiza colunas inv_* / lucro / roi no Supabase e devolve kpis enriquecidos.
@@ -272,7 +381,13 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
       ...fin,
     });
   }
-  const subIdsAll = orphanSubs.length ? subIds.concat(orphanSubs) : subIds;
+
+  const subIdsAll = reconcileSubIdsToPeriod(
+    orphanSubs.length ? subIds.concat(orphanSubs) : subIds,
+    start,
+    end,
+    tax,
+  );
 
   try {
     const supabase = getSupabase();
@@ -335,4 +450,4 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
   };
 }
 
-module.exports = { enrichDashboardWithAds, sumSpend, calcLucroRoi };
+module.exports = { enrichDashboardWithAds, sumSpend, calcLucroRoi, reconcileSubIdsToPeriod };

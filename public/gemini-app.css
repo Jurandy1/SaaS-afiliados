@@ -79,35 +79,40 @@ html.light { color-scheme: light; }
   box-shadow: 0 10px 20px -10px rgba(15, 23, 42, 0.15);
 }
 .channel-metric-icon {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
   flex-shrink: 0;
-  background: #f1f5f9;
-  color: #64748b;
+  background: #f8fafc;
+  overflow: hidden;
+}
+.channel-metric-icon img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
 }
 .channel-metric--orange { border-top-color: #f97316; }
-.channel-metric--orange .channel-metric-icon { background: #fff7ed; color: #ea580c; }
+.channel-metric--orange .channel-metric-icon { background: #fff7ed; }
 .channel-metric--emerald { border-top-color: #10b981; }
-.channel-metric--emerald .channel-metric-icon { background: #ecfdf5; color: #059669; }
+.channel-metric--emerald .channel-metric-icon { background: #ecfdf5; }
 .channel-metric--emerald .channel-metric-val { color: #059669; }
 .channel-metric--meta { border-top-color: #2563eb; }
-.channel-metric--meta .channel-metric-icon { background: #eff6ff; color: #2563eb; }
+.channel-metric--meta .channel-metric-icon { background: #eff6ff; }
 .channel-metric--pin { border-top-color: #e11d48; }
-.channel-metric--pin .channel-metric-icon { background: #fff1f2; color: #e11d48; }
+.channel-metric--pin .channel-metric-icon { background: #fff1f2; }
 .channel-metric--rose { border-top-color: #f43f5e; }
-.channel-metric--rose .channel-metric-icon { background: #fff1f2; color: #e11d48; }
+.channel-metric--rose .channel-metric-icon { background: #fff1f2; }
 .channel-metric--rose .channel-metric-val { color: #e11d48; }
 .channel-metric--indigo { border-top-color: #6366f1; }
-.channel-metric--indigo .channel-metric-icon { background: #eef2ff; color: #4f46e5; }
+.channel-metric--indigo .channel-metric-icon { background: #eef2ff; }
 .channel-metric--sky { border-top-color: #0ea5e9; }
-.channel-metric--sky .channel-metric-icon { background: #f0f9ff; color: #0284c7; }
+.channel-metric--sky .channel-metric-icon { background: #f0f9ff; }
 .channel-metric--amber { border-top-color: #f59e0b; }
-.channel-metric--amber .channel-metric-icon { background: #fffbeb; color: #d97706; }
+.channel-metric--amber .channel-metric-icon { background: #fffbeb; }
 .channel-metric--amber .channel-metric-val { color: #d97706; }
 .channel-metric-lab {
   font-size: 10px;

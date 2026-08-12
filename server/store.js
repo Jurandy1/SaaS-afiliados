@@ -364,7 +364,6 @@ async function attachMenuPreviews(dash, startDate, endDate, userId = requireUser
     }
 
     dash.subIds = (dash.subIds || []).map((r) => {
-      if (Array.isArray(r.daily) && r.daily.length) return r;
       const days = bySubDay[r.subid] || {};
       const daily = Object.values(days)
         .map((d) => ({

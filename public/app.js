@@ -519,10 +519,22 @@
       </div>`;
   }
 
-  function channelMetricCard(label, value, tone, iconClass) {
+  const KPI_ICONS = {
+    faturamento: "/icons/kpi/faturamento.png",
+    comissao: "/icons/kpi/comissao.png",
+    investimento: "/icons/kpi/investimento.png",
+    lucro: "/icons/kpi/lucro.png",
+    roi: "/icons/kpi/roi.png",
+    pedidos: "/icons/kpi/pedidos.png",
+    cliques: "/icons/kpi/cliques.png",
+    abatimento: "/icons/kpi/abatimento.png",
+  };
+
+  function channelMetricCard(label, value, tone, iconKey) {
     const toneClass = tone ? `channel-metric--${tone}` : "";
+    const iconSrc = KPI_ICONS[iconKey] || KPI_ICONS.faturamento;
     return `<article class="channel-metric ${toneClass}">
-      <div class="channel-metric-icon"><i class="${iconClass}" aria-hidden="true"></i></div>
+      <div class="channel-metric-icon"><img src="${iconSrc}" alt="" width="28" height="28" loading="lazy" decoding="async" /></div>
       <div class="channel-metric-body">
         <p class="channel-metric-lab">${escapeHtml(label)}</p>
         <p class="channel-metric-val">${value}</p>
@@ -547,33 +559,33 @@
     let cards = [];
     if (ch === "meta") {
       cards = [
-        ["Faturamento", money(k?.faturamento), "orange", "fa-solid fa-receipt"],
-        ["Comissão", money(k?.comissao), "emerald", "fa-solid fa-coins"],
-        ["Investimento Meta", money(invMeta), "meta", "fa-solid fa-bullhorn"],
-        ["Lucro", money(k?.lucro), lucroTone, "fa-solid fa-sack-dollar"],
-        ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "fa-solid fa-chart-line"],
-        ["Pedidos", num(k?.pedidos), "indigo", "fa-solid fa-bag-shopping"],
-        ["Cliques Shopee", num(k?.cliques_shopee), "sky", "fa-solid fa-computer-mouse"],
-        ["Abatimento", pct(k?.abatimento_cliques), "amber", "fa-solid fa-percent"],
+        ["Faturamento", money(k?.faturamento), "orange", "faturamento"],
+        ["Comissão", money(k?.comissao), "emerald", "comissao"],
+        ["Investimento Meta", money(invMeta), "meta", "investimento"],
+        ["Lucro", money(k?.lucro), lucroTone, "lucro"],
+        ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "roi"],
+        ["Pedidos", num(k?.pedidos), "indigo", "pedidos"],
+        ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
+        ["Abatimento", pct(k?.abatimento_cliques), "amber", "abatimento"],
       ];
     } else if (ch === "pinterest") {
       cards = [
-        ["Faturamento", money(k?.faturamento), "orange", "fa-solid fa-receipt"],
-        ["Comissão", money(k?.comissao), "emerald", "fa-solid fa-coins"],
-        ["Investimento Pinterest", money(k?.inv_pin), "pin", "fa-brands fa-pinterest-p"],
-        ["Lucro", money(k?.lucro), lucroTone, "fa-solid fa-sack-dollar"],
-        ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "fa-solid fa-chart-line"],
-        ["Pedidos", num(k?.pedidos), "indigo", "fa-solid fa-bag-shopping"],
-        ["Cliques Shopee", num(k?.cliques_shopee), "sky", "fa-solid fa-computer-mouse"],
-        ["Abatimento", pct(k?.abatimento_cliques), "amber", "fa-solid fa-percent"],
+        ["Faturamento", money(k?.faturamento), "orange", "faturamento"],
+        ["Comissão", money(k?.comissao), "emerald", "comissao"],
+        ["Investimento Pinterest", money(k?.inv_pin), "pin", "investimento"],
+        ["Lucro", money(k?.lucro), lucroTone, "lucro"],
+        ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "roi"],
+        ["Pedidos", num(k?.pedidos), "indigo", "pedidos"],
+        ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
+        ["Abatimento", pct(k?.abatimento_cliques), "amber", "abatimento"],
       ];
     } else if (ch === "organico") {
       cards = [
-        ["Faturamento", money(k?.faturamento), "orange", "fa-solid fa-receipt"],
-        ["Comissão", money(k?.comissao), "emerald", "fa-solid fa-coins"],
-        ["Lucro", money(k?.lucro), lucroTone, "fa-solid fa-sack-dollar"],
-        ["Pedidos", num(k?.pedidos), "indigo", "fa-solid fa-bag-shopping"],
-        ["Cliques Shopee", num(k?.cliques_shopee), "sky", "fa-solid fa-computer-mouse"],
+        ["Faturamento", money(k?.faturamento), "orange", "faturamento"],
+        ["Comissão", money(k?.comissao), "emerald", "comissao"],
+        ["Lucro", money(k?.lucro), lucroTone, "lucro"],
+        ["Pedidos", num(k?.pedidos), "indigo", "pedidos"],
+        ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
       ];
     }
 
@@ -1037,26 +1049,116 @@
     });
   }
 
+  function periodRange() {
+    const start = state.dash?.range?.startDate || $("#start-date")?.value;
+    const end = state.dash?.range?.endDate || $("#end-date")?.value;
+    return { start, end };
+  }
+
+  function aggregateSubInPeriod(r, start, end) {
+    const allDaily = r?.daily || [];
+    if (!start || !end || !allDaily.length) {
+      return {
+        faturamento: Number(r?.faturamento || 0),
+        comissao: Number(r?.comissao || 0),
+        pedidos: Number(r?.pedidos || 0),
+        concluidos: Number(r?.concluidos || 0),
+        pendentes: Number(r?.pendentes || 0),
+        cancelados: Number(r?.cancelados || 0),
+        inv_meta: Number(r?.inv_meta || 0),
+        inv_pin: Number(r?.inv_pin || 0),
+        cliques_meta: Number(r?.cliques_meta || 0),
+        cliques_pin: Number(r?.cliques_pin || 0),
+        cliques_shopee: r?.cliques_shopee != null ? Number(r.cliques_shopee) : null,
+      };
+    }
+    const days = allDaily.filter((d) => d.data >= start && d.data <= end);
+    if (!days.length) {
+      const invM = Number(r?.inv_meta || 0);
+      const invP = Number(r?.inv_pin || 0);
+      if (invM > 0 || invP > 0) {
+        return {
+          faturamento: 0,
+          comissao: 0,
+          pedidos: 0,
+          concluidos: 0,
+          pendentes: 0,
+          cancelados: 0,
+          inv_meta: invM,
+          inv_pin: invP,
+          cliques_meta: Number(r?.cliques_meta || 0),
+          cliques_pin: Number(r?.cliques_pin || 0),
+          cliques_shopee: 0,
+        };
+      }
+      return {
+        faturamento: 0,
+        comissao: 0,
+        pedidos: 0,
+        concluidos: 0,
+        pendentes: 0,
+        cancelados: 0,
+        inv_meta: 0,
+        inv_pin: 0,
+        cliques_meta: 0,
+        cliques_pin: 0,
+        cliques_shopee: 0,
+      };
+    }
+    const agg = {
+      faturamento: 0,
+      comissao: 0,
+      pedidos: 0,
+      concluidos: 0,
+      pendentes: 0,
+      cancelados: 0,
+      inv_meta: 0,
+      inv_pin: 0,
+      cliques_meta: 0,
+      cliques_pin: 0,
+      cliques_shopee: 0,
+    };
+    for (const d of days) {
+      agg.faturamento += Number(d.faturamento || 0);
+      agg.comissao += Number(d.comissao || 0);
+      agg.pedidos += Number(d.pedidos || 0);
+      agg.concluidos += Number(d.concluidos || 0);
+      agg.pendentes += Number(d.pendentes || 0);
+      agg.cancelados += Number(d.cancelados || 0);
+      agg.inv_meta += Number(d.inv_meta || 0);
+      agg.inv_pin += Number(d.inv_pin || 0);
+      agg.cliques_meta += Number(d.cliques_meta || 0);
+      agg.cliques_pin += Number(d.cliques_pin || 0);
+      agg.cliques_shopee += Number(d.cliques_shopee || 0);
+    }
+    if (!agg.cliques_shopee && r?.cliques_shopee != null && days.length === allDaily.length) {
+      agg.cliques_shopee = Number(r.cliques_shopee);
+    }
+    return agg;
+  }
+
   function kpisFromSubIds(subs, baseKpis) {
     const list = subs || [];
-    const fat = list.reduce((a, r) => a + Number(r.faturamento || 0), 0);
-    const com = list.reduce((a, r) => a + Number(r.comissao || 0), 0);
-    const invMeta = list.reduce((a, r) => a + Number(r.inv_meta || 0), 0);
-    const invPin = list.reduce((a, r) => a + Number(r.inv_pin || 0), 0);
-    const pedidos = list.reduce((a, r) => a + Number(r.pedidos || 0), 0);
-    const concluidos = list.reduce((a, r) => a + Number(r.concluidos || 0), 0);
-    const pendentes = list.reduce((a, r) => a + Number(r.pendentes || 0), 0);
-    const cancelados = list.reduce((a, r) => a + Number(r.cancelados || 0), 0);
-    const cliquesMeta = list.reduce((a, r) => a + Number(r.cliques_meta || 0), 0);
-    const cliquesPin = list.reduce((a, r) => a + Number(r.cliques_pin || 0), 0);
-    const cliquesAds = list.reduce((a, r) => a + adsClicksFor(r, state.channel), 0);
+    const { start, end } = periodRange();
+    const fat = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).faturamento, 0);
+    const com = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).comissao, 0);
+    const invMeta = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).inv_meta, 0);
+    const invPin = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).inv_pin, 0);
+    const pedidos = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).pedidos, 0);
+    const concluidos = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).concluidos, 0);
+    const pendentes = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).pendentes, 0);
+    const cancelados = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).cancelados, 0);
+    const cliquesMeta = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).cliques_meta, 0);
+    const cliquesPin = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).cliques_pin, 0);
+    const cliquesAds = list.reduce((a, r) => a + adsClicksFor(aggregateSubInPeriod(r, start, end), state.channel), 0);
     const impressoes = list.reduce((a, r) => a + Number(r.impressoes || 0), 0);
     const alcance = list.reduce((a, r) => a + Number(r.alcance || 0), 0);
     const cliquesShopeeRaw = list.reduce((a, r) => {
-      if (r.cliques_shopee == null) return a;
-      return (a == null ? 0 : a) + Number(r.cliques_shopee);
+      const v = aggregateSubInPeriod(r, start, end).cliques_shopee;
+      if (v == null) return a;
+      return (a == null ? 0 : a) + Number(v);
     }, null);
-    const spendMeta = list.reduce((a, r) => a + Number(r.inv_meta || 0), 0);
+    const spendMeta = invMeta;
     const cpc_meta = cliquesMeta > 0 ? Math.round((spendMeta / cliquesMeta) * 100) / 100 : null;
     const ctr_meta = impressoes > 0 ? Math.round((cliquesMeta / impressoes) * 10000) / 100 : null;
     const tax = {
@@ -1166,12 +1268,14 @@
   }
 
   /** Série diária do canal, somando o histórico dos SubIDs filtrados. */
-  function dailyFromSubIds(subs) {
+  function dailyFromSubIds(subs, start, end) {
     const metaTax = Number(state.settings.metaTaxRate != null ? state.settings.metaTaxRate : 12) / 100;
     const gov = Number(state.settings.taxRate || 0) / 100;
     const byDay = new Map();
     for (const s of subs || []) {
       for (const d of s.daily || []) {
+        if (start && d.data < start) continue;
+        if (end && d.data > end) continue;
         const key = String(d.data || "");
         if (!key) continue;
         let row = byDay.get(key);
@@ -1570,32 +1674,26 @@
       cancelados: dash.kpis?.cancelados,
       abatimento: dash.kpis?.abatimento,
     };
-    // Totais de mídia do enrich (todas as linhas Meta/Pin do período)
-    if (dash.kpis) {
+    // Totais de mídia do enrich (dashboard geral — todas as linhas Meta/Pin do período)
+    if (dash.kpis && !isChannel) {
       if (dash.kpis.cliques_meta != null) k.cliques_meta = dash.kpis.cliques_meta;
       if (dash.kpis.cliques_pin != null) k.cliques_pin = dash.kpis.cliques_pin;
       if (dash.kpis.cliques_ads != null) k.cliques_ads = dash.kpis.cliques_ads;
-      if (!isChannel && dash.kpis.cliques_shopee != null) k.cliques_shopee = dash.kpis.cliques_shopee;
+      if (dash.kpis.cliques_shopee != null) k.cliques_shopee = dash.kpis.cliques_shopee;
       if (dash.kpis.impressoes != null) k.impressoes = dash.kpis.impressoes;
       if (dash.kpis.alcance != null) k.alcance = dash.kpis.alcance;
       if (dash.kpis.ctr_meta != null) k.ctr_meta = dash.kpis.ctr_meta;
       if (dash.kpis.cpc_meta != null) k.cpc_meta = dash.kpis.cpc_meta;
-      if (!isChannel && dash.kpis.abatimento_cliques != null) k.abatimento_cliques = dash.kpis.abatimento_cliques;
+      if (dash.kpis.abatimento_cliques != null) k.abatimento_cliques = dash.kpis.abatimento_cliques;
     }
-    if (ch === "meta" && dash.kpis) {
-      k.cliques_meta = dash.kpis.cliques_meta ?? k.cliques_meta;
-      k.impressoes = dash.kpis.impressoes ?? k.impressoes;
-      k.alcance = dash.kpis.alcance ?? k.alcance;
-      k.ctr_meta = dash.kpis.ctr_meta ?? k.ctr_meta;
-      k.cpc_meta = dash.kpis.cpc_meta ?? k.cpc_meta;
-      if (k.cliques_shopee != null && Number(k.cliques_meta) > 0) {
-        k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_meta)) * 10000) / 100;
-      }
+    if (isChannel && ch === "meta" && k.cliques_shopee != null && Number(k.cliques_meta) > 0) {
+      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_meta)) * 10000) / 100;
     }
-    if (ch === "pinterest" && k.cliques_shopee != null && Number(k.cliques_pin) > 0) {
+    if (isChannel && ch === "pinterest" && k.cliques_shopee != null && Number(k.cliques_pin) > 0) {
       k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_pin)) * 10000) / 100;
     }
-    const daily = isChannel ? dailyFromSubIds(channelSubs) : (dash.daily || []);
+    const { start, end } = periodRange();
+    const daily = isChannel ? dailyFromSubIds(channelSubs, start, end) : (dash.daily || []);
     if (!isChannel) {
       renderKpis(k, (dash.subIds || []).length);
       renderChart(daily);
