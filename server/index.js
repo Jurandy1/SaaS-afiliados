@@ -15,6 +15,7 @@ const {
   loadSettings,
   saveSettings,
   attachMenuPreviews,
+  attachMtdKpis,
 } = require("./store");
 const { testCredentials, clearCredsCache } = require("./shopee");
 const { buildDashboard } = require("./metrics");
@@ -550,6 +551,7 @@ async function requestHandler(req, res) {
               if (fromDb) {
                 fromDb = await attachMenuPreviews(fromDb, startDate, endDate);
                 fromDb = await enrichDashboardWithAds(fromDb);
+                fromDb = await attachMtdKpis(fromDb);
                 sendJson(res, 200, { success: true, cached: true, ...fromDb });
                 return;
               }
@@ -581,6 +583,7 @@ async function requestHandler(req, res) {
                 out = await enrichDashboardWithAds(dash);
               } catch (_) { /* keep dash */ }
             }
+            out = await attachMtdKpis(out);
             sendJson(res, 200, {
               success: true,
               cached: false,

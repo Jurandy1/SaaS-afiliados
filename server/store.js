@@ -262,6 +262,14 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
     ? Math.round((kpis.comissao / kpis.faturamento) * 10000) / 100
     : 0;
 
+  let faturamentoMtd = kpis.faturamento;
+  try {
+    faturamentoMtd = await loadFaturamentoMtd(userId);
+  } catch (e) {
+    console.warn("[store] mtd:", e.message);
+  }
+  kpis.faturamentoMtd = faturamentoMtd;
+
   return {
     range: { startDate, endDate },
     nodes: lastRun?.nodes || 0,
@@ -381,6 +389,41 @@ async function attachMenuPreviews(dash, startDate, endDate, userId = requireUser
   return dash;
 }
 
+function monthStartISO(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}-01`;
+}
+
+function todayISO(d = new Date()) {
+  return d.toISOString().slice(0, 10);
+}
+
+async function loadFaturamentoMtd(userId = requireUserId()) {
+  const start = monthStartISO();
+  const end = todayISO();
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("daily_metrics")
+    .select("faturamento")
+    .eq("user_id", userId)
+    .gte("data", start)
+    .lte("data", end);
+  if (error) throw new Error(error.message);
+  const fat = (data || []).reduce((a, r) => a + Number(r.faturamento || 0), 0);
+  return Math.round(fat * 100) / 100;
+}
+
+async function attachMtdKpis(dash, userId = requireUserId()) {
+  if (!dash?.kpis) return dash;
+  try {
+    dash.kpis.faturamentoMtd = await loadFaturamentoMtd(userId);
+  } catch (e) {
+    console.warn("[store] attachMtdKpis:", e.message);
+  }
+  return dash;
+}
+
 async function loadOrders({ startDate, endDate, limit = 200 } = {}, userId = requireUserId()) {
   const supabase = getSupabase();
   let q = supabase.from("orders").select("*").eq("user_id", userId).order("data", { ascending: false }).limit(limit);
@@ -487,6 +530,8 @@ module.exports = {
   loadProducts,
   loadSettings,
   saveSettings,
+  loadFaturamentoMtd,
+  attachMtdKpis,
   resetAllSyncedData,
   maskSecret,
 };

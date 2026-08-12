@@ -121,7 +121,7 @@
     dash: null,
     configured: false,
     metaConfigured: false,
-    settings: { taxRate: 11.7, metaTaxRate: 12, teamName: "SaaS SHOPPE", teamPlan: "Shopee · Meta" },
+    settings: { taxRate: 11.7, metaTaxRate: 12, metaBase: 863959, teamName: "SaaS SHOPPE", teamPlan: "Shopee · Meta" },
     periodPreset: "7d",
     subidPage: 1,
     opsPage: 1,
@@ -232,6 +232,34 @@
   }
   function formatBrPctInput(v) {
     return Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function formatBrMoneyInput(v) {
+    return Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function formatMetaMensalProgress(fatBruto, metaMensal) {
+    const meta = Number(metaMensal) || 0;
+    const fat = Number(fatBruto) || 0;
+    if (meta <= 0) return { headline: "—", barPct: 0, fat, meta, ratio: 0, detailPct: "—" };
+    const ratio = fat / meta;
+    const pct = ratio * 100;
+    const barPct = Math.min(100, pct);
+    const headline = ratio >= 10
+      ? `${ratio.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}× da meta`
+      : `${pct.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}% da meta`;
+    return {
+      headline,
+      barPct,
+      fat,
+      meta,
+      ratio,
+      detailPct: `${pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`,
+    };
+  }
+  function isCurrentMonthPeriod() {
+    if (state.periodPreset === "month") return true;
+    const start = state.dash?.range?.startDate || $("#start-date")?.value;
+    const end = state.dash?.range?.endDate || $("#end-date")?.value;
+    return start === monthStartISO() && end === todayISO();
   }
   function escapeHtml(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -519,10 +547,73 @@
       </div>`;
   }
 
+  function renderMetaProgressCard(k) {
+    const el = $("#meta-progress-card");
+    if (!el) return;
+    const hasData = Boolean(state.dash);
+    const metaBase = Number(state.settings.metaBase || 0);
+    const fatMtd = hasData ? Number(k?.faturamentoMtd ?? 0) : null;
+    const monthLabel = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+    if (!metaBase) {
+      el.innerHTML = `
+        <section class="meta-progress-card meta-progress-card--setup">
+          <div class="meta-progress-card-inner">
+            <div class="meta-progress-card-head">
+              <img src="/assets/meta.png" alt="" width="20" height="20" />
+              <div>
+                <h3>Progresso Meta</h3>
+                <p>Defina a meta mensal em Configurações</p>
+              </div>
+            </div>
+            <p class="meta-progress-hint">Em <strong>Configurações → Meta mensal de faturamento</strong> informe o valor alvo do mês.</p>
+          </div>
+        </section>`;
+      return;
+    }
+
+    const metaProg = formatMetaMensalProgress(fatMtd ?? 0, metaBase);
+    const metaBatida = metaProg.ratio >= 1;
+    const detailRight = !hasData
+      ? "Sincronize para ver o progresso"
+      : metaProg.ratio >= 10
+        ? metaProg.detailPct
+        : metaBatida
+          ? `Meta batida (+${fmt(fatMtd - metaBase)})`
+          : `Faltam ${fmt(metaBase - (fatMtd || 0))}`;
+
+    el.innerHTML = `
+      <section class="meta-progress-card">
+        <div class="meta-progress-card-glow" aria-hidden="true"></div>
+        <div class="meta-progress-card-inner">
+          <div class="meta-progress-card-top">
+            <div class="meta-progress-card-head">
+              <div class="meta-progress-card-icon">
+                <img src="/assets/meta.png" alt="" width="22" height="22" />
+              </div>
+              <div>
+                <h3>Progresso Meta</h3>
+                <p>Meta mensal de faturamento · ${escapeHtml(monthLabel)}</p>
+              </div>
+            </div>
+            <div class="meta-progress-headline">${escapeHtml(hasData ? metaProg.headline : "—")}</div>
+          </div>
+          <div class="meta-progress-bar-wrap" role="progressbar" aria-valuenow="${Math.round(metaProg.barPct)}" aria-valuemin="0" aria-valuemax="100" aria-label="Progresso da meta mensal">
+            <div class="meta-progress-bar-fill" style="width:${hasData ? metaProg.barPct : 0}%"></div>
+          </div>
+          <div class="meta-progress-foot">
+            <span>${hasData ? `${fmt(fatMtd)} de ${fmt(metaBase)}` : "— de " + fmt(metaBase)}</span>
+            <span>${detailRight}</span>
+          </div>
+        </div>
+      </section>`;
+  }
+
   const KPI_ICONS = {
     faturamento: "/icons/kpi/faturamento.png",
     comissao: "/icons/kpi/comissao.png",
-    investimento: "/icons/kpi/investimento.png",
+    investimento_meta: "/assets/meta.png",
+    investimento_pin: "/assets/pinterest.png",
     lucro: "/icons/kpi/lucro.png",
     roi: "/icons/kpi/roi.png",
     pedidos: "/icons/kpi/pedidos.png",
@@ -533,8 +624,9 @@
   function channelMetricCard(label, value, tone, iconKey) {
     const toneClass = tone ? `channel-metric--${tone}` : "";
     const iconSrc = KPI_ICONS[iconKey] || KPI_ICONS.faturamento;
+    const iconClass = iconKey === "investimento_pin" ? "is-square" : "";
     return `<article class="channel-metric ${toneClass}">
-      <div class="channel-metric-icon"><img src="${iconSrc}" alt="" width="28" height="28" loading="lazy" decoding="async" /></div>
+      <div class="channel-metric-icon"><img src="${iconSrc}" alt="" width="28" height="28" class="${iconClass}" loading="lazy" decoding="async" /></div>
       <div class="channel-metric-body">
         <p class="channel-metric-lab">${escapeHtml(label)}</p>
         <p class="channel-metric-val">${value}</p>
@@ -561,7 +653,7 @@
       cards = [
         ["Faturamento", money(k?.faturamento), "orange", "faturamento"],
         ["Comissão", money(k?.comissao), "emerald", "comissao"],
-        ["Investimento Meta", money(invMeta), "meta", "investimento"],
+        ["Investimento Meta", money(invMeta), "meta", "investimento_meta"],
         ["Lucro", money(k?.lucro), lucroTone, "lucro"],
         ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "roi"],
         ["Pedidos", num(k?.pedidos), "indigo", "pedidos"],
@@ -572,7 +664,7 @@
       cards = [
         ["Faturamento", money(k?.faturamento), "orange", "faturamento"],
         ["Comissão", money(k?.comissao), "emerald", "comissao"],
-        ["Investimento Pinterest", money(k?.inv_pin), "pin", "investimento"],
+        ["Investimento Pinterest", money(k?.inv_pin), "pin", "investimento_pin"],
         ["Lucro", money(k?.lucro), lucroTone, "lucro"],
         ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "roi"],
         ["Pedidos", num(k?.pedidos), "indigo", "pedidos"],
@@ -1651,6 +1743,7 @@
     const dash = state.dash;
     if (!dash) {
       renderKpis({});
+      renderMetaProgressCard({});
       renderChannelKpis(ch, {});
       renderSuggestions(null);
       renderChart([]);
@@ -1696,6 +1789,7 @@
     const daily = isChannel ? dailyFromSubIds(channelSubs, start, end) : (dash.daily || []);
     if (!isChannel) {
       renderKpis(k, (dash.subIds || []).length);
+      renderMetaProgressCard(k);
       renderChart(daily);
       renderDailyTable(daily, k);
     } else {
@@ -1738,12 +1832,12 @@
       const id = String(r.subid || "");
       const canal = r.canal || "indefinido";
       const status = normalizeStatus(r.status);
-      return `<tr>
+      return `<tr class="subid-row">
         <td class="subid">${escapeHtml(id)}</td>
         <td>${canalSelectHtml(id, canal)}</td>
         <td>${statusSelectHtml(id, status)}</td>
       </tr>`;
-    }).join("") || `<tr><td colspan="3">${state.dash ? "Nenhum SubID encontrado." : "Carregue o painel para listar SubIDs."}</td></tr>`;
+    }).join("") || `<tr><td colspan="3" class="cell-muted">${state.dash ? "Nenhum SubID encontrado." : "Carregue o painel para listar SubIDs."}</td></tr>`;
     wireOpsSelects("#ops-tbody");
 
     const pager = $("#ops-pager");
@@ -2335,11 +2429,13 @@
       state.settings = {
         taxRate: s.taxRate,
         metaTaxRate: s.metaTaxRate != null ? s.metaTaxRate : 12,
+        metaBase: s.metaBase != null ? Number(s.metaBase) : 863959,
         teamName: s.teamName,
         teamPlan: s.teamPlan,
       };
       $("#set-tax").value = formatBrPctInput(s.taxRate);
       if ($("#set-meta-tax")) $("#set-meta-tax").value = formatBrPctInput(state.settings.metaTaxRate);
+      if ($("#set-meta-base")) $("#set-meta-base").value = formatBrMoneyInput(state.settings.metaBase);
       $("#set-team-name").value = s.teamName;
       $("#set-team-plan").value = s.teamPlan;
       $("#team-name").textContent = s.teamName;
@@ -2829,11 +2925,13 @@
       try {
         const taxRate = parseBrNumber($("#set-tax").value);
         const metaTaxRate = parseBrNumber($("#set-meta-tax")?.value || "12");
+        const metaBase = parseBrNumber($("#set-meta-base")?.value || "0");
         const s = await api("/api/settings", {
           method: "POST",
           body: JSON.stringify({
             taxRate,
             metaTaxRate,
+            metaBase,
             teamName: $("#set-team-name").value.trim(),
             teamPlan: $("#set-team-plan").value.trim(),
           }),
@@ -2841,11 +2939,13 @@
         state.settings = {
           taxRate: s.taxRate,
           metaTaxRate: s.metaTaxRate != null ? s.metaTaxRate : metaTaxRate,
+          metaBase: s.metaBase != null ? Number(s.metaBase) : metaBase,
           teamName: s.teamName,
           teamPlan: s.teamPlan,
         };
         $("#set-tax").value = formatBrPctInput(s.taxRate);
         if ($("#set-meta-tax")) $("#set-meta-tax").value = formatBrPctInput(state.settings.metaTaxRate);
+        if ($("#set-meta-base")) $("#set-meta-base").value = formatBrMoneyInput(state.settings.metaBase);
         $("#team-name").textContent = s.teamName;
         $("#team-plan").textContent = s.teamPlan;
         await loadDashboard({ force: false });
@@ -2865,6 +2965,10 @@
     metaTaxInput?.addEventListener("blur", () => {
       metaTaxInput.value = formatBrPctInput(parseBrNumber(metaTaxInput.value));
     });
+    const metaBaseInput = $("#set-meta-base");
+    metaBaseInput?.addEventListener("blur", () => {
+      metaBaseInput.value = formatBrMoneyInput(parseBrNumber(metaBaseInput.value));
+    });
   }
 
   async function bootApp() {
@@ -2872,6 +2976,7 @@
     if (state.configured) await loadDashboard({ force: false });
     else {
       renderKpis({});
+      renderMetaProgressCard({});
       renderSuggestions(null);
       renderChart([]);
     }
