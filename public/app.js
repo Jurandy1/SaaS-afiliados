@@ -175,23 +175,28 @@
   /** Invest usado no ROI (Meta com imposto + Pin), alinhado ao painel de referência. */
   function investForRoi(r) {
     if (!r) return 0;
-    if (r.inv_meta_taxed != null || r.inv_pin != null) {
-      const taxed = r.inv_meta_taxed != null
-        ? Number(r.inv_meta_taxed)
-        : Number(r.inv_meta || 0) * (1 + Number(state.settings.metaTaxRate != null ? state.settings.metaTaxRate : 12) / 100);
-      return taxed + Number(r.inv_pin || 0);
+    const invMeta = Number(r.inv_meta || 0);
+    const invPin = Number(r.inv_pin || 0);
+    const invTotal = Number(r.inv_total || 0);
+    if (r.inv_meta_taxed != null && Number.isFinite(Number(r.inv_meta_taxed))) {
+      return Number(r.inv_meta_taxed) + invPin;
     }
-    return Number(r.inv_total || 0);
+    if (invMeta > 0 || invPin > 0) {
+      const metaTax = Number(state.settings.metaTaxRate != null ? state.settings.metaTaxRate : 12) / 100;
+      return invMeta * (1 + metaTax) + invPin;
+    }
+    return invTotal;
   }
 
   function displayRoi(r) {
     if (!r) return null;
+    if (r.roi != null && Number.isFinite(Number(r.roi))) return Number(r.roi);
     const inv = investForRoi(r);
     if (inv <= 0) return null;
-    if (r.roi != null && Number.isFinite(Number(r.roi))) return Number(r.roi);
+    const gov = Number(state.settings.taxRate || 0) / 100;
     const lucro = r.lucro != null
       ? Number(r.lucro)
-      : Number(r.comissao || 0) * (1 - Number(state.settings.taxRate || 0) / 100) - inv;
+      : Number(r.comissao || 0) * (1 - gov) - inv;
     return (lucro / inv) * 100;
   }
 
@@ -219,6 +224,7 @@
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
   function todayISO() { return new Date().toISOString().slice(0, 10); }
+  function yesterdayISO() { return daysAgoISO(1); }
   function daysAgoISO(n) {
     const d = new Date();
     d.setDate(d.getDate() - n);
@@ -1023,6 +1029,7 @@
       if (String(r.subid || "").toLowerCase() === key) {
         if (partial.canal != null) r.canal = partial.canal;
         if (partial.status != null) r.status = partial.status;
+        if (partial.produto != null) r.produto = partial.produto;
       }
     }
     applyChannelView();
@@ -1047,8 +1054,31 @@
         alert(err.message || String(err));
       }
     });
+    el.addEventListener("focusin", (e) => {
+      const input = e.target.closest("input[data-op]");
+      if (input) e.stopPropagation();
+    });
+    el.addEventListener("blur", async (e) => {
+      const input = e.target.closest("input[data-op]");
+      if (!input) return;
+      e.stopPropagation();
+      const subid = input.dataset.subid;
+      const field = input.dataset.op;
+      try {
+        await saveSubidOp(subid, { [field]: input.value.trim() });
+      } catch (err) {
+        alert(err.message || String(err));
+      }
+    }, true);
+    el.addEventListener("keydown", (e) => {
+      const input = e.target.closest("input[data-op]");
+      if (input && e.key === "Enter") {
+        e.preventDefault();
+        input.blur();
+      }
+    });
     el.addEventListener("click", (e) => {
-      if (e.target.closest("select[data-op]")) e.stopPropagation();
+      if (e.target.closest("select[data-op], input[data-op]")) e.stopPropagation();
     });
   }
 
@@ -1105,8 +1135,6 @@
     $$(".dash-only").forEach((el) => el.classList.toggle("hidden", isChannel));
     $$(".channel-only").forEach((el) => el.classList.toggle("hidden", !isChannel));
     const label = CHANNEL_LABELS[ch] || "Geral";
-    const analysisTag = $("#channel-analysis-tag");
-    if (analysisTag) analysisTag.textContent = `Análise · ${label}`;
     const eyebrow = $("#dash-subids-eyebrow");
     if (eyebrow) eyebrow.textContent = `canal ${label} · altere o status · clique para o histórico`;
     const subidsIcon = $("#dash-subids-icon");
@@ -1157,48 +1185,225 @@
     setHard("#indef-count-pill", totals.indefinido);
   }
 
-  function channelSubidColumns(ch) {
+  function allSubidColumnDefs(ch) {
     const base = [
-      { key: "subid", label: "SubID", num: false },
-      { key: "faturamento", label: "Faturamento", num: true },
-      { key: "comissao", label: "Comissão", num: true },
-      { key: "inv_total", label: "Investimento", num: true },
-      { key: "lucro", label: "Lucro", num: true },
-      { key: "roi", label: "ROI", num: true },
-      { key: "pedidos", label: "Pedidos", num: true },
-      { key: "concluidos", label: "Concluídos", num: true },
-      { key: "pendentes", label: "Pendentes", num: true },
-      { key: "cancelados", label: "Cancelados", num: true },
-      { key: "cliques_shopee", label: "Cliques Shopee", num: true },
+      { key: "subid", label: "SubID", shortLabel: "SubID", num: false, locked: true },
+      { key: "faturamento", label: "Faturamento", shortLabel: "Faturamento", num: true },
+      { key: "comissao", label: "Comissão", shortLabel: "Comissão", num: true },
+      { key: "inv_total", label: "Investimento", shortLabel: "Investimento", num: true },
+      { key: "lucro", label: "Lucro", shortLabel: "Lucro", num: true },
+      { key: "roi", label: "ROI", shortLabel: "ROI", num: true },
+      { key: "pedidos", label: "Pedidos", shortLabel: "Ped.", num: true },
+      { key: "concluidos", label: "Concluídos", shortLabel: "Concluídos", num: true },
+      { key: "pendentes", label: "Pendentes", shortLabel: "Pendentes", num: true },
+      { key: "cancelados", label: "Cancelados", shortLabel: "Cancelados", num: true },
+      { key: "cliques_shopee", label: "Cliques Shopee", shortLabel: "Cliq Shopee", num: true },
     ];
     if (ch === "meta") {
       return [
         ...base,
-        { key: "cliques_meta", label: "Cliques Meta", num: true },
-        { key: "impressoes", label: "Impressões", num: true },
-        { key: "alcance", label: "Alcance", num: true },
-        { key: "ctr_meta", label: "CTR Meta", num: true },
-        { key: "cpc_meta", label: "CPC Meta", num: true },
-        { key: "abatimento_cliques", label: "% Abat. cliques", num: true },
-        { key: "abatimento", label: "Abat. comissão", num: true },
-        { key: "status", label: "Status", num: false },
+        { key: "cliques_meta", label: "Cliques Meta", shortLabel: "Cliques Meta", num: true },
+        { key: "impressoes", label: "Impressões", shortLabel: "Impressões", num: true },
+        { key: "alcance", label: "Alcance", shortLabel: "Alcance", num: true },
+        { key: "ctr_meta", label: "CTR Meta", shortLabel: "CTR Meta", num: true },
+        { key: "cpc_meta", label: "CPC Meta", shortLabel: "CPC Meta", num: true },
+        { key: "abatimento_cliques", label: "% Abat. cliques", shortLabel: "Abat. cliques", num: true },
+        { key: "abatimento", label: "Abat. comissão", shortLabel: "Abat.", num: true },
+        { key: "tendencia", label: "Tendência", shortLabel: "Tend.", num: true },
+        { key: "status", label: "Status", shortLabel: "Status", num: false },
       ];
     }
     if (ch === "pinterest") {
       return [
         ...base,
-        { key: "cliques_pin", label: "Cliques Pin", num: true },
-        { key: "abatimento_cliques", label: "% Abat. cliques", num: true },
-        { key: "abatimento", label: "Abat. comissão", num: true },
-        { key: "status", label: "Status", num: false },
+        { key: "cliques_pin", label: "Cliques Pin", shortLabel: "Cliques Pin", num: true },
+        { key: "abatimento_cliques", label: "% Abat. cliques", shortLabel: "Abat. cliques", num: true },
+        { key: "abatimento", label: "Abat. comissão", shortLabel: "Abat.", num: true },
+        { key: "tendencia", label: "Tendência", shortLabel: "Tend.", num: true },
+        { key: "status", label: "Status", shortLabel: "Status", num: false },
       ];
     }
-    // orgânico
     return [
       ...base,
-      { key: "abatimento", label: "Abat. comissão", num: true },
-      { key: "status", label: "Status", num: false },
+      { key: "abatimento", label: "Abat. comissão", shortLabel: "Abat.", num: true },
+      { key: "tendencia", label: "Tendência", shortLabel: "Tend.", num: true },
+      { key: "status", label: "Status", shortLabel: "Status", num: false },
     ];
+  }
+
+  const SUBID_COL_ESSENTIAL = {
+    meta: ["subid", "comissao", "inv_total", "lucro", "roi", "pedidos", "cliques_meta", "cliques_shopee", "abatimento", "tendencia", "status"],
+    pinterest: ["subid", "comissao", "inv_total", "lucro", "roi", "pedidos", "cliques_pin", "cliques_shopee", "abatimento", "tendencia", "status"],
+    organico: ["subid", "comissao", "lucro", "roi", "pedidos", "cliques_shopee", "abatimento", "tendencia", "status"],
+    geral: ["subid", "comissao", "inv_total", "lucro", "roi", "pedidos", "cliques_shopee", "abatimento", "tendencia", "status"],
+  };
+
+  function subidColStorageKey(ch) {
+    return `saas:subid_cols:${ch || "meta"}`;
+  }
+
+  function defaultSubidColPrefs(ch) {
+    const all = allSubidColumnDefs(ch);
+    const essential = new Set(SUBID_COL_ESSENTIAL[ch] || SUBID_COL_ESSENTIAL.meta);
+    const prefs = {};
+    for (const col of all) prefs[col.key] = essential.has(col.key);
+    return prefs;
+  }
+
+  function readSubidColPrefs(ch) {
+    const defaults = defaultSubidColPrefs(ch);
+    try {
+      const raw = window.localStorage.getItem(subidColStorageKey(ch));
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (!parsed || typeof parsed !== "object") return defaults;
+      const merged = { ...defaults, ...parsed };
+      merged.subid = true;
+      return merged;
+    } catch {
+      return defaults;
+    }
+  }
+
+  function saveSubidColPrefs(ch, prefs) {
+    try {
+      window.localStorage.setItem(subidColStorageKey(ch), JSON.stringify({ ...prefs, subid: true }));
+    } catch { /* ignore quota */ }
+  }
+
+  function visibleSubidColumns(ch) {
+    const prefs = state.subidColPrefs?.[ch] || readSubidColPrefs(ch);
+    return allSubidColumnDefs(ch).filter((c) => c.locked || prefs[c.key]);
+  }
+
+  function subidTrendScore(r) {
+    const byDate = new Map();
+    for (const d of r.daily || []) {
+      const key = String(d.data || "");
+      if (!key) continue;
+      byDate.set(key, (byDate.get(key) || 0) + Number(d.comissao || 0));
+    }
+
+    let dates = [];
+    const start = state.dash?.range?.startDate;
+    const end = state.dash?.range?.endDate;
+    if (start && end) {
+      const cur = new Date(`${start}T12:00:00`);
+      const last = new Date(`${end}T12:00:00`);
+      while (cur <= last) {
+        dates.push(cur.toISOString().slice(0, 10));
+        cur.setDate(cur.getDate() + 1);
+      }
+    } else {
+      dates = [...byDate.keys()].sort();
+    }
+
+    if (dates.length < 2) return null;
+
+    const mid = Math.floor(dates.length / 2);
+    const oldVal = dates.slice(0, mid).reduce((a, dt) => a + (byDate.get(dt) || 0), 0);
+    const newVal = dates.slice(mid).reduce((a, dt) => a + (byDate.get(dt) || 0), 0);
+
+    if (oldVal <= 0 && newVal <= 0) return 0;
+    if (newVal > oldVal * 1.05) return 1;
+    if (newVal < oldVal * 0.95) return -1;
+    return 0;
+  }
+
+  function trendCellHtml(r) {
+    const score = subidTrendScore(r);
+    if (score === null) return `<td class="num trend-cell muted">—</td>`;
+    if (score > 0) return `<td class="num trend-cell trend-up" title="Comissão subindo no período">▲</td>`;
+    if (score < 0) return `<td class="num trend-cell trend-down" title="Comissão caindo no período">▼</td>`;
+    return `<td class="num trend-cell trend-flat" title="Comissão estável no período">→</td>`;
+  }
+
+  function channelSubidColumns(ch) {
+    return visibleSubidColumns(ch);
+  }
+
+  function paintSubidColPicker(ch) {
+    const pop = $("#subid-cols-pop");
+    const countEl = $("#subid-cols-count");
+    if (!pop) return;
+    const prefs = state.subidColPrefs?.[ch] || readSubidColPrefs(ch);
+    const all = allSubidColumnDefs(ch);
+    const visible = all.filter((c) => c.locked || prefs[c.key]).length;
+    if (countEl) countEl.textContent = `${visible}/${all.length}`;
+    pop.innerHTML = `
+      <div class="col-picker-head">
+        <strong>Colunas visíveis</strong>
+        <button type="button" class="col-picker-close" id="btn-subid-cols-close" aria-label="Fechar">×</button>
+      </div>
+      <div class="col-picker-presets">
+        <button type="button" class="chip-btn sm" data-col-preset="essential">Essencial</button>
+        <button type="button" class="chip-btn sm" data-col-preset="all">Mostrar tudo</button>
+      </div>
+      <div class="col-picker-list">
+        ${all.map((c) => `
+          <label class="col-picker-item${c.locked ? " is-locked" : ""}">
+            <input type="checkbox" data-col-key="${c.key}" ${c.locked || prefs[c.key] ? "checked" : ""} ${c.locked ? "disabled" : ""} />
+            <span>${escapeHtml(c.label)}</span>
+          </label>
+        `).join("")}
+      </div>`;
+  }
+
+  function wireSubidColPicker() {
+    const btn = $("#btn-subid-cols");
+    const pop = $("#subid-cols-pop");
+    if (!btn || !pop || pop.dataset.wired) return;
+    pop.dataset.wired = "1";
+
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const ch = state.channel || "meta";
+      if (!state.subidColPrefs) state.subidColPrefs = {};
+      if (!state.subidColPrefs[ch]) state.subidColPrefs[ch] = readSubidColPrefs(ch);
+      paintSubidColPicker(ch);
+      const open = pop.classList.toggle("hidden") === false;
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+
+    pop.addEventListener("click", (e) => e.stopPropagation());
+
+    pop.addEventListener("change", (e) => {
+      const input = e.target.closest("input[data-col-key]");
+      if (!input) return;
+      const ch = state.channel || "meta";
+      if (!state.subidColPrefs) state.subidColPrefs = {};
+      if (!state.subidColPrefs[ch]) state.subidColPrefs[ch] = readSubidColPrefs(ch);
+      state.subidColPrefs[ch][input.dataset.colKey] = input.checked;
+      saveSubidColPrefs(ch, state.subidColPrefs[ch]);
+      paintSubidColPicker(ch);
+      renderSubIdsDash();
+    });
+
+    pop.addEventListener("click", (e) => {
+      const presetBtn = e.target.closest("[data-col-preset]");
+      if (presetBtn) {
+        const ch = state.channel || "meta";
+        const preset = presetBtn.dataset.colPreset;
+        const next = preset === "all"
+          ? Object.fromEntries(allSubidColumnDefs(ch).map((c) => [c.key, true]))
+          : defaultSubidColPrefs(ch);
+        if (!state.subidColPrefs) state.subidColPrefs = {};
+        state.subidColPrefs[ch] = next;
+        saveSubidColPrefs(ch, next);
+        paintSubidColPicker(ch);
+        renderSubIdsDash();
+        return;
+      }
+      if (e.target.closest("#btn-subid-cols-close")) {
+        pop.classList.add("hidden");
+        btn.setAttribute("aria-expanded", "false");
+      }
+    });
+
+    document.addEventListener("click", () => {
+      if (pop.classList.contains("hidden")) return;
+      pop.classList.add("hidden");
+      btn.setAttribute("aria-expanded", "false");
+    });
   }
 
   function paintSubidThead(ch) {
@@ -1206,7 +1411,7 @@
     if (!thead) return channelSubidColumns(ch);
     const cols = channelSubidColumns(ch);
     thead.innerHTML = `<tr>${cols.map((c) =>
-      `<th class="th-sort${c.num ? " num" : ""}" data-sort="${c.key}">${escapeHtml(c.label)}</th>`
+      `<th class="th-sort${c.num ? " num" : ""}" data-sort="${c.key}">${escapeHtml(c.shortLabel || c.label)}</th>`
     ).join("")}</tr>`;
     return cols;
   }
@@ -1243,62 +1448,10 @@
       case "cpc_meta": return `<td class="num">${fmt(r.cpc_meta)}</td>`;
       case "abatimento_cliques": return `<td class="num">${fmtPct(abatC)}</td>`;
       case "abatimento": return `<td class="num">${fmtPct(abat)}</td>`;
+      case "tendencia": return trendCellHtml(r);
       case "status": return `<td>${statusSelectHtml(r.subid, r.status)}</td>`;
       default: return `<td class="num">—</td>`;
     }
-  }
-
-  function renderChannelAnalysis(k, ch) {
-    const el = $("#channel-analysis-grid");
-    if (!el) return;
-    const hasData = Boolean(state.dash);
-    const inv = ch === "pinterest"
-      ? Number(k.inv_pin || 0)
-      : ch === "meta"
-        ? Number(k.inv_meta || 0)
-        : Number(k.inv_total || 0);
-    const items = [
-      { label: "Faturamento", value: fmtDisplay(hasData ? k.faturamento : null) },
-      { label: "Comissão", value: fmtDisplay(hasData ? k.comissao : null) },
-      { label: "Investimento", value: fmtDisplay(hasData ? inv : null) },
-      { label: "Lucro", value: fmtDisplay(hasData ? k.lucro : null), tone: hasData && Number(k.lucro) < 0 ? "neg" : "pos" },
-      { label: "ROI", value: fmtPct(hasData ? k.roi : null) },
-      { label: "Pedidos", value: hasData ? fmtNum(k.pedidos || 0) : "—" },
-      { label: "Concluídos", value: hasData ? fmtNum(k.concluidos || 0) : "—" },
-      { label: "Pendentes", value: hasData ? fmtNum(k.pendentes || 0) : "—" },
-      { label: "Cancelados", value: hasData ? fmtNum(k.cancelados || 0) : "—" },
-      { label: "Cliques Shopee", value: k.cliques_shopee != null ? fmtNum(k.cliques_shopee) : "—" },
-    ];
-    if (ch === "meta") {
-      items.push(
-        { label: "Cliques Meta", value: hasData ? fmtNum(k.cliques_meta || 0) : "—" },
-        { label: "Impressões", value: hasData ? fmtNum(k.impressoes || 0) : "—" },
-        { label: "Alcance", value: hasData ? fmtNum(k.alcance || 0) : "—" },
-        { label: "CTR Meta", value: fmtPct(k.ctr_meta) },
-        { label: "CPC Meta", value: fmtDisplay(k.cpc_meta) },
-        {
-          label: "% Abat. cliques",
-          value: k.abatimento_cliques != null ? fmtPct(k.abatimento_cliques) : "—",
-          note: "Shopee ÷ Meta",
-        },
-      );
-    } else if (ch === "pinterest") {
-      items.push(
-        { label: "Cliques Pin", value: hasData ? fmtNum(k.cliques_pin || 0) : "—" },
-        {
-          label: "% Abat. cliques",
-          value: k.abatimento_cliques != null ? fmtPct(k.abatimento_cliques) : "—",
-          note: "Shopee ÷ Pin",
-        },
-      );
-    }
-    items.push({ label: "Abat. comissão", value: fmtPct(hasData ? k.abatimento : null), note: "comissão ÷ fat." });
-    el.innerHTML = items.map((it) => `
-      <article class="analysis-card">
-        <span class="analysis-label">${escapeHtml(it.label)}</span>
-        <strong class="analysis-value ${it.tone || ""}">${it.value}</strong>
-        ${it.note ? `<span class="analysis-note">${escapeHtml(it.note)}</span>` : ""}
-      </article>`).join("");
   }
 
   function applyChannelView() {
@@ -1311,7 +1464,6 @@
     const dash = state.dash;
     if (!dash) {
       renderKpis({});
-      renderChannelAnalysis({}, ch);
       renderSuggestions(null);
       renderChart([]);
       return;
@@ -1362,7 +1514,9 @@
       renderChart(daily);
       renderDailyTable(daily, k);
     } else {
-      renderChannelAnalysis(k, ch);
+      if (!state.subidColPrefs) state.subidColPrefs = {};
+      if (!state.subidColPrefs[ch]) state.subidColPrefs[ch] = readSubidColPrefs(ch);
+      paintSubidColPicker(ch);
       renderSubIdsDash();
     }
     renderSuggestions(dash);
@@ -1565,6 +1719,7 @@
         const fat = Number(r.faturamento || 0);
         return fat > 0 ? (Number(r.comissao || 0) / fat) * 100 : Number(r.abatimento || 0);
       }
+      if (state.subidSort.key === "tendencia") return subidTrendScore(r);
       return r[state.subidSort.key];
     });
     paintSortHeaders("#subid-thead", state.subidSort);
@@ -2089,13 +2244,17 @@
     }
   }
 
+  function clearPeriodPresets() {
+    $$(".period-preset").forEach((b) => b.classList.remove("active"));
+  }
+
   function setRange(kind) {
-    $$(".chip-btn").forEach((b) => b.classList.toggle("active", b.dataset.range === kind));
-    if (kind === "7d") {
+    $$(".period-preset").forEach((b) => b.classList.toggle("active", b.dataset.range === kind));
+    if (kind === "yesterday") {
+      $("#start-date").value = yesterdayISO();
+      $("#end-date").value = yesterdayISO();
+    } else if (kind === "7d") {
       $("#start-date").value = daysAgoISO(6);
-      $("#end-date").value = todayISO();
-    } else if (kind === "30d") {
-      $("#start-date").value = daysAgoISO(29);
       $("#end-date").value = todayISO();
     } else {
       $("#start-date").value = monthStartISO();
@@ -2131,7 +2290,7 @@
     $("#start-date").value = daysAgoISO(6);
     $("#end-date").value = todayISO();
     syncTopbarRange();
-    $$(".chip-btn").forEach((b) => b.classList.toggle("active", b.dataset.range === "7d"));
+    $$(".period-preset").forEach((b) => b.classList.toggle("active", b.dataset.range === "7d"));
 
     const periodPop = $("#period-dates-pop");
     const periodBtn = $("#btn-period-main");
@@ -2142,6 +2301,7 @@
     $("#btn-period-apply")?.addEventListener("click", () => {
       periodPop?.classList.add("hidden");
       periodBtn?.setAttribute("aria-expanded", "false");
+      clearPeriodPresets();
       syncTopbarRange();
       loadDashboard({ force: false });
     });
@@ -2251,7 +2411,9 @@
       if (t) setView(t.dataset.goto);
     });
 
-    $$(".chip-btn").forEach((b) => b.addEventListener("click", () => setRange(b.dataset.range)));
+    $$(".period-preset").forEach((b) => b.addEventListener("click", () => setRange(b.dataset.range)));
+
+    wireSubidColPicker();
 
     $("#btn-load")?.addEventListener("click", () => loadDashboard({ force: false }));
     $("#btn-sync").addEventListener("click", () => loadDashboard({ force: true }));

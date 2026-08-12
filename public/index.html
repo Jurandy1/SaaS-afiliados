@@ -274,10 +274,9 @@
                 </div>
                 <span class="bg-brand-500/10 text-brand-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-brand-500/20" id="period-days-hint">—</span>
                 <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold period-presets" role="group" aria-label="Atalhos de período">
-                  <button type="button" class="period-preset chip-btn px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900" data-range="7d">7d</button>
+                  <button type="button" class="period-preset chip-btn px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900" data-range="yesterday">Ontem</button>
+                  <button type="button" class="period-preset chip-btn px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900" data-range="7d">7 dias</button>
                   <button type="button" class="period-preset chip-btn px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900" data-range="month">Este mês</button>
-                  <button type="button" class="period-preset chip-btn px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900" data-range="mtd">MTD</button>
-                  <button type="button" class="period-preset chip-btn px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900" data-range="30d">30d</button>
                 </div>
               </div>
             </section>
@@ -296,12 +295,6 @@
                 <p class="text-slate-600 leading-relaxed">A <span class="text-amber-600 font-semibold">Shopee API</span> entrega vendas e comissões. <span class="text-meta-600 font-semibold">Meta</span> e <span class="text-rose-600 font-semibold">Pinterest</span> consolidam custos. <span class="text-emerald-600 font-semibold">Lucro líquido</span> = comissão − mídia − imposto.</p>
               </div>
             </div>
-          </div>
-
-          <!-- Análise do canal -->
-          <div class="channel-only hidden space-y-3">
-            <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase" id="channel-analysis-tag">Análise</div>
-            <div class="analysis-grid" id="channel-analysis-grid"></div>
           </div>
 
           <!-- Lucro por dia -->
@@ -386,7 +379,15 @@
                     <p class="text-xs text-slate-500" id="dash-subids-eyebrow">altere o status · clique para o histórico</p>
                   </div>
                 </div>
-                <input type="search" id="subid-search" class="search max-w-xs" placeholder="Filtrar por SubID…" />
+                <div class="flex flex-wrap items-center gap-2 justify-end">
+                  <div class="col-picker-wrap relative">
+                    <button type="button" class="btn ghost sm" id="btn-subid-cols" aria-expanded="false" aria-controls="subid-cols-pop">
+                      <i class="fa-solid fa-table-columns"></i> Colunas <span class="col-picker-count" id="subid-cols-count"></span>
+                    </button>
+                    <div class="col-picker-pop hidden" id="subid-cols-pop" role="dialog" aria-label="Colunas visíveis"></div>
+                  </div>
+                  <input type="search" id="subid-search" class="search max-w-xs" placeholder="Filtrar por SubID…" />
+                </div>
               </div>
               <div class="overflow-x-auto">
                 <table class="data-table data-table--ops" id="subid-table">
