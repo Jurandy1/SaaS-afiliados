@@ -107,10 +107,14 @@ async function saveDashboardSnapshot(dash, userId = requireUserId()) {
     updated_at: now,
   }));
   if (dailyRows.length) {
-    const { error } = await supabase.from("daily_metrics").upsert(dailyRows);
+    const { error } = await supabase
+      .from("daily_metrics")
+      .upsert(dailyRows, { onConflict: "user_id,data" });
     if (error) throw new Error(`daily_metrics: ${error.message}`);
   }
 
+  // Upsert SubIDs do snapshot (não apaga métricas de outros contextos no meio do upsert;
+  // substitui o conjunto gravado neste sync para o usuário).
   await supabase.from("subid_metrics").delete().eq("user_id", userId);
   const subRows = (dash.subIds || []).map((r) => ({
     user_id: userId,
@@ -123,6 +127,7 @@ async function saveDashboardSnapshot(dash, userId = requireUserId()) {
     cancelados: r.cancelados,
     itens: r.itens || 0,
     abatimento: r.abatimento || 0,
+    cliques_shopee: r.cliques_shopee != null ? Number(r.cliques_shopee) : 0,
     inv_meta: r.inv_meta || 0,
     inv_pin: r.inv_pin || 0,
     inv_total: r.inv_total || 0,
@@ -133,7 +138,14 @@ async function saveDashboardSnapshot(dash, userId = requireUserId()) {
   if (subRows.length) {
     for (let i = 0; i < subRows.length; i += 200) {
       const chunk = subRows.slice(i, i + 200);
-      const { error } = await supabase.from("subid_metrics").upsert(chunk);
+      let { error } = await supabase.from("subid_metrics").upsert(chunk);
+      if (error && /cliques_shopee/i.test(error.message || "")) {
+        const stripped = chunk.map(({ cliques_shopee, ...rest }) => rest);
+        ({ error } = await supabase.from("subid_metrics").upsert(stripped));
+        if (!error) {
+          console.warn("[store] coluna cliques_shopee ausente — rode sql/migrate-cliques-shopee.sql");
+        }
+      }
       if (error) throw new Error(`subid_metrics: ${error.message}`);
     }
   }
@@ -285,6 +297,7 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
         cancelados: Number(r.cancelados || 0),
         itens: Number(r.itens || 0),
         abatimento: Number(r.abatimento || 0),
+        cliques_shopee: r.cliques_shopee != null ? Number(r.cliques_shopee) : null,
         inv_meta: Number(r.inv_meta || 0),
         inv_pin: Number(r.inv_pin || 0),
         inv_total: inv,

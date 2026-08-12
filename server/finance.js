@@ -5,7 +5,7 @@ const { loadMetaSpendByDay } = require("./meta");
 const { loadPinSpendByDay } = require("./pinterest");
 const { requireUserId } = require("./auth");
 const { loadSettings } = require("./store");
-const { loadSubidOps, applyOpsToSubIds } = require("./subidOps");
+const { loadSubidOps, applyOpsToSubIds, inferCanal } = require("./subidOps");
 
 function round2(n) {
   return Math.round(Number(n || 0) * 100) / 100;
@@ -15,18 +15,34 @@ function sumSpend(rows) {
   const byDay = {};
   const bySub = {};
   const bySubDay = {};
+  const clicksBySub = {};
+  const clicksBySubDay = {};
+  const impressoesBySub = {};
+  const alcanceBySub = {};
+  const spendClicksBySub = {}; // for weighted CPC
   for (const r of rows || []) {
     const day = r.data;
     const sub = String(r.subid || "").trim().toLowerCase() || "semsubid";
     const g = Number(r.gasto || 0);
+    const clicks = Number(r.cliques || 0);
+    const impressoes = Number(r.impressoes || 0);
+    const alcance = Number(r.alcance || 0);
     if (day) {
       byDay[day] = (byDay[day] || 0) + g;
       const sk = `${sub}|${day}`;
       bySubDay[sk] = (bySubDay[sk] || 0) + g;
+      clicksBySubDay[sk] = (clicksBySubDay[sk] || 0) + clicks;
     }
     bySub[sub] = (bySub[sub] || 0) + g;
+    clicksBySub[sub] = (clicksBySub[sub] || 0) + clicks;
+    impressoesBySub[sub] = (impressoesBySub[sub] || 0) + impressoes;
+    alcanceBySub[sub] = (alcanceBySub[sub] || 0) + alcance;
+    if (!spendClicksBySub[sub]) spendClicksBySub[sub] = { spend: 0, clicks: 0, impressoes: 0 };
+    spendClicksBySub[sub].spend += g;
+    spendClicksBySub[sub].clicks += clicks;
+    spendClicksBySub[sub].impressoes += impressoes;
   }
-  return { byDay, bySub, bySubDay };
+  return { byDay, bySub, bySubDay, clicksBySub, clicksBySubDay, impressoesBySub, alcanceBySub, spendClicksBySub };
 }
 
 /**
@@ -114,18 +130,37 @@ async function enrichDashboardWithAds(dash, userId = requireUserId()) {
     });
     let canal = r.canal || null;
     if (!canal) {
-      if (fin.inv_meta > 0 && fin.inv_pin <= 0) canal = "meta";
-      else if (fin.inv_pin > 0 && fin.inv_meta <= 0) canal = "pinterest";
-      else if (fin.inv_meta <= 0 && fin.inv_pin <= 0) canal = "organico";
-      else canal = "meta";
+      canal = inferCanal(r.subid, fin.inv_meta, fin.inv_pin);
     }
-    const status = r.status || (fin.lucro < 0 ? "pausada" : "ativa");
+    const status = r.status || (fin.lucro < 0 ? "desativada" : "ativa");
+    const cliquesMeta = meta.clicksBySub[key] || 0;
+    const cliquesPin = pin.clicksBySub[key] || 0;
+    const cliquesAds = cliquesMeta + cliquesPin;
+    const cliquesShopee = r.cliques_shopee != null ? Number(r.cliques_shopee) : null;
+    const impressoes = meta.impressoesBySub[key] || 0;
+    const alcance = meta.alcanceBySub[key] || 0;
+    const metaAgg = meta.spendClicksBySub[key] || { spend: 0, clicks: 0, impressoes: 0 };
+    const cpc = metaAgg.clicks > 0 ? round2(metaAgg.spend / metaAgg.clicks) : null;
+    const ctr = metaAgg.impressoes > 0 ? round2((metaAgg.clicks / metaAgg.impressoes) * 100) : null;
+    let abatimentoCliques = null;
+    if (cliquesShopee != null && cliquesAds > 0) {
+      abatimentoCliques = round2((cliquesShopee / cliquesAds) * 100);
+    }
     return {
       ...r,
       ...fin,
       daily: dailyRows,
       canal,
       status,
+      cliques_meta: cliquesMeta,
+      cliques_pin: cliquesPin,
+      cliques_ads: cliquesAds,
+      cliques_shopee: cliquesShopee,
+      abatimento_cliques: abatimentoCliques,
+      impressoes,
+      alcance,
+      cpc_meta: cpc,
+      ctr_meta: ctr,
     };
   });
 
@@ -136,13 +171,108 @@ async function enrichDashboardWithAds(dash, userId = requireUserId()) {
   const fat = Number(dash.kpis?.faturamento || 0);
   const abatimento = fat > 0 ? round2((comissao / fat) * 100) : Number(dash.kpis?.abatimento || 0);
 
+  // Totais de mídia a partir das linhas brutas (não só SubIDs com venda Shopee)
+  const cliquesMetaTotal = metaRows.reduce((a, r) => a + Number(r.cliques || 0), 0);
+  const impressoesTotal = metaRows.reduce((a, r) => a + Number(r.impressoes || 0), 0);
+  const alcanceTotal = metaRows.reduce((a, r) => a + Number(r.alcance || 0), 0);
+  const cliquesPinTotal = pinRows.reduce((a, r) => a + Number(r.cliques || 0), 0);
+  const cliquesShopeeTotal = subIds.reduce((a, r) => a + Number(r.cliques_shopee || 0), 0);
+  const cliquesAdsTotal = cliquesMetaTotal + cliquesPinTotal;
+  const cpcMeta = cliquesMetaTotal > 0 ? round2(invMeta / cliquesMetaTotal) : null;
+  const ctrMeta = impressoesTotal > 0 ? round2((cliquesMetaTotal / impressoesTotal) * 100) : null;
+  let abatimentoCliquesKpi = null;
+  if (cliquesShopeeTotal > 0 && cliquesAdsTotal > 0) {
+    abatimentoCliquesKpi = round2((cliquesShopeeTotal / cliquesAdsTotal) * 100);
+  } else if (cliquesShopeeTotal > 0 && cliquesMetaTotal > 0) {
+    abatimentoCliquesKpi = round2((cliquesShopeeTotal / cliquesMetaTotal) * 100);
+  }
+
   const kpis = {
     ...(dash.kpis || {}),
     ...kpisFin,
     abatimento,
     taxRate: Number(tax.taxRate || 0),
     metaTaxRate: Number(tax.metaTaxRate != null ? tax.metaTaxRate : 12),
+    cliques_meta: cliquesMetaTotal,
+    cliques_pin: cliquesPinTotal,
+    cliques_ads: cliquesAdsTotal,
+    cliques_shopee: cliquesShopeeTotal,
+    impressoes: impressoesTotal,
+    alcance: alcanceTotal,
+    cpc_meta: cpcMeta,
+    ctr_meta: ctrMeta,
+    abatimento_cliques: abatimentoCliquesKpi,
   };
+
+  // Inclui SubIDs só com gasto Meta/Pin (sem venda Shopee no período) para não perder cliques
+  const seenSubs = new Set(subIds.map((r) => String(r.subid || "").trim().toLowerCase()));
+  const orphanSubs = [];
+  for (const [sub, spend] of Object.entries(meta.bySub)) {
+    if (!sub || seenSubs.has(sub) || !(spend > 0)) continue;
+    const fin = calcLucroRoi(0, spend, pin.bySub[sub] || 0, tax);
+    const cliquesMeta = meta.clicksBySub[sub] || 0;
+    const cliquesPin = pin.clicksBySub[sub] || 0;
+    const impressoes = meta.impressoesBySub[sub] || 0;
+    const alcance = meta.alcanceBySub[sub] || 0;
+    const metaAgg = meta.spendClicksBySub[sub] || { spend: 0, clicks: 0, impressoes: 0 };
+    orphanSubs.push({
+      subid: sub,
+      faturamento: 0,
+      comissao: 0,
+      pedidos: 0,
+      concluidos: 0,
+      pendentes: 0,
+      cancelados: 0,
+      unpaid: 0,
+      itens: 0,
+      abatimento: null,
+      cliques_shopee: 0,
+      cliques_meta: cliquesMeta,
+      cliques_pin: cliquesPin,
+      cliques_ads: cliquesMeta + cliquesPin,
+      impressoes,
+      alcance,
+      cpc_meta: metaAgg.clicks > 0 ? round2(metaAgg.spend / metaAgg.clicks) : null,
+      ctr_meta: metaAgg.impressoes > 0 ? round2((metaAgg.clicks / metaAgg.impressoes) * 100) : null,
+      abatimento_cliques: null,
+      canal: inferCanal(sub, spend, pin.bySub[sub] || 0),
+      status: "ativa",
+      daily: [],
+      ...fin,
+    });
+    seenSubs.add(sub);
+  }
+  for (const [sub, spend] of Object.entries(pin.bySub)) {
+    if (!sub || seenSubs.has(sub) || !(spend > 0)) continue;
+    const fin = calcLucroRoi(0, 0, spend, tax);
+    const cliquesPin = pin.clicksBySub[sub] || 0;
+    orphanSubs.push({
+      subid: sub,
+      faturamento: 0,
+      comissao: 0,
+      pedidos: 0,
+      concluidos: 0,
+      pendentes: 0,
+      cancelados: 0,
+      unpaid: 0,
+      itens: 0,
+      abatimento: null,
+      cliques_shopee: 0,
+      cliques_meta: 0,
+      cliques_pin: cliquesPin,
+      cliques_ads: cliquesPin,
+      impressoes: 0,
+      alcance: 0,
+      cpc_meta: null,
+      ctr_meta: null,
+      abatimento_cliques: null,
+      canal: "pinterest",
+      status: "ativa",
+      daily: [],
+      ...fin,
+    });
+  }
+  const subIdsAll = orphanSubs.length ? subIds.concat(orphanSubs) : subIds;
 
   try {
     const supabase = getSupabase();
@@ -169,9 +299,9 @@ async function enrichDashboardWithAds(dash, userId = requireUserId()) {
         { onConflict: "user_id,data" }
       );
     }
-    if (subIds.length) {
+    if (subIdsAll.length) {
       await supabase.from("subid_metrics").upsert(
-        subIds.map((r) => ({
+        subIdsAll.map((r) => ({
           user_id: userId,
           subid: r.subid,
           faturamento: r.faturamento || 0,
@@ -181,6 +311,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId()) {
           pendentes: r.pendentes || 0,
           cancelados: r.cancelados || 0,
           unpaid: r.unpaid || 0,
+          cliques_shopee: r.cliques_shopee != null ? Number(r.cliques_shopee) : 0,
           inv_meta: r.inv_meta,
           inv_pin: r.inv_pin,
           inv_total: r.inv_total,
@@ -198,7 +329,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId()) {
   return {
     ...dash,
     daily,
-    subIds: applyOpsToSubIds(subIds, await loadSubidOps(userId)),
+    subIds: applyOpsToSubIds(subIdsAll, await loadSubidOps(userId)),
     kpis,
     tax,
   };

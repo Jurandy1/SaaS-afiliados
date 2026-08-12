@@ -1,18 +1,38 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="light">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#f7f6f2" />
+  <meta name="theme-color" content="#f8fafc" />
   <title>Painel de Afiliados</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50: "#f0fdf4", 100: "#dcfce7", 500: "#10b981", 600: "#059669", 700: "#047857", 900: "#064e3b" },
+            shopee: { 500: "#ee4d2d", 600: "#d73211" },
+            meta: { 500: "#0081fb", 600: "#0066c8" },
+            pinterest: { 500: "#e60023", 600: "#ad001a" },
+          },
+          fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
+        },
+      },
+    };
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css" />
-  <link rel="stylesheet" href="/design-novo.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/gemini-app.css" />
 </head>
-<body>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen antialiased selection:bg-brand-500 selection:text-white font-sans transition-colors duration-200">
+
+  <!-- AUTH -->
   <div id="auth-gate" class="auth-gate">
     <div class="auth-shell">
       <div class="auth-card" id="auth-card">
@@ -22,12 +42,10 @@
             <div class="brand-sub">painel · v.1</div>
           </div>
         </div>
-
         <div class="auth-tabs">
           <button type="button" class="tab active" id="auth-tab-login">Entrar</button>
           <button type="button" class="tab" id="auth-tab-register">Criar conta</button>
         </div>
-
         <form id="auth-form" class="form">
           <div class="auth-grid">
             <label>Email
@@ -37,7 +55,6 @@
               <input type="password" id="auth-password" required minlength="6" autocomplete="current-password" />
             </label>
           </div>
-
           <div id="register-extra" class="hidden register-block">
             <div class="auth-section-title">Dados da conta</div>
             <div class="auth-grid">
@@ -48,7 +65,6 @@
                 <input type="text" id="auth-company" autocomplete="organization" placeholder="Nome da operação" />
               </label>
             </div>
-
             <div class="auth-section-title">Shopee Affiliate <span class="req">obrigatório</span></div>
             <p class="hint tight">App ID e Secret do painel Open API da Shopee.</p>
             <div class="auth-grid">
@@ -59,7 +75,6 @@
                 <input type="password" id="reg-app-secret" autocomplete="off" placeholder="Cole o secret" />
               </label>
             </div>
-
             <div class="auth-section-title">Meta Ads <span class="opt">opcional</span></div>
             <p class="hint tight">Pode preencher agora ou depois em Configurações.</p>
             <label>Access token
@@ -72,11 +87,9 @@
               <input type="text" id="reg-meta-version" value="v19.0" autocomplete="off" />
             </label>
           </div>
-
           <button type="submit" class="btn primary auth-submit" id="auth-submit">Entrar</button>
           <div id="auth-status" class="form-status"></div>
         </form>
-
         <div class="auth-foot">
           <p class="hint">Cada conta usa a própria Shopee e o próprio Meta. Novos cadastros passam por aprovação.</p>
         </div>
@@ -84,345 +97,371 @@
     </div>
   </div>
 
-  <div class="app hidden" id="app-shell">
-    <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        <div class="brand-text">
-          <div class="brand-name">Afiliados</div>
-          <div class="brand-sub">painel · v.1</div>
+  <!-- APP (layout Gemini) -->
+  <div id="app-shell" class="hidden flex flex-col lg:flex-row min-h-screen">
+    <aside id="sidebar" class="w-full lg:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between shrink-0 z-30 transition-colors">
+      <div>
+        <div class="h-16 flex items-center justify-between px-5 border-b border-slate-200 dark:border-slate-800">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-brand-500/20">
+              <i class="fa-solid fa-chart-line"></i>
+            </div>
+            <div>
+              <h1 class="font-bold text-base tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+                Afiliados
+                <span class="bg-brand-500/10 dark:bg-brand-500/20 text-brand-600 dark:text-brand-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-brand-500/20">v.1</span>
+              </h1>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400">Painel Executivo</p>
+            </div>
+          </div>
+          <button type="button" id="btn-sidebar-close" class="lg:hidden text-slate-400 hover:text-slate-600 p-1" aria-label="Fechar menu">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
         </div>
-        <button type="button" class="icon-btn sidebar-close" id="btn-sidebar-close" aria-label="Fechar menu">Fechar</button>
+
+        <div class="p-4 border-b border-slate-200/80 dark:border-slate-800">
+          <div class="bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors p-2.5 rounded-xl border border-slate-200 dark:border-slate-700/60 flex items-center gap-3">
+            <div class="relative">
+              <div class="account-avatar">AF</div>
+              <span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full"></span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate" id="user-email-label">Conta</p>
+              <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate" id="team-plan">Shopee · Meta conectados</p>
+            </div>
+          </div>
+        </div>
+
+        <nav class="p-3 space-y-5" id="sidebar-nav">
+          <div>
+            <div class="nav-sec-title">Operação</div>
+            <div class="space-y-1">
+              <button type="button" class="nav-item active" data-view="dashboard">
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/dashboard.png" alt="" /><span class="nav-label">Dashboard</span></span>
+                <span class="nav-badge" id="nav-subid-count"></span>
+              </button>
+              <button type="button" class="nav-item" data-view="campanhas-meta">
+                <span class="nav-left"><img class="nav-logo" src="/assets/meta.png" alt="Meta" /><span class="nav-label">Campanhas Meta</span></span>
+                <span class="nav-badge" id="nav-count-meta"></span>
+              </button>
+              <button type="button" class="nav-item" data-view="campanhas-pinterest">
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/pinterest.png" alt="Pinterest" /><span class="nav-label">Campanhas Pinterest</span></span>
+                <span class="nav-badge" id="nav-count-pin"></span>
+              </button>
+              <button type="button" class="nav-item" data-view="campanhas-organicas">
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/shopee.png" alt="Shopee" /><span class="nav-label">Campanhas Orgânicas</span></span>
+                <span class="nav-badge" id="nav-count-org"></span>
+              </button>
+              <button type="button" class="nav-item" data-view="produtos">
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/produtos.png" alt="" /><span class="nav-label">Produtos</span></span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <div class="nav-sec-title">Inteligência</div>
+            <div class="space-y-1">
+              <button type="button" class="nav-item" data-view="analise-ia">
+                <span class="nav-left"><img class="nav-logo is-square nav-logo--ia" src="/assets/ia.png?v=2" alt="IA" /><span class="nav-label">Análise IA</span></span>
+                <span class="nav-badge" id="nav-count-ia"></span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <div class="nav-sec-title">Sistema</div>
+            <div class="space-y-1">
+              <button type="button" class="nav-item" data-view="canais">
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/tag.png" alt="" /><span class="nav-label">Canais e Status</span></span>
+              </button>
+              <button type="button" class="nav-item" data-view="config">
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/configuracao.png" alt="" /><span class="nav-label">Configurações</span></span>
+              </button>
+            </div>
+          </div>
+        </nav>
       </div>
 
-      <div class="account-pill">
-        <div class="account-avatar">AF</div>
-        <div class="account-meta">
-          <div class="account-title" id="user-email-label">Conta</div>
-          <div class="account-sub" id="team-plan">Shopee · Meta conectados</div>
-        </div>
-      </div>
-
-      <nav class="nav" id="sidebar-nav">
-        <div class="nav-sec">
-          <div class="nav-sec-title">Operação</div>
-          <button type="button" class="nav-item active" data-view="dashboard">
-            <img class="nav-logo is-square" src="/assets/dashboard.png" alt="" /><span class="nav-label">Dashboard</span>
-            <span class="nav-badge" id="nav-subid-count"></span>
-          </button>
-          <button type="button" class="nav-item nav-item--meta" data-view="campanhas-meta">
-            <img class="nav-logo" src="/assets/meta.png" alt="Meta" /><span class="nav-label">Campanhas Meta</span>
-            <span class="nav-badge" id="nav-count-meta"></span>
-          </button>
-          <button type="button" class="nav-item nav-item--pin" data-view="campanhas-pinterest">
-            <img class="nav-logo is-square" src="/assets/pinterest.png" alt="Pinterest" /><span class="nav-label">Campanhas Pinterest</span>
-            <span class="nav-badge" id="nav-count-pin"></span>
-          </button>
-          <button type="button" class="nav-item nav-item--org" data-view="campanhas-organicas">
-            <img class="nav-logo is-square" src="/assets/shopee.png" alt="Shopee" /><span class="nav-label">Campanhas orgânicas</span>
-            <span class="nav-badge" id="nav-count-org"></span>
-          </button>
-          <button type="button" class="nav-item" data-view="produtos">
-            <img class="nav-logo is-square" src="/assets/produtos.png" alt="" /><span class="nav-label">Produtos</span>
-          </button>
-        </div>
-        <div class="nav-sec">
-          <div class="nav-sec-title">Sistema</div>
-          <button type="button" class="nav-item" data-view="canais">
-            <img class="nav-logo is-square" src="/assets/tag.png" alt="" /><span class="nav-label">Canais e status</span>
-          </button>
-          <button type="button" class="nav-item" data-view="config">
-            <img class="nav-logo is-square" src="/assets/configuracao.png" alt="" /><span class="nav-label">Configurações</span>
-          </button>
-        </div>
-      </nav>
-
-      <div class="sidebar-foot">
-        <div class="api-status" id="api-status">
-          <div class="api-status-top"><span class="api-dot"></span><b id="api-state-label">APIs online</b></div>
-          <div class="api-status-lines" id="sidebar-status">API não configurada</div>
-        </div>
-        <div class="sidebar-user">
-          <div class="user-meta">
-            <div class="user-name" id="team-name">Minha conta</div>
-            <div class="user-plan">Shopee · Meta · Pin CSV</div>
+      <div class="p-4 border-t border-slate-200 dark:border-slate-800 space-y-3">
+        <div class="bg-slate-100 dark:bg-slate-800/40 rounded-xl p-3 border border-slate-200/80 dark:border-slate-800" id="api-status">
+          <div class="flex items-center justify-between text-xs mb-1">
+            <span class="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+              <span class="api-dot"></span>
+              <b id="api-state-label">API Backend</b>
+            </span>
+            <span class="text-emerald-600 dark:text-emerald-400 font-bold text-[11px]">Online</span>
           </div>
-          <div class="sidebar-user-actions">
-            <a href="/admin" id="admin-entry" class="btn ghost sm hidden">Admin</a>
-            <button type="button" class="btn ghost sm" id="btn-logout" title="Sair">Sair</button>
-          </div>
+          <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate" id="sidebar-status">Shopee • Meta • Pinterest</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <a href="/admin" id="admin-entry" class="hidden text-xs bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-2 rounded-xl font-medium text-center border border-slate-200 dark:border-slate-700">
+            <i class="fa-solid fa-shield-halved mr-1 text-slate-500"></i> Admin
+          </a>
+          <button type="button" id="btn-logout" class="text-xs bg-red-50 dark:bg-red-500/10 hover:bg-red-100 dark:hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/20 py-2 rounded-xl font-medium text-center col-span-2">
+            <i class="fa-solid fa-right-from-bracket mr-1"></i> Sair
+          </button>
+        </div>
+        <div class="hidden">
+          <div id="team-name">Minha conta</div>
         </div>
       </div>
     </aside>
 
-    <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
-    <main class="main">
-      <header class="topbar">
-        <div class="topbar-left">
-          <button type="button" class="icon-btn menu-btn" id="btn-sidebar-open" aria-label="Abrir menu">Menu</button>
-          <div class="crumbs">Painel <span>/</span> <strong id="crumb-label">Dashboard</strong></div>
-        </div>
-        <div class="top-actions">
-          <div class="search-wrap">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-            <input type="search" id="global-search" placeholder="Buscar SubID, produto…" />
+    <div id="sidebar-backdrop" class="hidden" hidden></div>
+
+    <main class="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-950 overflow-y-auto transition-colors">
+      <header class="bg-white/90 dark:bg-slate-900/80 sticky top-0 z-20 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-center gap-3">
+          <button type="button" id="btn-sidebar-open" class="lg:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200" aria-label="Abrir menu">
+            <i class="fa-solid fa-bars text-lg"></i>
+          </button>
+          <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <span>Painel</span>
+              <i class="fa-solid fa-chevron-right text-[10px]"></i>
+              <span class="text-slate-800 dark:text-slate-200 font-semibold" id="crumb-label">Dashboard</span>
+            </div>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span class="text-xs text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider" id="dash-live-text">Ao vivo</span>
+            </div>
           </div>
-          <div class="top-meta" id="topbar-range" title="Período ativo">—</div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2.5">
+          <div class="relative hidden md:block">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+            <input id="global-search" type="search" placeholder="Buscar SubID, produto, tag..." class="bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 w-56" />
+          </div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:block" id="topbar-range">—</div>
+          <button type="button" id="btn-meta-sync-top" class="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-meta-500/15 hover:bg-blue-100 dark:hover:bg-meta-500/25 border border-blue-200 dark:border-meta-500/30 text-meta-600 dark:text-meta-400 text-xs font-bold flex items-center gap-2">
+            <img class="icon-btn-img" src="/assets/meta.png" alt="" /><span>Sincronizar Meta</span>
+          </button>
+          <button type="button" id="btn-sync" class="px-3 py-1.5 rounded-xl bg-orange-50 dark:bg-shopee-500/15 hover:bg-orange-100 dark:hover:bg-shopee-500/25 border border-orange-200 dark:border-shopee-500/30 text-shopee-600 dark:text-shopee-500 text-xs font-bold flex items-center gap-2">
+            <img class="icon-btn-img" src="/assets/shopee.png" alt="" /><span>Puxar Shopee</span>
+          </button>
+          <button type="button" id="btn-export" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-2">
+            <i class="fa-solid fa-file-csv text-xs text-slate-500"></i><span class="hidden sm:inline">Exportar CSV</span>
+          </button>
+          <button type="button" id="theme-toggle" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all" title="Alternar modo claro / escuro">
+            <i id="theme-icon" class="fa-solid fa-moon text-xs"></i>
+          </button>
         </div>
       </header>
 
-      <div class="content">
-        <!-- DASHBOARD -->
-        <section id="view-dashboard" class="view">
-          <div class="dash-command">
-            <div class="page-head">
-              <div class="page-head-main">
-                <div class="page-eyebrow-live" id="dash-live-eyebrow"><i></i><span id="dash-live-text">Ao vivo</span></div>
-                <h1 id="dash-title">Dashboard</h1>
-                <p class="page-sub" id="page-sub">Lucro, sugestões Meta e operação por SubID.</p>
-              </div>
-              <div class="page-actions">
-                <div class="page-actions-row">
-                  <button type="button" class="btn ghost" id="btn-export"><span class="mono" aria-hidden="true">↓</span> Exportar CSV</button>
-                  <button type="button" class="btn btn-meta" id="btn-meta-sync-top"><img src="/assets/meta.png" alt="" /> Sincronizar Meta</button>
-                  <button type="button" class="btn btn-shopee" id="btn-sync"><img src="/assets/shopee.png" alt="" /> Puxar Shopee</button>
-                </div>
+      <div class="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full">
+
+        <!-- DASHBOARD / CANAIS -->
+        <section id="view-dashboard" class="view space-y-6">
+          <div class="dash-command space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+              <div>
+                <h1 id="dash-title" class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Dashboard</h1>
+                <p class="page-sub text-xs text-slate-500 mt-0.5" id="page-sub">Dados gerais, faturamento, lucro diário e resumo.</p>
               </div>
             </div>
 
-            <div class="period-bar" id="period-bar">
-              <div class="period-main-wrap">
-                <button type="button" class="period-main" id="btn-period-main" aria-expanded="false" aria-controls="period-dates-pop">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                  <span class="period-range-label mono" id="period-range-label">—</span>
-                  <span class="period-caret" aria-hidden="true">▾</span>
-                </button>
-                <div class="period-dates-pop hidden" id="period-dates-pop">
-                  <label>De <input type="date" id="start-date" /></label>
-                  <label>Até <input type="date" id="end-date" /></label>
-                  <button type="button" class="btn ghost sm" id="btn-period-apply">Aplicar</button>
+            <section class="light-card rounded-2xl p-4 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4" id="period-bar">
+              <div class="flex flex-wrap items-center gap-3">
+                <div class="period-main-wrap">
+                  <button type="button" class="period-main flex items-center bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-xs gap-2.5 text-slate-800 font-semibold" id="btn-period-main" aria-expanded="false" aria-controls="period-dates-pop">
+                    <i class="fa-regular fa-calendar text-brand-600"></i>
+                    <span class="period-range-label" id="period-range-label">—</span>
+                    <span class="period-caret text-slate-400">▾</span>
+                  </button>
+                  <div class="period-dates-pop hidden" id="period-dates-pop">
+                    <label class="text-xs font-semibold text-slate-600">De <input type="date" id="start-date" class="mt-1" /></label>
+                    <label class="text-xs font-semibold text-slate-600">Até <input type="date" id="end-date" class="mt-1" /></label>
+                    <button type="button" class="btn ghost sm self-end" id="btn-period-apply">Aplicar</button>
+                  </div>
+                </div>
+                <span class="bg-brand-500/10 text-brand-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-brand-500/20" id="period-days-hint">—</span>
+                <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold period-presets" role="group" aria-label="Atalhos de período">
+                  <button type="button" class="period-preset chip-btn px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900" data-range="7d">7d</button>
+                  <button type="button" class="period-preset chip-btn px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900" data-range="month">Este mês</button>
+                  <button type="button" class="period-preset chip-btn px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900" data-range="mtd">MTD</button>
+                  <button type="button" class="period-preset chip-btn px-3 py-1 rounded-lg text-slate-600 hover:text-slate-900" data-range="30d">30d</button>
                 </div>
               </div>
-              <span class="period-days-hint" id="period-days-hint">—</span>
-              <div class="period-presets" role="group" aria-label="Atalhos de período">
-                <button type="button" class="period-preset chip-btn" data-range="7d">7 dias</button>
-                <button type="button" class="period-preset chip-btn" data-range="month">Este mês</button>
-                <button type="button" class="period-preset chip-btn" data-range="mtd">MTD</button>
-                <button type="button" class="period-preset chip-btn" data-range="30d">30 dias</button>
-              </div>
-            </div>
-
-            <div class="channel-tabs" id="channel-tabs" role="group" aria-label="Canal">
-              <button type="button" class="channel-tab active" data-channel="geral">Geral <span class="tab-count" id="tab-count-geral"></span></button>
-              <button type="button" class="channel-tab ch-meta" data-channel="meta"><img src="/assets/meta.png" alt="" />Meta Ads <span class="tab-count" id="tab-count-meta"></span></button>
-              <button type="button" class="channel-tab ch-pin" data-channel="pinterest"><img class="is-square" src="/assets/pinterest.png" alt="" />Pinterest <span class="tab-count" id="tab-count-pin"></span></button>
-              <button type="button" class="channel-tab ch-org" data-channel="organico"><img class="is-square" src="/assets/shopee.png" alt="" />Shopee orgânico <span class="tab-count" id="tab-count-org"></span></button>
-              <button type="button" class="channel-tab" data-channel="subid">Por SubID</button>
-            </div>
+            </section>
           </div>
 
           <div class="banner hidden" id="sync-banner"></div>
 
-          <!-- ZONA 1 · EXECUTIVO -->
-          <div class="zone zone--exec">
-            <div class="zone-rule"><span class="zone-tag"><b class="zone-num"></b>Executivo</span><i></i></div>
-            <div class="zone-body">
-              <div class="kpi-grid kpi-grid-core" id="kpi-grid"></div>
-              <div class="kpi-help"><span class="i">i</span><span><b>Como ler:</b> Shopee traz o que você <b>ganhou</b>. Meta e Pinterest mostram o que você <b>gastou</b>. Lucro (verde) = comissão − mídia − impostos.</span></div>
-            </div>
-          </div>
-
-          <!-- ZONA 2 · OPERAÇÃO -->
-          <div class="zone zone--ops">
-            <div class="zone-rule"><span class="zone-tag"><b class="zone-num"></b>Operação</span><i></i></div>
-            <div class="zone-body">
-              <section class="sec" id="dash-suggestions-panel">
-                <header class="sec-head">
-                  <div class="sec-head-text">
-                    <img class="sec-head-icon" src="/assets/meta.png" alt="" width="22" height="22" />
-                    <div>
-                      <h2 class="sec-title">Sugestões Meta</h2>
-                      <div class="sec-subline">ROI 15d · &lt;40% pausa · +20% escala · −70% teste · máx. 4</div>
-                    </div>
-                  </div>
-                  <div class="sec-tools">
-                    <span class="sug-count" id="suggestions-count">—</span>
-                  </div>
-                </header>
-                <div class="sec-body suggestions-body" id="suggestions-body">
-                  <div class="sec-empty">Sincronize Shopee e Meta para gerar sugestões.</div>
-                </div>
-              </section>
-
-              <section class="sec" id="dash-chart-panel">
-                <header class="sec-head">
-                  <div class="sec-head-text">
-                    <h2 class="sec-title">Lucro por dia</h2>
-                    <span class="sec-eyebrow" id="dash-chart-sub">período selecionado</span>
-                  </div>
-                  <div class="sec-tools">
-                    <div class="legend">
-                      <span><i class="swatch green"></i>Lucro</span>
-                      <span><i class="swatch coral"></i>Prejuízo</span>
-                    </div>
-                  </div>
-                </header>
-                <div class="sec-body sec-body--inset">
-                  <div class="chart chart-compact" id="daily-chart"></div>
-                </div>
-              </section>
-            </div>
-          </div>
-
-          <!-- ZONA 3 · DETALHAMENTO -->
-          <div class="zone zone--detail">
-            <div class="zone-rule"><span class="zone-tag"><b class="zone-num"></b>Detalhamento</span><i></i></div>
-            <div class="zone-body">
-              <section class="sec" id="dash-daily-panel">
-                <header class="sec-head">
-                  <div class="sec-head-text">
-                    <h2 class="sec-title">Resumo diário</h2>
-                    <span class="sec-eyebrow" id="dash-daily-sub">Fat · Com · Inv · Lucro · ROI · Abat.</span>
-                  </div>
-                  <div class="sec-tools">
-                    <div class="panel-meta" id="sync-meta">—</div>
-                  </div>
-                </header>
-                <div class="sec-body sec-body--table">
-                  <div class="table-wrap">
-                    <table class="data-table data-table--daily" id="daily-table">
-                      <thead>
-                        <tr>
-                          <th class="th-sort" data-sort="data">Dia</th>
-                          <th class="th-sort num" data-sort="faturamento">Faturamento</th>
-                          <th class="th-sort num" data-sort="comissao">Comissão</th>
-                          <th class="th-sort num" data-sort="inv_meta">Inv. Meta</th>
-                          <th class="th-sort num" data-sort="inv_pin">Inv. Pin</th>
-                          <th class="th-sort num" data-sort="inv_total">Inv. Total</th>
-                          <th class="th-sort num" data-sort="lucro">Lucro</th>
-                          <th class="th-sort num" data-sort="roi">ROI</th>
-                          <th class="th-sort num" data-sort="abatimento">Abat.</th>
-                        </tr>
-                      </thead>
-                      <tbody id="daily-tbody"></tbody>
-                      <tfoot id="daily-tfoot"></tfoot>
-                    </table>
-                  </div>
-                </div>
-              </section>
-
-              <section class="sec sec--primary" id="dash-subids-panel">
-                <header class="sec-head">
-                  <div class="sec-head-text">
-                    <h2 class="sec-title">SubIDs<span class="count-pill" id="subid-count-pill">0</span></h2>
-                    <span class="sec-eyebrow" id="dash-subids-eyebrow">clique para abrir histórico</span>
-                  </div>
-                  <div class="sec-tools">
-                    <input type="search" id="subid-search" class="search" placeholder="Buscar SubID…" />
-                    <button type="button" class="btn ghost sm" data-goto="canais">Classificar</button>
-                    <button type="button" class="btn ghost sm" data-goto="subids">Ver todos</button>
-                  </div>
-                </header>
-                <div class="sec-body sec-body--table">
-                  <div class="table-wrap">
-                    <table class="data-table data-table--ops" id="subid-table">
-                      <thead>
-                        <tr>
-                          <th class="th-sort" data-sort="subid">SubID</th>
-                          <th class="th-sort" data-sort="canal">Canal</th>
-                          <th class="th-sort num" data-sort="faturamento">Faturamento</th>
-                          <th class="th-sort num" data-sort="comissao">Comissão</th>
-                          <th class="th-sort num" data-sort="inv_total">Investimento</th>
-                          <th class="th-sort num" data-sort="lucro">Lucro</th>
-                          <th class="th-sort num" data-sort="roi">ROI</th>
-                          <th class="th-sort num" data-sort="pedidos">Ped.</th>
-                          <th class="th-sort" data-sort="status">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody id="subid-tbody"></tbody>
-                    </table>
-                  </div>
-                  <div class="pager" id="subid-pager"></div>
-                </div>
-              </section>
-            </div>
-          </div>
-
-          <footer class="page-foot">
-            <div>Painel de Afiliados · v.1 · pt-BR</div>
-            <div class="mono" id="footer-sync">Última sincronização —</div>
-          </footer>
-        </section>
-
-        <!-- SUBIDS full page -->
-        <section id="view-subids" class="view hidden">
-          <div class="page-head">
-            <div class="page-head-main">
-              <div class="page-eyebrow"><span>Relatório</span></div>
-              <h1>SubIDs</h1>
-              <p class="page-sub">Lista completa do período selecionado no painel.</p>
-            </div>
-            <div class="page-actions">
-              <div class="page-actions-row">
-                <button type="button" class="btn ghost" data-goto="dashboard">Voltar ao painel</button>
+          <!-- Dados gerais + Faturamento e metas -->
+          <div class="dash-only space-y-3">
+            <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">Dados gerais · Faturamento e metas</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-grid"></div>
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-start gap-3 shadow-sm kpi-help">
+              <div class="p-2 rounded-xl bg-amber-500/10 text-amber-600 shrink-0"><i class="fa-solid fa-lightbulb text-base"></i></div>
+              <div class="flex-1 text-xs text-slate-700">
+                <p class="font-bold text-slate-900 mb-0.5">Como interpretar seus números:</p>
+                <p class="text-slate-600 leading-relaxed">A <span class="text-amber-600 font-semibold">Shopee API</span> entrega vendas e comissões. <span class="text-meta-600 font-semibold">Meta</span> e <span class="text-rose-600 font-semibold">Pinterest</span> consolidam custos. <span class="text-emerald-600 font-semibold">Lucro líquido</span> = comissão − mídia − imposto.</p>
               </div>
             </div>
           </div>
-          <section class="sec sec--primary">
-            <header class="sec-head">
-              <div class="sec-head-text">
-                <h2 class="sec-title">Todos os SubIDs</h2>
-                <span class="sec-eyebrow">ordene por qualquer coluna</span>
+
+          <!-- Análise do canal -->
+          <div class="channel-only hidden space-y-3">
+            <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase" id="channel-analysis-tag">Análise</div>
+            <div class="analysis-grid" id="channel-analysis-grid"></div>
+          </div>
+
+          <!-- Lucro por dia -->
+          <div class="dash-only">
+            <section class="light-card rounded-2xl p-5 shadow-sm" id="dash-chart-panel">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-200 dark:border-slate-800 mb-4">
+                <div>
+                  <h3 class="font-bold text-base text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-column text-emerald-600 dark:text-emerald-400"></i>
+                    Lucro por dia
+                  </h3>
+                  <p class="text-xs text-slate-500 dark:text-slate-400" id="dash-chart-sub">período selecionado</p>
+                </div>
+                <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700/60">
+                  <button type="button" id="btn-chart-profit" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-brand-500 text-white transition-all shadow-sm" data-chart="profit">Lucro</button>
+                  <button type="button" id="btn-chart-revenue" class="px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all" data-chart="revenue">Faturamento</button>
+                </div>
               </div>
-              <div class="sec-tools">
-                <input type="search" id="subid-search-full" class="search" placeholder="Buscar SubID…" />
+              <div class="relative w-full h-[250px] sm:h-[280px]" id="daily-chart">
+                <canvas id="profit-chart-canvas"></canvas>
               </div>
-            </header>
-            <div class="sec-body sec-body--table">
-              <div class="table-wrap">
-                <table class="data-table data-table--ops" id="subid-table-full">
+              <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-3 border-t border-slate-200 dark:border-slate-800 mt-2" id="dash-chart-foot">
+                <span class="flex items-center gap-1.5 font-medium">
+                  <span class="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span>
+                  Lucro positivo
+                </span>
+                <span class="flex items-center gap-1.5 font-medium">
+                  <span class="w-3 h-3 rounded-sm bg-amber-500 inline-block"></span>
+                  Média do período
+                </span>
+                <span class="font-bold text-emerald-600 dark:text-emerald-400" id="dash-chart-peak">—</span>
+              </div>
+            </section>
+          </div>
+
+          <!-- Resumo diário -->
+          <div class="dash-only">
+            <section class="light-card rounded-2xl shadow-sm overflow-hidden" id="dash-daily-panel">
+              <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-days text-brand-600"></i>
+                    Resumo diário
+                  </h3>
+                  <p class="text-xs text-slate-500" id="dash-daily-sub">Fat · Com · Inv · Lucro · ROI · Abat.</p>
+                </div>
+                <span class="text-xs text-slate-600 bg-slate-100 px-3 py-1 rounded-xl font-medium border border-slate-200" id="sync-meta">—</span>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="data-table data-table--daily" id="daily-table">
                   <thead>
                     <tr>
+                      <th class="th-sort" data-sort="data">Dia</th>
+                      <th class="th-sort num" data-sort="faturamento">Faturamento</th>
+                      <th class="th-sort num" data-sort="comissao">Comissão</th>
+                      <th class="th-sort num" data-sort="inv_meta">Inv. Meta</th>
+                      <th class="th-sort num" data-sort="inv_pin">Inv. Pin</th>
+                      <th class="th-sort num" data-sort="inv_total">Inv. Total</th>
+                      <th class="th-sort num" data-sort="lucro">Lucro</th>
+                      <th class="th-sort num" data-sort="roi">ROI</th>
+                      <th class="th-sort num" data-sort="abatimento">Abat.</th>
+                    </tr>
+                  </thead>
+                  <tbody id="daily-tbody"></tbody>
+                  <tfoot id="daily-tfoot"></tfoot>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <!-- SubIDs da campanha -->
+          <div class="channel-only hidden">
+            <section class="light-card rounded-2xl shadow-sm overflow-hidden" id="dash-subids-panel">
+              <div class="p-5 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                  <div>
+                    <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
+                      <img id="dash-subids-icon" src="/assets/shopee.png" alt="" width="18" height="18" />
+                      SubIDs da campanha
+                      <span class="count-pill" id="subid-count-pill">0</span>
+                    </h3>
+                    <p class="text-xs text-slate-500" id="dash-subids-eyebrow">altere o status · clique para o histórico</p>
+                  </div>
+                </div>
+                <input type="search" id="subid-search" class="search max-w-xs" placeholder="Filtrar por SubID…" />
+              </div>
+              <div class="overflow-x-auto">
+                <table class="data-table data-table--ops" id="subid-table">
+                  <thead id="subid-thead">
+                    <tr>
                       <th class="th-sort" data-sort="subid">SubID</th>
-                      <th class="th-sort" data-sort="canal">Canal</th>
-                      <th class="th-sort" data-sort="status">Status</th>
                       <th class="th-sort num" data-sort="faturamento">Faturamento</th>
                       <th class="th-sort num" data-sort="comissao">Comissão</th>
                       <th class="th-sort num" data-sort="inv_total">Investimento</th>
                       <th class="th-sort num" data-sort="lucro">Lucro</th>
                       <th class="th-sort num" data-sort="roi">ROI</th>
                       <th class="th-sort num" data-sort="pedidos">Pedidos</th>
+                      <th class="th-sort num" data-sort="cliques_shopee">Cliques Shopee</th>
+                      <th class="th-sort num" data-sort="cliques_ads">Cliques ads</th>
+                      <th class="th-sort num" data-sort="abatimento_cliques">% Abat. cliques</th>
+                      <th class="th-sort" data-sort="status">Status</th>
                     </tr>
                   </thead>
-                  <tbody id="subid-tbody-full"></tbody>
+                  <tbody id="subid-tbody"></tbody>
                 </table>
               </div>
-              <div class="pager" id="subid-pager-full"></div>
+              <div class="pager" id="subid-pager"></div>
+            </section>
+          </div>
+
+          <footer class="mt-4 border-t border-slate-200 pt-4 text-center text-xs text-slate-500">
+            Painel de Afiliados · v.1 · <span id="footer-sync">Última sincronização —</span>
+          </footer>
+        </section>
+
+        <!-- ANÁLISE IA -->
+        <section id="view-analise-ia" class="view hidden space-y-6">
+          <div>
+            <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1">Operação</div>
+            <h1 class="text-2xl font-extrabold text-slate-900">Análise IA</h1>
+            <p class="text-xs text-slate-500 mt-1">Sugestões automáticas de pausa, escala e teste com base no ROI.</p>
+          </div>
+          <section class="light-card rounded-2xl p-5 shadow-sm" id="dash-suggestions-panel">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
+              <div>
+                <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
+                  <img class="rounded" src="/assets/ia.png?v=2" alt="IA" width="22" height="22" />
+                  Sugestões Meta Ads
+                </h3>
+                <p class="text-xs text-slate-500">Regra: ROI 15d &lt; 40% (pausa) / &gt; 200% (escala)</p>
+              </div>
+              <span class="bg-indigo-50 text-indigo-600 text-xs font-bold px-2.5 py-1 rounded-lg border border-indigo-200" id="suggestions-count">—</span>
+            </div>
+            <div class="suggestions-body" id="suggestions-body">
+              <div class="sec-empty">Sincronize Shopee e Meta para gerar sugestões.</div>
             </div>
           </section>
         </section>
 
-        <!-- CANAIS E STATUS -->
-        <section id="view-canais" class="view hidden">
-          <div class="page-head page-head--canais">
-            <div class="page-head-main">
-              <div class="page-eyebrow"><span>Operação</span></div>
-              <h1>Canais e status</h1>
-              <p class="page-sub">Classifique cada SubID por canal e estágio da campanha.</p>
-              <div class="chan-counts" aria-label="Contagem por canal">
-                <span class="chan-count"><img src="/assets/meta.png" alt="" /> Meta <b id="canais-count-meta">0</b></span>
-                <span class="chan-count"><img class="is-square" src="/assets/pinterest.png" alt="" /> Pin <b id="canais-count-pin">0</b></span>
-                <span class="chan-count"><img class="is-square" src="/assets/shopee.png" alt="" /> Org <b id="canais-count-org">0</b></span>
-              </div>
+        <!-- CANAIS -->
+        <section id="view-canais" class="view hidden space-y-6">
+          <div>
+            <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1">Operação</div>
+            <h1 class="text-2xl font-extrabold text-slate-900">Canais e status</h1>
+            <p class="text-xs text-slate-500 mt-1">Classifique cada SubID por canal e estágio da campanha.</p>
+            <div class="chan-counts" aria-label="Contagem por canal">
+              <span class="chan-count"><img src="/assets/meta.png" alt="" /> Meta <b id="canais-count-meta">0</b></span>
+              <span class="chan-count"><img class="is-square" src="/assets/pinterest.png" alt="" /> Pin <b id="canais-count-pin">0</b></span>
+              <span class="chan-count"><img class="is-square" src="/assets/shopee.png" alt="" /> Org <b id="canais-count-org">0</b></span>
+              <span class="chan-count">Indef. <b id="canais-count-indef">0</b></span>
             </div>
           </div>
-          <section class="sec sec--primary">
-            <header class="sec-head">
-              <div class="sec-head-text">
-                <h2 class="sec-title">SubIDs<span class="count-pill" id="ops-count-pill">0</span></h2>
-                <span class="sec-eyebrow">Alterações salvam automaticamente</span>
+          <section class="light-card rounded-2xl shadow-sm overflow-hidden">
+            <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 class="font-bold text-base text-slate-900">SubIDs <span class="count-pill" id="ops-count-pill">0</span></h3>
+                <p class="text-xs text-slate-500">Alterações salvam automaticamente</p>
               </div>
-              <div class="sec-tools">
-                <select id="ops-page-size" class="search search--select" title="Itens por página">
+              <div class="flex flex-wrap gap-2">
+                <select id="ops-page-size" class="search--select">
                   <option value="10">10 / pág</option>
                   <option value="25" selected>25 / pág</option>
                   <option value="50">50 / pág</option>
@@ -430,33 +469,29 @@
                 </select>
                 <input type="search" id="ops-search" class="search" placeholder="Buscar SubID…" />
               </div>
-            </header>
-            <div class="sec-body sec-body--table">
-              <div class="table-wrap">
-                <table class="data-table data-table--class" id="ops-table">
-                  <thead>
-                    <tr>
-                      <th>SubID</th>
-                      <th>Canal</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="ops-tbody"></tbody>
-                </table>
-              </div>
-              <div class="pager" id="ops-pager"></div>
             </div>
+            <div class="overflow-x-auto">
+              <table class="data-table" id="ops-table">
+                <thead>
+                  <tr>
+                    <th>SubID</th>
+                    <th>Canal</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="ops-tbody"></tbody>
+              </table>
+            </div>
+            <div class="pager" id="ops-pager"></div>
           </section>
         </section>
 
-        <!-- CONFIG / INTEGRAÇÕES -->
-        <section id="view-config" class="view hidden">
-          <div class="page-head page-head--config">
-            <div class="page-head-main">
-              <div class="page-eyebrow"><span>Sistema</span></div>
-              <h1>Configurações</h1>
-              <p class="page-sub">Conecte Shopee, Meta e Pinterest e ajuste impostos.</p>
-            </div>
+        <!-- CONFIG -->
+        <section id="view-config" class="view hidden space-y-6">
+          <div>
+            <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1">Sistema</div>
+            <h1 class="text-2xl font-extrabold text-slate-900">Configurações</h1>
+            <p class="text-xs text-slate-500 mt-1">Conecte Shopee, Meta e Pinterest e ajuste impostos.</p>
           </div>
 
           <div class="cfg-section">
@@ -466,7 +501,7 @@
               <article class="settings-card">
                 <header class="settings-card-head">
                   <div class="settings-card-brand">
-                    <img class="settings-card-icon" src="/assets/shopee.png" alt="" width="22" height="22" />
+                    <img src="/assets/shopee.png" alt="" width="22" height="22" />
                     <div>
                       <div class="settings-card-title">Shopee Affiliate</div>
                       <div class="settings-card-sub">Comissão, pedidos e SubIDs</div>
@@ -495,7 +530,7 @@
               <article class="settings-card">
                 <header class="settings-card-head">
                   <div class="settings-card-brand">
-                    <img class="settings-card-icon" src="/assets/meta.png" alt="" width="22" height="22" />
+                    <img src="/assets/meta.png" alt="" width="22" height="22" />
                     <div>
                       <div class="settings-card-title">Meta Ads</div>
                       <div class="settings-card-sub" id="meta-status-sub">Investimento e ROI por SubID</div>
@@ -528,7 +563,7 @@
               <article class="settings-card">
                 <header class="settings-card-head">
                   <div class="settings-card-brand">
-                    <img class="settings-card-icon is-square" src="/assets/pinterest.png" alt="" width="22" height="22" />
+                    <img class="is-square" src="/assets/pinterest.png" alt="" width="22" height="22" />
                     <div>
                       <div class="settings-card-title">Pinterest</div>
                       <div class="settings-card-sub">Investimento via CSV</div>
@@ -554,15 +589,6 @@
             <h2 class="cfg-section-title">Cálculo e equipe</h2>
             <p class="cfg-section-sub">Impostos e identidade do painel.</p>
             <article class="settings-card settings-card--wide">
-              <header class="settings-card-head">
-                <div class="settings-card-brand">
-                  <img class="settings-card-icon is-square" src="/assets/configuracao.png" alt="" width="22" height="22" />
-                  <div>
-                    <div class="settings-card-title">Impostos e equipe</div>
-                    <div class="settings-card-sub">Entram na fórmula de lucro e ROI</div>
-                  </div>
-                </div>
-              </header>
               <form id="settings-form" class="form">
                 <div class="form-grid">
                   <label>Imposto s/ comissão (%)
@@ -586,30 +612,47 @@
               </form>
             </article>
           </div>
+
+          <div class="cfg-section" id="cfg-indefinidos-section">
+            <h2 class="cfg-section-title">SubIDs indefinidos <span class="count-pill" id="indef-count-pill">0</span></h2>
+            <p class="cfg-section-sub">Sem gasto Meta/Pin claro — classifique o canal para aparecer na campanha certa.</p>
+            <article class="settings-card settings-card--wide overflow-hidden p-0">
+              <div class="overflow-x-auto">
+                <table class="data-table" id="indef-table">
+                  <thead>
+                    <tr>
+                      <th>SubID</th>
+                      <th>Canal</th>
+                      <th>Status</th>
+                      <th class="num">Faturamento</th>
+                      <th class="num">Comissão</th>
+                    </tr>
+                  </thead>
+                  <tbody id="indef-tbody"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
         </section>
 
-        <!-- DATA VIEWS -->
-        <section id="view-data" class="view hidden">
-          <div class="page-head">
-            <div class="page-head-main">
-              <div class="page-eyebrow"><span>Base de dados</span></div>
-              <h1 id="data-title">—</h1>
-              <p class="page-sub" id="data-sub">—</p>
+        <!-- DATA -->
+        <section id="view-data" class="view hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+            <div>
+              <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1">Base de dados</div>
+              <h1 class="text-2xl font-extrabold text-slate-900" id="data-title">—</h1>
+              <p class="text-xs text-slate-500 mt-1" id="data-sub">—</p>
             </div>
-            <div class="page-actions">
-              <div class="page-actions-row">
-                <button type="button" class="btn ghost" data-goto="dashboard">Voltar ao painel</button>
-              </div>
-            </div>
+            <button type="button" class="btn ghost sm" data-goto="dashboard">Voltar ao painel</button>
           </div>
-          <section class="sec sec--primary">
-            <header class="sec-head">
-              <div class="sec-head-text">
-                <h2 class="sec-title" id="data-panel-title">Dados</h2>
-                <span class="sec-eyebrow">período do painel</span>
+          <section class="light-card rounded-2xl shadow-sm overflow-hidden">
+            <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 class="font-bold text-base text-slate-900" id="data-panel-title">Dados</h3>
+                <p class="text-xs text-slate-500">período do painel</p>
               </div>
-              <div class="sec-tools">
-                <select id="data-page-size" class="search search--select">
+              <div class="flex flex-wrap gap-2">
+                <select id="data-page-size" class="search--select">
                   <option value="10">10 / pág</option>
                   <option value="25">25 / pág</option>
                   <option value="50">50 / pág</option>
@@ -617,21 +660,21 @@
                 </select>
                 <input type="search" id="data-search" class="search" placeholder="Buscar na tabela…" />
               </div>
-            </header>
-            <div class="sec-body sec-body--table">
-              <div class="table-wrap">
-                <table class="data-table">
-                  <thead id="data-thead"></thead>
-                  <tbody id="data-tbody"></tbody>
-                </table>
-              </div>
-              <div class="pager" id="data-pager"></div>
             </div>
+            <div class="overflow-x-auto">
+              <table class="data-table">
+                <thead id="data-thead"></thead>
+                <tbody id="data-tbody"></tbody>
+              </table>
+            </div>
+            <div class="pager" id="data-pager"></div>
           </section>
         </section>
+
       </div>
     </main>
   </div>
+
   <script src="/app.js"></script>
 </body>
 </html>

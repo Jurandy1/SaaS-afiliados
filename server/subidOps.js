@@ -42,22 +42,29 @@ async function upsertSubidOps(subid, partial, userId = requireUserId()) {
   return row;
 }
 
+function inferCanal(subid, invMeta, invPin) {
+  const invM = Number(invMeta || 0);
+  const invP = Number(invPin || 0);
+  if (invM > 0 && invP <= 0) return "meta";
+  if (invP > 0 && invM <= 0) return "pinterest";
+  if (invM > 0 && invP > 0) return "indefinido";
+  const sid = String(subid || "").trim().toLowerCase();
+  // Convenção comum: SubIDs Pin### sem CSV ainda → Pinterest
+  if (/^pin\d/.test(sid) || /^pin[_-]/.test(sid) || sid === "pinterest") return "pinterest";
+  // Sem mídia paga = orgânico (stories, links, busca, etc.)
+  return "organico";
+}
+
 function applyOpsToSubIds(subIds, opsMap) {
   return (subIds || []).map((r) => {
     const key = String(r.subid || "").trim().toLowerCase();
     const op = opsMap[key] || {};
-    let canal = op.canal || r.canal || null;
-    if (!canal) {
-      const invM = Number(r.inv_meta || 0);
-      const invP = Number(r.inv_pin || 0);
-      if (invM > 0 && invP <= 0) canal = "meta";
-      else if (invP > 0 && invM <= 0) canal = "pinterest";
-      else if (invM <= 0 && invP <= 0) canal = "organico";
-      else canal = "meta";
-    }
-    const status = op.status || r.status || (Number(r.lucro || 0) < 0 ? "pausada" : "ativa");
+    // Manual (subid_ops) sempre vence; senão inferência por gasto / naming
+    const canal = op.canal || inferCanal(r.subid, r.inv_meta, r.inv_pin);
+    let status = op.status || r.status || (Number(r.lucro || 0) < 0 ? "desativada" : "ativa");
+    if (status === "pausada") status = "desativada";
     return { ...r, canal, status, produto: op.produto || r.produto || null };
   });
 }
 
-module.exports = { loadSubidOps, upsertSubidOps, applyOpsToSubIds };
+module.exports = { loadSubidOps, upsertSubidOps, applyOpsToSubIds, inferCanal };

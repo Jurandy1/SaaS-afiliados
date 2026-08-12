@@ -1683,7 +1683,8 @@ h1, h2, h3, .sec-title, .panel-title, .brand-name { font-optical-sizing: auto; }
 }
 .status-pill i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 .status-pill.st-teste { background: var(--gold-bg); color: var(--gold); }
-.status-pill.st-pausada { background: var(--red-bg); color: var(--red); }
+.status-pill.st-pausada,
+.status-pill.st-desativada { background: var(--red-bg); color: var(--red); }
 
 .state-chip {
   display: inline-flex;

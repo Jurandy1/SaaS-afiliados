@@ -6,6 +6,7 @@ const {
   parseMoney,
   parseSubId,
   dateFromPurchaseTs,
+  nodeCommission,
 } = require("./shopee");
 const { saveDashboardSnapshot, persistOrdersAndProducts } = require("./store");
 const { enrichDashboardWithAds } = require("./finance");
@@ -56,7 +57,9 @@ function aggregateReport(nodes) {
         concluidos: 0,
         pendentes: 0,
         cancelados: 0,
+        unpaid: 0,
         itens: 0,
+        cliques_shopee: 0,
         byDay: {},
       };
     }
@@ -69,10 +72,21 @@ function aggregateReport(nodes) {
         concluidos: 0,
         pendentes: 0,
         cancelados: 0,
+        cliques_shopee: 0,
       };
     }
 
+    // clickTime = clique atribuído que gerou a conversão (conversionReport Shopee)
+    if (node.clickTime != null && Number(node.clickTime) > 0) {
+      bySubId[subid].cliques_shopee += 1;
+      bySubId[subid].byDay[date].cliques_shopee += 1;
+    }
+
     const nodeOrders = Array.isArray(node.orders) ? node.orders : [];
+    // totalCommission 1× por conversão (igual painel Shopee / Afiliadoteste)
+    const convCommission = nodeCommission(node);
+    let commissionAssigned = false;
+
     nodeOrders.forEach((order, idx) => {
       const orderId = String(order.orderId || `${node.conversionId}_${idx}`);
       if (orderSeen.has(orderId)) return;
@@ -80,7 +94,6 @@ function aggregateReport(nodes) {
 
       const status = classifyStatus(order.orderStatus);
       let orderItems = Array.isArray(order.items) ? order.items : [];
-      // Se a API não trouxer items, monta um item sintético pelo nó da conversão
       if (!orderItems.length) {
         orderItems = [{
           itemId: `conv_${node.conversionId || orderId}`,
@@ -88,18 +101,24 @@ function aggregateReport(nodes) {
           shopName: "",
           qty: 1,
           actualAmount: 0,
-          itemTotalCommission: node.netCommission || node.totalCommission || 0,
+          itemTotalCommission: 0,
+          fraudStatus: "",
         }];
       }
+
       let fat = 0;
-      let com = 0;
+      let comItems = 0;
       let qty = 0;
+      let hasFraudOnly = orderItems.length > 0;
       for (const it of orderItems) {
+        const fraud = String(it.fraudStatus || "").toUpperCase();
+        if (fraud.includes("FRAUD")) continue;
+        hasFraudOnly = false;
         const itFat = parseMoney(it.actualAmount);
         const itCom = parseMoney(it.itemTotalCommission);
         const itQty = Number(it.qty || 0) || 0;
         fat += itFat;
-        com += itCom;
+        comItems += itCom;
         qty += itQty;
         const itemId = String(it.itemId || "").trim() || `unknown_${orderId}`;
         const itemName = String(it.itemName || "").slice(0, 200) || `Pedido ${orderId}`;
@@ -132,15 +151,30 @@ function aggregateReport(nodes) {
         products[itemId].qty += itQty;
         products[itemId].pedidos += 1;
       }
-      if (com <= 0) com = parseMoney(node.netCommission || node.totalCommission);
+
+      // Preferência: totalCommission do nó (1× por conversão), só em pedido que conta
+      let com = 0;
+      const countsForRevenue = status !== "cancelada" && status !== "unpaid";
+      if (countsForRevenue && !commissionAssigned && convCommission > 0) {
+        com = convCommission;
+        commissionAssigned = true;
+      } else if (countsForRevenue && comItems > 0) {
+        com = comItems;
+      } else if (!countsForRevenue) {
+        com = comItems;
+      }
+
       if (fat <= 0 && com > 0) {
-        // redistribui comissão no único item quando amount veio zerado
         const only = items.filter((x) => x.order_id === orderId);
         if (only.length === 1) {
           only[0].comissao = com;
           const pid = only[0].item_id;
           if (products[pid] && products[pid].comissao <= 0) products[pid].comissao = com;
         }
+      }
+
+      if (hasFraudOnly && status !== "cancelada") {
+        // itens só FRAUD → trata como perda (não entra em GMV/comissão)
       }
 
       orders.push({
@@ -169,6 +203,7 @@ function aggregateReport(nodes) {
       if (status === "unpaid") {
         unpaid += 1;
         byDay[date].unpaid += 1;
+        bySubId[subid].unpaid += 1;
         return;
       }
 

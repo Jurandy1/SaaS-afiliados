@@ -4,6 +4,33 @@
 
   const TOKEN_KEY = "metricly_access_token";
   const USER_KEY = "metricly_user";
+  const THEME_KEY = "afiliados_theme";
+
+  function applyTheme(mode) {
+    const html = document.documentElement;
+    const icon = $("#theme-icon");
+    const dark = mode === "dark";
+    html.classList.toggle("dark", dark);
+    html.classList.toggle("light", !dark);
+    if (icon) icon.className = dark ? "fa-solid fa-sun text-xs" : "fa-solid fa-moon text-xs";
+    try { localStorage.setItem(THEME_KEY, dark ? "dark" : "light"); } catch (_) { /* ignore */ }
+    if (state.chartInstance) {
+      state.chartInstance.options.scales.y.grid.color = chartGridColor();
+      state.chartInstance.options.scales.x.ticks.color = chartTickColor();
+      state.chartInstance.options.scales.y.ticks.color = chartTickColor();
+      state.chartInstance.update();
+    }
+  }
+
+  function initTheme() {
+    let mode = "light";
+    try {
+      const saved = localStorage.getItem(THEME_KEY);
+      if (saved === "dark" || saved === "light") mode = saved;
+      else if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) mode = "dark";
+    } catch (_) { /* ignore */ }
+    applyTheme(mode);
+  }
 
   function getToken() { return localStorage.getItem(TOKEN_KEY) || ""; }
   function setSession(accessToken, user) {
@@ -20,11 +47,16 @@
 
   function showApp(user) {
     $("#auth-gate").classList.add("hidden");
-    $("#app-shell").classList.remove("hidden");
+    const shell = $("#app-shell");
+    shell.classList.remove("hidden");
+    shell.classList.add("flex");
     if (user?.email) $("#user-email-label").textContent = user.email;
     const isAdmin = user?.role === "admin" || user?.profile?.role === "admin";
     const adminLink = $("#admin-entry");
-    if (adminLink) adminLink.classList.toggle("hidden", !isAdmin);
+    if (adminLink) {
+      adminLink.classList.toggle("hidden", !isAdmin);
+      $("#btn-logout")?.classList.toggle("col-span-2", isAdmin ? false : true);
+    }
   }
   function setSidebarOpen(open) {
     document.body.classList.toggle("sidebar-open", !!open);
@@ -39,7 +71,9 @@
   function showAuth() {
     setSidebarOpen(false);
     $("#auth-gate").classList.remove("hidden");
-    $("#app-shell").classList.add("hidden");
+    const shell = $("#app-shell");
+    shell.classList.add("hidden");
+    shell.classList.remove("flex");
   }
 
   const DATA_VIEWS = new Set(["produtos", "campanhas", "pedidos"]);
@@ -56,7 +90,7 @@
     meta: "Meta",
     pinterest: "Pinterest",
     organico: "Orgânico",
-    subid: "Geral",
+    indefinido: "Indefinido",
   };
 
   const VIEW_LABELS = {
@@ -64,7 +98,7 @@
     "campanhas-meta": "Campanhas Meta",
     "campanhas-pinterest": "Campanhas Pinterest",
     "campanhas-organicas": "Campanhas orgânicas",
-    subids: "SubIDs",
+    "analise-ia": "Análise IA",
     canais: "Canais e status",
     config: "Configurações",
     produtos: "Produtos",
@@ -76,6 +110,7 @@
     meta: `<img src="/assets/meta.png" alt="" />`,
     pinterest: `<img class="is-square" src="/assets/pinterest.png" alt="" />`,
     organico: `<img class="is-square" src="/assets/shopee.png" alt="" />`,
+    indefinido: "",
   };
 
   const state = {
@@ -88,7 +123,6 @@
     metaConfigured: false,
     settings: { taxRate: 11.7, metaTaxRate: 12, teamName: "SaaS SHOPPE", teamPlan: "Shopee · Meta" },
     subidPage: 1,
-    subidPageFull: 1,
     opsPage: 1,
     opsPageSize: 25,
     expandedSubIds: {},
@@ -103,6 +137,9 @@
     subidSort: { key: null, dir: "asc" },
     dailySort: { key: null, dir: "asc" },
     dailyRows: [],
+    chartMode: "profit",
+    chartInstance: null,
+    chartDaily: [],
   };
 
   function fmt(v) {
@@ -253,6 +290,7 @@
 
   function setView(navKey) {
     let view = navKey === "integracoes" ? "config" : navKey;
+    if (view === "subids") view = "dashboard";
 
     if (CHANNEL_VIEWS[navKey] != null) {
       state.channel = CHANNEL_VIEWS[navKey];
@@ -266,7 +304,6 @@
     }
 
     state.view = view;
-    if (view === "dashboard" && state.channel === "subid") state.channel = "geral";
 
     $$(".nav-item").forEach((b) => {
       const key = b.dataset.view;
@@ -281,7 +318,7 @@
 
     const isData = DATA_VIEWS.has(view);
     $("#view-dashboard").classList.toggle("hidden", view !== "dashboard");
-    $("#view-subids").classList.toggle("hidden", view !== "subids");
+    $("#view-analise-ia")?.classList.toggle("hidden", view !== "analise-ia");
     $("#view-canais")?.classList.toggle("hidden", view !== "canais");
     $("#view-config").classList.toggle("hidden", view !== "config");
     $("#view-data").classList.toggle("hidden", !isData);
@@ -290,22 +327,41 @@
     setSidebarOpen(false);
 
     if (view === "dashboard") applyChannelView();
-    if (view === "subids") renderSubIdsFull();
+    if (view === "analise-ia") renderSuggestions(state.dash);
     if (view === "canais") renderOpsTable();
+    if (view === "config") renderIndefinidos();
     if (isData) loadDataView(view);
   }
 
   function syncDashHeading() {
     const ch = state.channel || "geral";
     const titleEl = $("#dash-title");
+    const subEl = $("#page-sub");
     const map = {
-      geral: { title: "Dashboard", nav: "dashboard" },
-      meta: { title: "Campanhas Meta", nav: "campanhas-meta" },
-      pinterest: { title: "Campanhas Pinterest", nav: "campanhas-pinterest" },
-      organico: { title: "Campanhas orgânicas", nav: "campanhas-organicas" },
+      geral: {
+        title: "Dashboard",
+        nav: "dashboard",
+        sub: "Dados gerais, faturamento, lucro diário e resumo.",
+      },
+      meta: {
+        title: "Campanhas Meta",
+        nav: "campanhas-meta",
+        sub: "Análise da Meta · SubIDs com gasto identificado na Meta.",
+      },
+      pinterest: {
+        title: "Campanhas Pinterest",
+        nav: "campanhas-pinterest",
+        sub: "Análise do Pinterest · SubIDs com gasto identificado no Pin.",
+      },
+      organico: {
+        title: "Campanhas orgânicas",
+        nav: "campanhas-organicas",
+        sub: "Análise orgânica · SubIDs classificados como orgânico.",
+      },
     };
     const info = map[ch] || map.geral;
     if (titleEl) titleEl.textContent = info.title;
+    if (subEl) subEl.textContent = info.sub;
     const crumbView = $("#dash-crumb-view");
     if (crumbView) crumbView.textContent = info.title;
     const crumbChannel = $("#dash-crumb-channel");
@@ -329,107 +385,293 @@
     const lucro = !hasData ? null : (k.lucro != null ? Number(k.lucro) : Number(k.comissao || 0) - Number(invTotal || 0));
     const roi = hasData ? k.roi : null;
     const hasRoi = hasData && invTotal > 0 && Number.isFinite(Number(roi));
-    const roiTone = hasRoi ? (Number(roi) >= 0 ? "pos" : "neg") : "";
     const subs = hasData && subCount != null ? fmtNum(subCount) : "—";
     const fat = hasData ? Number(k.faturamento || 0) : null;
     const com = hasData ? Number(k.comissao || 0) : null;
     const abat = hasData ? k.abatimento : null;
+    const el = $("#kpi-grid");
+    if (!el) return;
 
-    $("#kpi-grid").innerHTML = `
-      <article class="kpi--hero">
-        <div class="kpi-hero-inner">
-          <div class="kpi-top">
-            <img class="kpi-channel-logo" src="/assets/lucro.png" alt="" />
-            <span class="kpi-label">Lucro líquido</span>
+    const money = (v) => (v == null || Number.isNaN(Number(v)) ? "—" : Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+
+    el.innerHTML = `
+      <div class="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700 text-white rounded-2xl p-5 shadow-lg shadow-emerald-500/10">
+        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-emerald-100 flex items-center gap-1.5">
+            <img src="/assets/lucro.png" alt="" width="18" height="18" class="rounded-sm drop-shadow" /> Lucro Líquido
+          </span>
+        </div>
+        <div class="mb-4">
+          <div class="text-3xl sm:text-4xl font-black tracking-tight text-white flex items-baseline gap-1">
+            <span class="text-lg font-bold text-emerald-200">R$</span>
+            <span>${money(lucro)}</span>
           </div>
-          <div class="kpi-hero-value ${lucro == null ? "" : lucro >= 0 ? "pos" : "neg"}">${fmtDisplay(lucro)}</div>
-          <div class="kpi-hero-note">= comissão − mídia − impostos</div>
-          <div class="kpi-hero-foot">
-            <div class="kpi-mini">
-              <span class="kpi-mini-label">ROI</span>
-              <span class="kpi-mini-value ${roiTone}">${fmtPct(hasRoi ? roi : null)}</span>
-            </div>
-            <div class="kpi-mini">
-              <span class="kpi-mini-label">Abatimento</span>
-              <span class="kpi-mini-value">${fmtPct(abat)}</span>
-            </div>
-            <div class="kpi-mini">
-              <span class="kpi-mini-label">SubIDs ativos</span>
-              <span class="kpi-mini-value">${subs}</span>
-            </div>
+          <p class="text-[11px] text-emerald-100/90 mt-1 font-medium">Lucro real após mídia e impostos</p>
+        </div>
+        <div class="grid grid-cols-3 gap-2 pt-3 border-t border-white/20 text-center">
+          <div class="bg-black/10 p-1.5 rounded-xl">
+            <p class="text-[10px] text-emerald-100">ROI</p>
+            <p class="text-xs font-extrabold text-white">${fmtPct(hasRoi ? roi : null)}</p>
+          </div>
+          <div class="bg-black/10 p-1.5 rounded-xl">
+            <p class="text-[10px] text-emerald-100">Abatimento</p>
+            <p class="text-xs font-extrabold text-amber-200">${fmtPct(abat)}</p>
+          </div>
+          <div class="bg-black/10 p-1.5 rounded-xl">
+            <p class="text-[10px] text-emerald-100">SubIDs</p>
+            <p class="text-xs font-extrabold text-white">${subs}</p>
           </div>
         </div>
-      </article>
-
-      <div class="kpi kpi--channel is-shopee">
-        <div class="kpi-channel-top">
-          <img class="kpi-channel-logo" src="/assets/shopee.png" alt="Shopee" />
-          <span class="kpi-channel-pill">Shopee API</span>
-        </div>
-        <span class="kpi-label">Faturamento bruto</span>
-        <div class="kpi-value">${fmtDisplay(fat)}</div>
-        <div class="kpi-foot">Comissão <b>${fmt(com)}</b></div>
       </div>
 
-      <div class="kpi kpi--channel is-meta">
-        <div class="kpi-channel-top">
-          <img class="kpi-channel-logo" src="/assets/meta.png" alt="Meta" />
-          <span class="kpi-channel-pill">Meta Ads</span>
+      <div class="relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 text-white rounded-2xl p-5 shadow-lg shadow-orange-500/10">
+        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-orange-100 flex items-center gap-1.5">
+            <img src="/assets/shopee.png" alt="" width="16" height="16" /> Faturamento Bruto
+          </span>
+          <span class="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-md font-bold">Shopee API</span>
         </div>
-        <span class="kpi-label">Invest em anúncios</span>
-        <div class="kpi-value">${fmtDisplay(invMeta)}</div>
-        <div class="kpi-foot">${hasData ? (invMeta > 0 ? "taxado no ROI" : "sem sync Meta") : "—"}</div>
+        <div class="mb-4">
+          <div class="text-3xl sm:text-4xl font-black tracking-tight text-white flex items-baseline gap-1">
+            <span class="text-lg font-bold text-orange-200">R$</span>
+            <span>${money(fat)}</span>
+          </div>
+          <p class="text-[11px] text-orange-100/90 mt-1 font-medium">Volume total vendido gerado por SubIDs</p>
+        </div>
+        <div class="bg-black/10 p-2.5 rounded-xl flex items-center justify-between mt-auto">
+          <span class="text-xs text-orange-100">Comissão Shopee Total:</span>
+          <span class="text-xs font-black text-white">${fmt(com)}</span>
+        </div>
       </div>
 
-      <div class="kpi kpi--channel is-pin">
-        <div class="kpi-channel-top">
-          <img class="kpi-channel-logo" src="/assets/pinterest.png" alt="Pinterest" />
-          <span class="kpi-channel-pill">CSV manual</span>
+      <div class="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 text-white rounded-2xl p-5 shadow-lg shadow-blue-500/10">
+        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-blue-100 flex items-center gap-1.5">
+            <img src="/assets/meta.png" alt="" width="16" height="16" /> Invest. Meta Ads
+          </span>
+          <span class="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-md font-bold">Meta Ads</span>
         </div>
-        <span class="kpi-label">Invest em anúncios</span>
-        <div class="kpi-value">${fmtDisplay(invPin)}</div>
-        <div class="kpi-foot">${hasData ? (invPin > 0 ? `total c/ imposto · ${fmt(invTotal)}` : "Sem CSV neste período") : "—"}</div>
+        <div class="mb-4">
+          <div class="text-3xl sm:text-4xl font-black tracking-tight text-white flex items-baseline gap-1">
+            <span class="text-lg font-bold text-blue-200">R$</span>
+            <span>${money(invMeta)}</span>
+          </div>
+          <p class="text-[11px] text-blue-100/90 mt-1 font-medium">${hasData ? (invMeta > 0 ? "Sincronizado via API" : "Sem sync Meta neste período") : "—"}</p>
+        </div>
+        <div class="bg-black/10 p-2.5 rounded-xl flex items-center justify-between mt-auto">
+          <span class="text-xs text-blue-100">Taxado no ROI:</span>
+          <span class="text-xs font-black text-white">${hasData && invMeta > 0 ? "Sim" : "—"}</span>
+        </div>
+      </div>
+
+      <div class="relative overflow-hidden bg-gradient-to-br from-rose-500 via-rose-600 to-red-600 text-white rounded-2xl p-5 shadow-lg shadow-rose-500/10">
+        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl"></div>
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold uppercase tracking-wider text-rose-100 flex items-center gap-1.5">
+            <img src="/assets/pinterest.png" alt="" width="16" height="16" /> Invest. Pinterest
+          </span>
+          <span class="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-md font-bold">CSV</span>
+        </div>
+        <div class="mb-4">
+          <div class="text-3xl sm:text-4xl font-black tracking-tight text-white flex items-baseline gap-1">
+            <span class="text-lg font-bold text-rose-200">R$</span>
+            <span>${money(invPin)}</span>
+          </div>
+          <p class="text-[11px] text-rose-100/90 mt-1 font-medium">${hasData ? (invPin > 0 ? `total c/ imposto · ${fmt(invTotal)}` : "Nenhum gasto neste período") : "—"}</p>
+        </div>
+        <div class="bg-black/10 p-2.5 rounded-xl flex items-center justify-between mt-auto">
+          <span class="text-xs text-rose-100">Status:</span>
+          <span class="text-xs font-black text-white">${hasData && invPin > 0 ? "Ativo" : "Inativo"}</span>
+        </div>
       </div>`;
   }
 
+  function chartGridColor() {
+    return document.documentElement.classList.contains("dark")
+      ? "rgba(51, 65, 85, 0.45)"
+      : "#e2e8f0";
+  }
+
+  function chartTickColor() {
+    return document.documentElement.classList.contains("dark") ? "#94a3b8" : "#64748b";
+  }
+
+  function valuesForChartMode(rows, mode) {
+    return (rows || []).map((d) => {
+      if (mode === "revenue") return Number(d.faturamento || 0);
+      return Number(d.lucro != null ? d.lucro : Number(d.comissao || 0) - Number(d.inv_total || 0));
+    });
+  }
+
+  function paintChartToggle(mode) {
+    const profit = $("#btn-chart-profit");
+    const revenue = $("#btn-chart-revenue");
+    const on = "px-2.5 py-1 rounded-lg text-xs font-bold bg-brand-500 text-white transition-all shadow-sm";
+    const off = "px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all";
+    if (profit) profit.className = mode === "profit" ? on : off;
+    if (revenue) revenue.className = mode === "revenue" ? on : off;
+  }
+
+  function destroyProfitChart() {
+    if (state.chartInstance) {
+      try { state.chartInstance.destroy(); } catch (_) { /* ignore */ }
+      state.chartInstance = null;
+    }
+  }
+
   function renderChart(daily) {
-    const rows = daily || [];
+    const host = $("#daily-chart");
+    if (!host) return;
+    const rows = Array.isArray(daily) ? daily : [];
+    state.chartDaily = rows;
+    paintChartToggle(state.chartMode || "profit");
+
     if (!rows.length) {
-      $("#daily-chart").innerHTML = `<div class="chart-empty">Sem dados no período. Sincronize a Shopee para preencher a curva.</div>`;
+      destroyProfitChart();
+      host.innerHTML = `<div class="chart-empty">Sem dados no período. Sincronize a Shopee para preencher a curva.</div>`;
+      const peak = $("#dash-chart-peak");
+      if (peak) peak.textContent = "—";
+      const sub = $("#dash-chart-sub");
+      if (sub && !sub.dataset.locked) sub.textContent = "sem dados no período";
       return;
     }
-    const vals = rows.map((d) => Number(d.lucro != null ? d.lucro : Number(d.comissao || 0) - Number(d.inv_total || 0)));
-    const maxAbs = Math.max(...vals.map((v) => Math.abs(v)), 1);
-    const n = rows.length;
-    const avg = vals.reduce((a, v) => a + v, 0) / n;
-    const cols = rows.map((d, i) => {
-      const lucro = vals[i];
-      const h = Math.max(3, Math.round((Math.abs(lucro) / maxAbs) * 100));
-      const cls = lucro >= 0 ? "fat" : "loss";
-      return `
-        <div class="chart-col" title="${escapeHtml(String(d.data))}: ${fmt(lucro)}">
-          <div class="chart-val ${lucro >= 0 ? "pos" : "neg"}">${fmtShort(lucro)}</div>
-          <div class="chart-bar ${cls}" style="height:${h}%"></div>
-        </div>`;
-    }).join("");
-    const labels = rows.map((d) => `<span>${chartDay(d.data)}</span>`).join("");
-    $("#daily-chart").innerHTML = `
-      <div class="chart-plot">${cols}</div>
-      <div class="chart-axis" style="grid-template-columns:repeat(${n},minmax(0,1fr))">${labels}</div>
-      <div class="chart-foot">valores em R$ · média ${fmt(avg)}/dia</div>`;
+
+    if (!host.querySelector("#profit-chart-canvas")) {
+      host.innerHTML = `<canvas id="profit-chart-canvas"></canvas>`;
+    }
+    const canvas = $("#profit-chart-canvas");
+    if (!canvas || typeof Chart === "undefined") {
+      host.innerHTML = `<div class="chart-empty">Chart.js não carregou. Recarregue a página.</div>`;
+      return;
+    }
+
+    const mode = state.chartMode === "revenue" ? "revenue" : "profit";
+    const vals = valuesForChartMode(rows, mode);
+    const labels = rows.map((d) => chartDay(d.data).toUpperCase());
+    const avg = vals.reduce((a, v) => a + v, 0) / vals.length;
+    let peakIdx = 0;
+    vals.forEach((v, i) => { if (v > vals[peakIdx]) peakIdx = i; });
+    const peakEl = $("#dash-chart-peak");
+    if (peakEl) {
+      peakEl.textContent = mode === "revenue"
+        ? `Pico fat.: ${fmt(vals[peakIdx])} (${labels[peakIdx]})`
+        : `Pico: ${fmt(vals[peakIdx])} (${labels[peakIdx]})`;
+    }
+    const sub = $("#dash-chart-sub");
+    if (sub) {
+      sub.textContent = mode === "revenue"
+        ? `valores em R$ · média ${fmt(avg)}/dia de faturamento`
+        : `valores em R$ · média ${fmt(avg)}/dia`;
+    }
+
+    const ctx = canvas.getContext("2d");
+    const h = canvas.parentElement?.clientHeight || 260;
+    const gradient = ctx.createLinearGradient(0, 0, 0, h);
+    if (mode === "revenue") {
+      gradient.addColorStop(0, "rgba(249, 115, 22, 0.85)");
+      gradient.addColorStop(1, "rgba(249, 115, 22, 0.18)");
+    } else {
+      gradient.addColorStop(0, "rgba(16, 185, 129, 0.9)");
+      gradient.addColorStop(1, "rgba(16, 185, 129, 0.18)");
+    }
+
+    const bg = mode === "revenue"
+      ? gradient
+      : vals.map((v) => (v >= 0 ? "rgba(16, 185, 129, 0.8)" : "rgba(245, 158, 11, 0.78)"));
+    const border = mode === "revenue"
+      ? "#f97316"
+      : vals.map((v) => (v >= 0 ? "#10b981" : "#f59e0b"));
+
+    const dataset = {
+      label: mode === "revenue" ? "Faturamento Bruto (R$)" : "Lucro Líquido (R$)",
+      data: vals,
+      backgroundColor: bg,
+      borderColor: border,
+      borderWidth: 1.5,
+      borderRadius: 8,
+      borderSkipped: false,
+      maxBarThickness: 42,
+    };
+
+    const tooltipBody = mode === "revenue" ? "#fb923c" : "#34d399";
+
+    if (state.chartInstance) {
+      state.chartInstance.data.labels = labels;
+      state.chartInstance.data.datasets[0] = dataset;
+      state.chartInstance.options.plugins.tooltip.bodyColor = tooltipBody;
+      state.chartInstance.options.scales.y.grid.color = chartGridColor();
+      state.chartInstance.options.scales.x.ticks.color = chartTickColor();
+      state.chartInstance.options.scales.y.ticks.color = chartTickColor();
+      state.chartInstance.update();
+      return;
+    }
+
+    state.chartInstance = new Chart(ctx, {
+      type: "bar",
+      data: { labels, datasets: [dataset] },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 450 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#0f172a",
+            titleColor: "#f8fafc",
+            bodyColor: tooltipBody,
+            borderColor: "#334155",
+            borderWidth: 1,
+            padding: 10,
+            displayColors: false,
+            callbacks: {
+              label(context) {
+                const prefix = mode === "revenue" ? "Faturamento" : "Lucro";
+                return `${prefix}: ${fmt(context.parsed.y)}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              color: chartTickColor(),
+              font: { size: 11, family: "Inter", weight: "600" },
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 10,
+            },
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: chartGridColor() },
+            ticks: {
+              color: chartTickColor(),
+              font: { size: 11, family: "Inter" },
+              callback(val) {
+                return "R$ " + Number(val).toLocaleString("pt-BR", { maximumFractionDigits: 0 });
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  function setChartMode(mode) {
+    state.chartMode = mode === "revenue" ? "revenue" : "profit";
+    destroyProfitChart();
+    renderChart(state.chartDaily.length ? state.chartDaily : (state.dash?.daily || []));
   }
 
   function renderSuggestions(dash) {
     const el = $("#suggestions-body");
     const countEl = $("#suggestions-count");
     if (!el) return;
-    const ch = state.channel;
-    if (ch !== "geral" && ch !== "meta") {
-      el.innerHTML = `<div class="sec-empty">Sugestões disponíveis na visão Geral ou Meta.</div>`;
-      if (countEl) countEl.textContent = "—";
-      return;
-    }
-    const subs = (dash?.subIds || []).filter((s) => (s.canal || "meta") === "meta");
+    const subs = (dash?.subIds || []).filter((s) => (s.canal || "indefinido") === "meta");
     const tips = [];
     for (const s of subs) {
       const days = [...(s.daily || [])].sort((a, b) => String(a.data).localeCompare(String(b.data)));
@@ -439,7 +681,7 @@
       const roi15 = inv15 > 0 ? (lucro15 / inv15) * 100 : Number(s.roi);
       const inv = Number(s.inv_meta || s.inv_total || 0);
       const lucro = Number(s.lucro || 0);
-      const st = s.status || "ativa";
+      const st = normalizeStatus(s.status);
       const roi = Number.isFinite(roi15) ? roi15 : Number(s.roi);
       const vendas = Number(s.pedidos || 0);
 
@@ -490,19 +732,25 @@
         ? `${shown.length} ${shown.length > 1 ? "ações" : "ação"}`
         : "—";
     }
+    const navIa = $("#nav-count-ia");
+    if (navIa) navIa.textContent = shown.length ? fmtNum(shown.length) : "";
     if (!shown.length) {
       el.innerHTML = `<div class="sec-empty">Nenhum sinal de corte ou escala no período — Meta está estável.</div>`;
       return;
     }
     el.innerHTML = shown.map((t) => `
       <div class="sug-row">
-        <div class="sug-subid-cell">
-          <img src="/assets/meta.png" alt="" width="16" height="16" />
-          <span class="sug-subid">${escapeHtml(t.subid)}</span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="sug-subid">${escapeHtml(t.subid)}</span>
+            <span class="sug-tag is-${t.tagKind}">${escapeHtml(t.tag)}</span>
+          </div>
+          <p class="sug-reason">${escapeHtml(t.reason)}</p>
         </div>
-        <div><span class="sug-tag is-${t.tagKind}">${escapeHtml(t.tag)}</span></div>
-        <div class="sug-reason">${escapeHtml(t.reason)}</div>
-        <button type="button" class="sug-action-btn is-${t.actionKind}">${escapeHtml(t.action.replace("Pausar campanha", "Pausar"))}</button>
+        <button type="button" class="sug-action-btn is-${t.actionKind}">
+          <i class="fa-solid fa-${t.actionKind === "pausar" ? "pause" : "bolt"}"></i>
+          ${escapeHtml(t.action.replace("Pausar campanha", "Pausar"))}
+        </button>
       </div>`).join("");
   }
 
@@ -596,30 +844,30 @@
       const com = Number(d.comissao || 0);
       const abat = fat > 0 ? (com / fat) * 100 : 0;
       const lucro = d.lucro != null ? d.lucro : com - Number(d.inv_total || 0);
-      return `<tr>
-        <td>${shortDay(d.data)}</td>
+      return `<tr class="hover:bg-slate-50 transition-colors">
+        <td class="font-bold text-slate-900">${shortDay(d.data)}</td>
         <td class="num">${fmt(fat)}</td>
         <td class="num">${fmt(com)}</td>
-        <td class="num">${fmt(d.inv_meta)}</td>
+        <td class="num text-meta-600" style="color:#0081fb">${fmt(d.inv_meta)}</td>
         <td class="num">${fmt(d.inv_pin)}</td>
-        <td class="num">${fmt(d.inv_total)}</td>
-        <td class="num ${lucro >= 0 ? "green" : ""}">${fmt(lucro)}</td>
-        <td class="num">${fmtPct(d.roi)}</td>
-        <td class="num">${fmtPct(abat)}</td>
+        <td class="num font-bold">${fmt(d.inv_total)}</td>
+        <td class="num font-extrabold ${lucro >= 0 ? "green" : "neg"}" style="${lucro >= 0 ? "background:rgba(16,185,129,.06)" : ""}">${fmt(lucro)}</td>
+        <td class="num text-center"><span class="inline-block px-2 py-0.5 rounded font-bold text-[11px] ${Number(d.roi) >= 0 ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"}">${fmtPct(d.roi)}</span></td>
+        <td class="num text-center text-slate-500">${fmtPct(abat)}</td>
       </tr>`;
     }).join("") || `<tr><td colspan="9">Sem dias no período.</td></tr>`;
 
     if (state.dailyRows.length) {
       $("#daily-tfoot").innerHTML = `<tr>
-        <td>TOTAL</td>
+        <td class="text-emerald-400 uppercase tracking-wider">TOTAL</td>
         <td class="num">${fmt(k.faturamento)}</td>
-        <td class="num">${fmt(k.comissao)}</td>
-        <td class="num">${fmt(k.inv_meta)}</td>
+        <td class="num text-amber-300">${fmt(k.comissao)}</td>
+        <td class="num text-blue-300">${fmt(k.inv_meta)}</td>
         <td class="num">${fmt(k.inv_pin)}</td>
         <td class="num">${fmt(k.inv_total)}</td>
-        <td class="num green">${fmt(k.lucro)}</td>
-        <td class="num">${fmtPct(k.roi)}</td>
-        <td class="num">${fmtPct(k.abatimento)}</td>
+        <td class="num green text-sm">${fmt(k.lucro)}</td>
+        <td class="num text-center"><span class="bg-emerald-500 text-slate-950 font-black px-2 py-0.5 rounded text-[11px]">${fmtPct(k.roi)}</span></td>
+        <td class="num text-center text-slate-300">${fmtPct(k.abatimento)}</td>
       </tr>`;
     } else $("#daily-tfoot").innerHTML = "";
   }
@@ -628,23 +876,66 @@
     if (c === "meta") return "Meta";
     if (c === "pinterest") return "Pinterest";
     if (c === "organico") return "Orgânico";
+    if (c === "indefinido") return "Indefinido";
     return c || "—";
   }
 
+  function normalizeStatus(s) {
+    if (s === "pausada") return "desativada";
+    if (s === "teste" || s === "desativada") return s;
+    return "ativa";
+  }
+
   function statusLabel(s) {
-    if (s === "teste") return "Em teste";
-    if (s === "pausada") return "Pausada";
+    const st = normalizeStatus(s);
+    if (st === "teste") return "Teste";
+    if (st === "desativada") return "Desativada";
     return "Ativa";
   }
 
   function statusPillHtml(status) {
-    const st = status || "ativa";
+    const st = normalizeStatus(status);
     return `<span class="status-pill st-${st}"><i></i>${statusLabel(st)}</span>`;
   }
 
+  function statusSelectHtml(subid, status) {
+    const st = normalizeStatus(status);
+    return `<select class="op-select" data-op="status" data-subid="${escapeHtml(String(subid))}">
+      <option value="ativa" ${st === "ativa" ? "selected" : ""}>Ativa</option>
+      <option value="teste" ${st === "teste" ? "selected" : ""}>Teste</option>
+      <option value="desativada" ${st === "desativada" ? "selected" : ""}>Desativada</option>
+    </select>`;
+  }
+
+  function canalSelectHtml(subid, canal) {
+    const c = canal || "indefinido";
+    return `<select class="op-select" data-op="canal" data-subid="${escapeHtml(String(subid))}">
+      <option value="indefinido" ${c === "indefinido" ? "selected" : ""}>Indefinido</option>
+      <option value="meta" ${c === "meta" ? "selected" : ""}>Meta</option>
+      <option value="pinterest" ${c === "pinterest" ? "selected" : ""}>Pinterest</option>
+      <option value="organico" ${c === "organico" ? "selected" : ""}>Orgânico</option>
+    </select>`;
+  }
+
   function canalChipHtml(canal) {
-    const c = canal || "meta";
+    const c = canal || "indefinido";
     return `<span class="canal-chip ch-${c}">${CHANNEL_ICONS[c] || ""}${canalLabel(c)}</span>`;
+  }
+
+  function adsClicksFor(r, channel) {
+    if (channel === "meta") return Number(r.cliques_meta || 0);
+    if (channel === "pinterest") return Number(r.cliques_pin || 0);
+    return Number(r.cliques_ads != null ? r.cliques_ads : (Number(r.cliques_meta || 0) + Number(r.cliques_pin || 0)));
+  }
+
+  function clickAbatPct(r, channel) {
+    if (r.abatimento_cliques != null && Number.isFinite(Number(r.abatimento_cliques))) {
+      return Number(r.abatimento_cliques);
+    }
+    const shopee = r.cliques_shopee != null ? Number(r.cliques_shopee) : null;
+    const ads = adsClicksFor(r, channel);
+    if (shopee == null || !(ads > 0)) return null;
+    return Math.round((shopee / ads) * 10000) / 100;
   }
 
   function filteredSubIds(list, q, channel) {
@@ -652,8 +943,8 @@
     const ch = channel != null ? channel : state.channel;
     return (list || []).filter((r) => {
       if (query && !String(r.subid).toLowerCase().includes(query)) return false;
-      if (!ch || ch === "geral" || ch === "subid") return true;
-      return (r.canal || "meta") === ch;
+      if (!ch || ch === "geral") return true;
+      return (r.canal || "indefinido") === ch;
     });
   }
 
@@ -664,6 +955,21 @@
     const invMeta = list.reduce((a, r) => a + Number(r.inv_meta || 0), 0);
     const invPin = list.reduce((a, r) => a + Number(r.inv_pin || 0), 0);
     const pedidos = list.reduce((a, r) => a + Number(r.pedidos || 0), 0);
+    const concluidos = list.reduce((a, r) => a + Number(r.concluidos || 0), 0);
+    const pendentes = list.reduce((a, r) => a + Number(r.pendentes || 0), 0);
+    const cancelados = list.reduce((a, r) => a + Number(r.cancelados || 0), 0);
+    const cliquesMeta = list.reduce((a, r) => a + Number(r.cliques_meta || 0), 0);
+    const cliquesPin = list.reduce((a, r) => a + Number(r.cliques_pin || 0), 0);
+    const cliquesAds = list.reduce((a, r) => a + adsClicksFor(r, state.channel), 0);
+    const impressoes = list.reduce((a, r) => a + Number(r.impressoes || 0), 0);
+    const alcance = list.reduce((a, r) => a + Number(r.alcance || 0), 0);
+    const cliquesShopeeRaw = list.reduce((a, r) => {
+      if (r.cliques_shopee == null) return a;
+      return (a == null ? 0 : a) + Number(r.cliques_shopee);
+    }, null);
+    const spendMeta = list.reduce((a, r) => a + Number(r.inv_meta || 0), 0);
+    const cpc_meta = cliquesMeta > 0 ? Math.round((spendMeta / cliquesMeta) * 100) / 100 : null;
+    const ctr_meta = impressoes > 0 ? Math.round((cliquesMeta / impressoes) * 10000) / 100 : null;
     const tax = {
       taxRate: state.settings.taxRate,
       metaTaxRate: state.settings.metaTaxRate,
@@ -675,6 +981,10 @@
     const comissaoLiq = com * (1 - gov);
     const lucro = Math.round((comissaoLiq - invForRoi) * 100) / 100;
     const roi = invForRoi > 0 ? Math.round((lucro / invForRoi) * 10000) / 100 : null;
+    let abatimentoCliques = null;
+    if (cliquesShopeeRaw != null && cliquesAds > 0) {
+      abatimentoCliques = Math.round((cliquesShopeeRaw / cliquesAds) * 10000) / 100;
+    }
     return {
       ...(baseKpis || {}),
       faturamento: Math.round(fat * 100) / 100,
@@ -686,6 +996,18 @@
       lucro,
       roi,
       pedidos,
+      concluidos,
+      pendentes,
+      cancelados,
+      cliques_meta: cliquesMeta,
+      cliques_pin: cliquesPin,
+      cliques_ads: cliquesAds,
+      cliques_shopee: cliquesShopeeRaw,
+      impressoes,
+      alcance,
+      cpc_meta,
+      ctr_meta,
+      abatimento_cliques: abatimentoCliques,
       abatimento: fat > 0 ? Math.round((com / fat) * 10000) / 100 : null,
     };
   }
@@ -705,6 +1027,8 @@
     }
     applyChannelView();
     renderOpsTable();
+    renderIndefinidos();
+    if (state.view === "analise-ia") renderSuggestions(state.dash);
   }
 
   function wireOpsSelects(root) {
@@ -776,31 +1100,42 @@
     if (root) {
       root.classList.toggle("is-channel", isChannel);
       ["geral", "meta", "pinterest", "organico"].forEach((c) => root.classList.remove(`ch-${c}`));
-      root.classList.add(`ch-${ch === "subid" ? "geral" : ch}`);
+      root.classList.add(`ch-${ch}`);
     }
+    $$(".dash-only").forEach((el) => el.classList.toggle("hidden", isChannel));
+    $$(".channel-only").forEach((el) => el.classList.toggle("hidden", !isChannel));
     const label = CHANNEL_LABELS[ch] || "Geral";
+    const analysisTag = $("#channel-analysis-tag");
+    if (analysisTag) analysisTag.textContent = `Análise · ${label}`;
     const eyebrow = $("#dash-subids-eyebrow");
-    if (eyebrow) eyebrow.textContent = isChannel ? `canal ${label} · clique para o histórico` : "clique para abrir histórico";
+    if (eyebrow) eyebrow.textContent = `canal ${label} · altere o status · clique para o histórico`;
+    const subidsIcon = $("#dash-subids-icon");
+    if (subidsIcon) {
+      const iconSrc = ch === "meta"
+        ? "/assets/meta.png"
+        : ch === "pinterest"
+          ? "/assets/pinterest.png"
+          : "/assets/shopee.png";
+      subidsIcon.src = iconSrc;
+      subidsIcon.alt = label;
+    }
     const chip = $("#dash-crumb-channel");
     if (chip) chip.textContent = label.toUpperCase();
     const chartSub = $("#dash-chart-sub");
-    if (chartSub) chartSub.textContent = isChannel ? `somente ${label}` : "todos os canais";
+    if (chartSub) chartSub.textContent = "todos os canais";
     const dailySub = $("#dash-daily-sub");
-    if (dailySub) {
-      dailySub.textContent = isChannel
-        ? `${label} · Fat · Com · Inv · Lucro · ROI · Abat.`
-        : "Fat · Com · Inv · Lucro · ROI · Abat.";
-    }
+    if (dailySub) dailySub.textContent = "Fat · Com · Inv · Lucro · ROI · Abat.";
   }
 
   /** Contadores de SubIDs por canal no rail e na página de classificação. */
   function paintChannelCounts() {
     const list = state.dash?.subIds || [];
-    const count = (c) => list.filter((r) => (r.canal || "meta") === c).length;
+    const count = (c) => list.filter((r) => (r.canal || "indefinido") === c).length;
     const totals = {
       meta: count("meta"),
       pinterest: count("pinterest"),
       organico: count("organico"),
+      indefinido: count("indefinido"),
       all: list.length,
     };
     const set = (sel, v) => {
@@ -818,46 +1153,219 @@
     setHard("#canais-count-meta", totals.meta);
     setHard("#canais-count-pin", totals.pinterest);
     setHard("#canais-count-org", totals.organico);
-    const setTab = (sel, v) => {
-      const el = $(sel);
-      if (!el) return;
-      el.textContent = list.length ? fmtNum(v) : "";
-    };
-    setTab("#tab-count-geral", totals.all);
-    setTab("#tab-count-meta", totals.meta);
-    setTab("#tab-count-pin", totals.pinterest);
-    setTab("#tab-count-org", totals.organico);
+    setHard("#canais-count-indef", totals.indefinido);
+    setHard("#indef-count-pill", totals.indefinido);
+  }
+
+  function channelSubidColumns(ch) {
+    const base = [
+      { key: "subid", label: "SubID", num: false },
+      { key: "faturamento", label: "Faturamento", num: true },
+      { key: "comissao", label: "Comissão", num: true },
+      { key: "inv_total", label: "Investimento", num: true },
+      { key: "lucro", label: "Lucro", num: true },
+      { key: "roi", label: "ROI", num: true },
+      { key: "pedidos", label: "Pedidos", num: true },
+      { key: "concluidos", label: "Concluídos", num: true },
+      { key: "pendentes", label: "Pendentes", num: true },
+      { key: "cancelados", label: "Cancelados", num: true },
+      { key: "cliques_shopee", label: "Cliques Shopee", num: true },
+    ];
+    if (ch === "meta") {
+      return [
+        ...base,
+        { key: "cliques_meta", label: "Cliques Meta", num: true },
+        { key: "impressoes", label: "Impressões", num: true },
+        { key: "alcance", label: "Alcance", num: true },
+        { key: "ctr_meta", label: "CTR Meta", num: true },
+        { key: "cpc_meta", label: "CPC Meta", num: true },
+        { key: "abatimento_cliques", label: "% Abat. cliques", num: true },
+        { key: "abatimento", label: "Abat. comissão", num: true },
+        { key: "status", label: "Status", num: false },
+      ];
+    }
+    if (ch === "pinterest") {
+      return [
+        ...base,
+        { key: "cliques_pin", label: "Cliques Pin", num: true },
+        { key: "abatimento_cliques", label: "% Abat. cliques", num: true },
+        { key: "abatimento", label: "Abat. comissão", num: true },
+        { key: "status", label: "Status", num: false },
+      ];
+    }
+    // orgânico
+    return [
+      ...base,
+      { key: "abatimento", label: "Abat. comissão", num: true },
+      { key: "status", label: "Status", num: false },
+    ];
+  }
+
+  function paintSubidThead(ch) {
+    const thead = $("#subid-thead");
+    if (!thead) return channelSubidColumns(ch);
+    const cols = channelSubidColumns(ch);
+    thead.innerHTML = `<tr>${cols.map((c) =>
+      `<th class="th-sort${c.num ? " num" : ""}" data-sort="${c.key}">${escapeHtml(c.label)}</th>`
+    ).join("")}</tr>`;
+    return cols;
+  }
+
+  function cellForSubidCol(r, col, ch) {
+    const inv = investForRoi(r);
+    const roi = displayRoi(r);
+    const lucro = r.lucro != null ? Number(r.lucro) : Number(r.comissao || 0) - inv;
+    const abatC = clickAbatPct(r, ch);
+    const abat = r.faturamento > 0
+      ? Math.round((Number(r.comissao || 0) / Number(r.faturamento)) * 10000) / 100
+      : (r.abatimento != null ? Number(r.abatimento) : null);
+    switch (col.key) {
+      case "subid":
+        return `<td class="subid" data-subid="${escapeHtml(String(r.subid || ""))}" title="Clique para ver o historico diario">
+          <span class="subid-caret"></span>${escapeHtml(String(r.subid || ""))}
+        </td>`;
+      case "faturamento": return `<td class="num">${fmt(r.faturamento)}</td>`;
+      case "comissao": return `<td class="num">${fmt(r.comissao)}</td>`;
+      case "inv_total": return `<td class="num">${fmt(inv)}</td>`;
+      case "lucro": return `<td class="num ${lucro >= 0 ? "green" : "neg"}">${fmt(lucro)}</td>`;
+      case "roi": return `<td class="num ${roiClass(roi)}">${fmtPct(roi)}</td>`;
+      case "pedidos": return `<td class="num">${fmtNum(r.pedidos)}</td>`;
+      case "concluidos": return `<td class="num">${fmtNum(r.concluidos)}</td>`;
+      case "pendentes": return `<td class="num">${fmtNum(r.pendentes)}</td>`;
+      case "cancelados": return `<td class="num">${fmtNum(r.cancelados)}</td>`;
+      case "cliques_shopee": return `<td class="num">${r.cliques_shopee != null ? fmtNum(r.cliques_shopee) : "—"}</td>`;
+      case "cliques_meta": return `<td class="num">${fmtNum(r.cliques_meta)}</td>`;
+      case "cliques_pin": return `<td class="num">${fmtNum(r.cliques_pin)}</td>`;
+      case "cliques_ads": return `<td class="num">${fmtNum(adsClicksFor(r, ch))}</td>`;
+      case "impressoes": return `<td class="num">${fmtNum(r.impressoes)}</td>`;
+      case "alcance": return `<td class="num">${fmtNum(r.alcance)}</td>`;
+      case "ctr_meta": return `<td class="num">${fmtPct(r.ctr_meta)}</td>`;
+      case "cpc_meta": return `<td class="num">${fmt(r.cpc_meta)}</td>`;
+      case "abatimento_cliques": return `<td class="num">${fmtPct(abatC)}</td>`;
+      case "abatimento": return `<td class="num">${fmtPct(abat)}</td>`;
+      case "status": return `<td>${statusSelectHtml(r.subid, r.status)}</td>`;
+      default: return `<td class="num">—</td>`;
+    }
+  }
+
+  function renderChannelAnalysis(k, ch) {
+    const el = $("#channel-analysis-grid");
+    if (!el) return;
+    const hasData = Boolean(state.dash);
+    const inv = ch === "pinterest"
+      ? Number(k.inv_pin || 0)
+      : ch === "meta"
+        ? Number(k.inv_meta || 0)
+        : Number(k.inv_total || 0);
+    const items = [
+      { label: "Faturamento", value: fmtDisplay(hasData ? k.faturamento : null) },
+      { label: "Comissão", value: fmtDisplay(hasData ? k.comissao : null) },
+      { label: "Investimento", value: fmtDisplay(hasData ? inv : null) },
+      { label: "Lucro", value: fmtDisplay(hasData ? k.lucro : null), tone: hasData && Number(k.lucro) < 0 ? "neg" : "pos" },
+      { label: "ROI", value: fmtPct(hasData ? k.roi : null) },
+      { label: "Pedidos", value: hasData ? fmtNum(k.pedidos || 0) : "—" },
+      { label: "Concluídos", value: hasData ? fmtNum(k.concluidos || 0) : "—" },
+      { label: "Pendentes", value: hasData ? fmtNum(k.pendentes || 0) : "—" },
+      { label: "Cancelados", value: hasData ? fmtNum(k.cancelados || 0) : "—" },
+      { label: "Cliques Shopee", value: k.cliques_shopee != null ? fmtNum(k.cliques_shopee) : "—" },
+    ];
+    if (ch === "meta") {
+      items.push(
+        { label: "Cliques Meta", value: hasData ? fmtNum(k.cliques_meta || 0) : "—" },
+        { label: "Impressões", value: hasData ? fmtNum(k.impressoes || 0) : "—" },
+        { label: "Alcance", value: hasData ? fmtNum(k.alcance || 0) : "—" },
+        { label: "CTR Meta", value: fmtPct(k.ctr_meta) },
+        { label: "CPC Meta", value: fmtDisplay(k.cpc_meta) },
+        {
+          label: "% Abat. cliques",
+          value: k.abatimento_cliques != null ? fmtPct(k.abatimento_cliques) : "—",
+          note: "Shopee ÷ Meta",
+        },
+      );
+    } else if (ch === "pinterest") {
+      items.push(
+        { label: "Cliques Pin", value: hasData ? fmtNum(k.cliques_pin || 0) : "—" },
+        {
+          label: "% Abat. cliques",
+          value: k.abatimento_cliques != null ? fmtPct(k.abatimento_cliques) : "—",
+          note: "Shopee ÷ Pin",
+        },
+      );
+    }
+    items.push({ label: "Abat. comissão", value: fmtPct(hasData ? k.abatimento : null), note: "comissão ÷ fat." });
+    el.innerHTML = items.map((it) => `
+      <article class="analysis-card">
+        <span class="analysis-label">${escapeHtml(it.label)}</span>
+        <strong class="analysis-value ${it.tone || ""}">${it.value}</strong>
+        ${it.note ? `<span class="analysis-note">${escapeHtml(it.note)}</span>` : ""}
+      </article>`).join("");
   }
 
   function applyChannelView() {
     const ch = state.channel || "geral";
     const isChannel = ch === "meta" || ch === "pinterest" || ch === "organico";
-    $$("#channel-tabs .channel-tab").forEach((b) => {
-      b.classList.toggle("active", b.dataset.channel === ch);
-    });
     paintChannelChrome(ch, isChannel);
     syncDashHeading();
     paintChannelCounts();
 
-    const showSug = ch === "geral" || ch === "meta";
-    $("#dash-suggestions-panel")?.classList.toggle("hidden", !showSug);
-
     const dash = state.dash;
     if (!dash) {
       renderKpis({});
+      renderChannelAnalysis({}, ch);
       renderSuggestions(null);
       renderChart([]);
       return;
     }
 
-    const channelSubs = filteredSubIds(dash.subIds || [], "", ch === "subid" ? "geral" : ch);
-    const k = isChannel ? kpisFromSubIds(channelSubs, dash.kpis) : (dash.kpis || {});
+    const channelSubs = filteredSubIds(dash.subIds || [], "", ch);
+    let k = isChannel ? kpisFromSubIds(channelSubs, dash.kpis) : {
+      ...(dash.kpis || {}),
+      ...kpisFromSubIds(dash.subIds || [], dash.kpis),
+      faturamento: dash.kpis?.faturamento,
+      comissao: dash.kpis?.comissao,
+      inv_meta: dash.kpis?.inv_meta,
+      inv_pin: dash.kpis?.inv_pin,
+      inv_total: dash.kpis?.inv_total,
+      lucro: dash.kpis?.lucro,
+      roi: dash.kpis?.roi,
+      pedidos: dash.kpis?.pedidos,
+      concluidos: dash.kpis?.concluidos,
+      pendentes: dash.kpis?.pendentes,
+      cancelados: dash.kpis?.cancelados,
+      abatimento: dash.kpis?.abatimento,
+    };
+    // Totais de mídia do enrich (todas as linhas Meta/Pin do período)
+    if (dash.kpis) {
+      if (dash.kpis.cliques_meta != null) k.cliques_meta = dash.kpis.cliques_meta;
+      if (dash.kpis.cliques_pin != null) k.cliques_pin = dash.kpis.cliques_pin;
+      if (dash.kpis.cliques_ads != null) k.cliques_ads = dash.kpis.cliques_ads;
+      if (!isChannel && dash.kpis.cliques_shopee != null) k.cliques_shopee = dash.kpis.cliques_shopee;
+      if (dash.kpis.impressoes != null) k.impressoes = dash.kpis.impressoes;
+      if (dash.kpis.alcance != null) k.alcance = dash.kpis.alcance;
+      if (dash.kpis.ctr_meta != null) k.ctr_meta = dash.kpis.ctr_meta;
+      if (dash.kpis.cpc_meta != null) k.cpc_meta = dash.kpis.cpc_meta;
+      if (!isChannel && dash.kpis.abatimento_cliques != null) k.abatimento_cliques = dash.kpis.abatimento_cliques;
+    }
+    if (ch === "meta" && dash.kpis) {
+      k.cliques_meta = dash.kpis.cliques_meta ?? k.cliques_meta;
+      k.impressoes = dash.kpis.impressoes ?? k.impressoes;
+      k.alcance = dash.kpis.alcance ?? k.alcance;
+      k.ctr_meta = dash.kpis.ctr_meta ?? k.ctr_meta;
+      k.cpc_meta = dash.kpis.cpc_meta ?? k.cpc_meta;
+      if (k.cliques_shopee != null && Number(k.cliques_meta) > 0) {
+        k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_meta)) * 10000) / 100;
+      }
+    }
     const daily = isChannel ? dailyFromSubIds(channelSubs) : (dash.daily || []);
-    renderKpis(k, channelSubs.length);
+    if (!isChannel) {
+      renderKpis(k, (dash.subIds || []).length);
+      renderChart(daily);
+      renderDailyTable(daily, k);
+    } else {
+      renderChannelAnalysis(k, ch);
+      renderSubIdsDash();
+    }
     renderSuggestions(dash);
-    renderChart(daily);
-    renderDailyTable(daily, k);
-    renderSubIdsDash();
 
     const liveText = $("#dash-live-text");
     if (liveText) {
@@ -888,24 +1396,12 @@
 
     tb.innerHTML = slice.map((r) => {
       const id = String(r.subid || "");
-      const canal = r.canal || "meta";
-      const status = r.status || "ativa";
+      const canal = r.canal || "indefinido";
+      const status = normalizeStatus(r.status);
       return `<tr>
         <td class="subid">${escapeHtml(id)}</td>
-        <td>
-          <select class="op-select" data-op="canal" data-subid="${escapeHtml(id)}">
-            <option value="meta" ${canal === "meta" ? "selected" : ""}>Meta</option>
-            <option value="pinterest" ${canal === "pinterest" ? "selected" : ""}>Pinterest</option>
-            <option value="organico" ${canal === "organico" ? "selected" : ""}>Orgânico</option>
-          </select>
-        </td>
-        <td>
-          <select class="op-select" data-op="status" data-subid="${escapeHtml(id)}">
-            <option value="ativa" ${status === "ativa" ? "selected" : ""}>Ativa</option>
-            <option value="teste" ${status === "teste" ? "selected" : ""}>Em Teste</option>
-            <option value="pausada" ${status === "pausada" ? "selected" : ""}>Pausada</option>
-          </select>
-        </td>
+        <td>${canalSelectHtml(id, canal)}</td>
+        <td>${statusSelectHtml(id, status)}</td>
       </tr>`;
     }).join("") || `<tr><td colspan="3">${state.dash ? "Nenhum SubID encontrado." : "Carregue o painel para listar SubIDs."}</td></tr>`;
     wireOpsSelects("#ops-tbody");
@@ -917,6 +1413,25 @@
         renderOpsTable();
       });
     }
+  }
+
+  function renderIndefinidos() {
+    const tb = $("#indef-tbody");
+    if (!tb) return;
+    const list = (state.dash?.subIds || []).filter((r) => (r.canal || "indefinido") === "indefinido");
+    const pill = $("#indef-count-pill");
+    if (pill) pill.textContent = fmtNum(list.length);
+    tb.innerHTML = list.map((r) => {
+      const id = String(r.subid || "");
+      return `<tr>
+        <td class="subid">${escapeHtml(id)}</td>
+        <td>${canalSelectHtml(id, "indefinido")}</td>
+        <td>${statusSelectHtml(id, r.status)}</td>
+        <td class="num">${fmt(r.faturamento)}</td>
+        <td class="num">${fmt(r.comissao)}</td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="5">Nenhum SubID indefinido — todos já estão em um canal.</td></tr>`;
+    wireOpsSelects("#indef-tbody");
   }
 
   function renderPager(el, page, total, pageSize, onPage) {
@@ -1034,97 +1549,47 @@
   }
 
   function renderSubIdsDash() {
-    let all = filteredSubIds(state.dash?.subIds || [], $("#subid-search")?.value);
-    const statusRank = { ativa: 0, teste: 1, pausada: 2 };
+    const ch = state.channel || "geral";
+    const cols = paintSubidThead(ch);
+    let all = filteredSubIds(state.dash?.subIds || [], $("#subid-search")?.value, ch);
+    const statusRank = { ativa: 0, teste: 1, desativada: 2, pausada: 2 };
     all = sortRows(all, state.subidSort.key || "status", state.subidSort.dir || "asc", (r) => {
       if (state.subidSort.key === "subid") return r.subid;
-      if (state.subidSort.key === "canal") return r.canal || "";
-      if (state.subidSort.key === "status" || !state.subidSort.key) return statusRank[r.status || "ativa"] ?? 9;
+      if (state.subidSort.key === "status" || !state.subidSort.key) return statusRank[normalizeStatus(r.status)] ?? 9;
       if (state.subidSort.key === "roi") return displayRoi(r);
       if (state.subidSort.key === "inv_total") return investForRoi(r);
       if (state.subidSort.key === "lucro") return r.lucro != null ? Number(r.lucro) : Number(r.comissao || 0) - investForRoi(r);
+      if (state.subidSort.key === "cliques_ads") return adsClicksFor(r, ch);
+      if (state.subidSort.key === "abatimento_cliques") return clickAbatPct(r, ch);
+      if (state.subidSort.key === "abatimento") {
+        const fat = Number(r.faturamento || 0);
+        return fat > 0 ? (Number(r.comissao || 0) / fat) * 100 : Number(r.abatimento || 0);
+      }
       return r[state.subidSort.key];
     });
-    paintSortHeaders("#subid-table thead", state.subidSort);
+    paintSortHeaders("#subid-thead", state.subidSort);
     const total = all.length;
     const pages = Math.max(1, Math.ceil(total / state.pageSize));
     if (state.subidPage > pages) state.subidPage = pages;
     const slice = all.slice((state.subidPage - 1) * state.pageSize, state.subidPage * state.pageSize);
-    $("#subid-count-pill").textContent = fmtNum(total);
-    const navCount = $("#nav-subid-count");
-    if (navCount) navCount.textContent = fmtNum(state.dash?.subIds?.length || 0);
-    $("#subid-tbody").innerHTML = slice.map((r) => {
+    const pill = $("#subid-count-pill");
+    if (pill) pill.textContent = fmtNum(total);
+    const tbody = $("#subid-tbody");
+    if (!tbody) return;
+    const span = cols.length;
+    tbody.innerHTML = slice.map((r) => {
       const id = String(r.subid || "");
       const open = Boolean(state.expandedSubIds[id]);
-      const inv = investForRoi(r);
-      const roi = displayRoi(r);
-      const lucro = r.lucro != null ? Number(r.lucro) : Number(r.comissao || 0) - inv;
       const main = `<tr class="subid-row ${open ? "is-open" : ""}" data-subid="${escapeHtml(id)}">
-        <td class="subid" data-subid="${escapeHtml(id)}" title="Clique para ver o historico diario">
-          <span class="subid-caret"></span>
-          ${escapeHtml(id)}
-        </td>
-        <td>${canalChipHtml(r.canal)}</td>
-        <td class="num">${fmt(r.faturamento)}</td>
-        <td class="num">${fmt(r.comissao)}</td>
-        <td class="num">${fmt(inv)}</td>
-        <td class="num ${lucro >= 0 ? "green" : "neg"}">${fmt(lucro)}</td>
-        <td class="num ${roiClass(roi)}">${fmtPct(roi)}</td>
-        <td class="num">${fmtNum(r.pedidos)}</td>
-        <td>${statusPillHtml(r.status)}</td>
+        ${cols.map((c) => cellForSubidCol(r, c, ch)).join("")}
       </tr>`;
-      return open ? main + subIdDailyHistoryHtml(r, 9) : main;
-    }).join("") || `<tr><td colspan="9">Nenhum SubID neste período.</td></tr>`;
+      return open ? main + subIdDailyHistoryHtml(r, span) : main;
+    }).join("") || `<tr><td colspan="${span}">Nenhum SubID neste canal no período.</td></tr>`;
     wireSubIdExpand("#subid-tbody", renderSubIdsDash);
+    wireOpsSelects("#subid-tbody");
     renderPager($("#subid-pager"), state.subidPage, total, state.pageSize, (p) => {
       state.subidPage = p;
       renderSubIdsDash();
-    });
-  }
-
-  function renderSubIdsFull() {
-    let all = filteredSubIds(state.dash?.subIds || [], $("#subid-search-full")?.value, "geral");
-    const statusRank = { ativa: 0, teste: 1, pausada: 2 };
-    all = sortRows(all, state.subidSort.key, state.subidSort.dir, (r) => {
-      if (state.subidSort.key === "subid") return r.subid;
-      if (state.subidSort.key === "canal") return r.canal || "";
-      if (state.subidSort.key === "status") return statusRank[r.status || "ativa"] ?? 9;
-      if (state.subidSort.key === "roi") return displayRoi(r);
-      if (state.subidSort.key === "inv_total") return investForRoi(r);
-      if (state.subidSort.key === "lucro") return r.lucro != null ? Number(r.lucro) : Number(r.comissao || 0) - investForRoi(r);
-      return r[state.subidSort.key];
-    });
-    paintSortHeaders("#subid-table-full thead", state.subidSort);
-    const total = all.length;
-    const pages = Math.max(1, Math.ceil(total / state.pageSize));
-    if (state.subidPageFull > pages) state.subidPageFull = pages;
-    const slice = all.slice((state.subidPageFull - 1) * state.pageSize, state.subidPageFull * state.pageSize);
-    $("#subid-tbody-full").innerHTML = slice.map((r) => {
-      const id = String(r.subid || "");
-      const open = Boolean(state.expandedSubIds[id]);
-      const inv = investForRoi(r);
-      const roi = displayRoi(r);
-      const lucro = r.lucro != null ? Number(r.lucro) : Number(r.comissao || 0) - inv;
-      const main = `<tr class="subid-row ${open ? "is-open" : ""}" data-subid="${escapeHtml(id)}">
-        <td class="subid" data-subid="${escapeHtml(id)}" title="Clique para ver o historico diario">
-          <span class="subid-caret"></span>
-          ${escapeHtml(id)}
-        </td>
-        <td>${canalChipHtml(r.canal)}</td>
-        <td>${statusPillHtml(r.status)}</td>
-        <td class="num">${fmt(r.faturamento)}</td>
-        <td class="num">${fmt(r.comissao)}</td>
-        <td class="num">${fmt(inv)}</td>
-        <td class="num ${lucro >= 0 ? "green" : "neg"}">${fmt(lucro)}</td>
-        <td class="num ${roiClass(roi)}">${fmtPct(roi)}</td>
-        <td class="num">${fmtNum(r.pedidos)}</td>
-      </tr>`;
-      return open ? main + subIdDailyHistoryHtml(r, 9) : main;
-    }).join("") || `<tr><td colspan="9">Nenhum SubID.</td></tr>`;
-    wireSubIdExpand("#subid-tbody-full", renderSubIdsFull);
-    renderPager($("#subid-pager-full"), state.subidPageFull, total, state.pageSize, (p) => {
-      state.subidPageFull = p;
-      renderSubIdsFull();
     });
   }
 
@@ -1409,11 +1874,10 @@
   function applyDash(dash, { cached } = {}) {
     state.dash = dash;
     state.subidPage = 1;
-    state.subidPageFull = 1;
     const k = dash.kpis || {};
     applyChannelView();
-    renderSubIdsFull();
     renderOpsTable();
+    renderIndefinidos();
     const when = dash.syncedAt ? new Date(dash.syncedAt).toLocaleString("pt-BR") : "—";
     $("#sync-meta").textContent = `${cached ? "cache · " : ""}${dash.nodes || 0} nodes · ${when}`;
     $("#footer-sync").textContent = `Última sincronização ${when}`;
@@ -1538,18 +2002,27 @@
     }
     if (btnEl) btnEl.disabled = true;
     try {
-      const r = await api("/api/meta/sync", { method: "POST", body: JSON.stringify({ daysBack: 7 }) });
+      const since = $("#start-date")?.value || null;
+      const until = $("#end-date")?.value || null;
+      const r = await api("/api/meta/sync", {
+        method: "POST",
+        body: JSON.stringify({ since, until, daysBack: 30 }),
+      });
       if (status) {
+        const tot = r.totais
+          ? ` · gasto R$ ${Number(r.totais.gasto || 0).toLocaleString("pt-BR")} · ${Number(r.totais.cliques || 0).toLocaleString("pt-BR")} cliques`
+          : "";
+        const msg = `Meta sync: ${r.gravados} linhas (${r.range?.since} a ${r.range?.until})${tot}` +
+          (r.erros?.length ? ` · avisos: ${r.erros.join("; ")}` : "");
         if (isBanner) {
           status.className = "banner ok keep";
-          status.textContent = `Meta sync: ${r.gravados} linhas (${r.range?.since} a ${r.range?.until})`;
+          status.textContent = msg;
           setTimeout(() => {
             if (status.classList.contains("keep")) status.className = "banner hidden";
-          }, 6000);
+          }, 8000);
         } else {
           status.className = "form-status ok";
-          status.textContent = `Meta sync: ${r.gravados} linhas (${r.range?.since} a ${r.range?.until})` +
-            (r.erros?.length ? ` · avisos: ${r.erros.join("; ")}` : "");
+          status.textContent = msg;
         }
       }
       await loadMetaCreds();
@@ -1586,7 +2059,20 @@
       const dash = await api(`/api/dashboard?${q}`);
       applyDash(dash, { cached: dash.cached });
       const banner = $("#sync-banner");
-      if (!banner.classList.contains("keep")) {
+      if (force && dash.metaSync && !dash.metaSync.error) {
+        const m = dash.metaSync;
+        banner.className = "banner ok keep";
+        banner.textContent = `Shopee + Meta OK · Meta ${m.gravados || 0} linhas · gasto R$ ${Number(m.totais?.gasto || 0).toLocaleString("pt-BR")}`;
+        setTimeout(() => {
+          if (banner.classList.contains("keep")) banner.className = "banner hidden";
+        }, 8000);
+      } else if (force && dash.metaSync?.error) {
+        banner.className = "banner keep";
+        banner.textContent = `Shopee OK · Meta: ${dash.metaSync.error}`;
+        setTimeout(() => {
+          if (banner.classList.contains("keep")) banner.className = "banner hidden";
+        }, 10000);
+      } else if (!banner.classList.contains("keep")) {
         banner.className = "banner hidden";
         banner.textContent = "";
       }
@@ -1634,6 +2120,14 @@
   }
 
   function wire() {
+    initTheme();
+    $("#theme-toggle")?.addEventListener("click", () => {
+      const next = document.documentElement.classList.contains("dark") ? "light" : "dark";
+      applyTheme(next);
+    });
+    $("#btn-chart-profit")?.addEventListener("click", () => setChartMode("profit"));
+    $("#btn-chart-revenue")?.addEventListener("click", () => setChartMode("revenue"));
+
     $("#start-date").value = daysAgoISO(6);
     $("#end-date").value = todayISO();
     syncTopbarRange();
@@ -1775,20 +2269,6 @@
       }
     });
 
-    $$("#channel-tabs .channel-tab").forEach((b) => {
-      b.addEventListener("click", () => {
-        const ch = b.dataset.channel;
-        if (ch === "subid") {
-          state.channel = "geral";
-          setView("subids");
-          return;
-        }
-        state.channel = ch || "geral";
-        if (state.view !== "dashboard") setView("dashboard");
-        else applyChannelView();
-      });
-    });
-
     $("#start-date")?.addEventListener("change", syncTopbarRange);
     $("#end-date")?.addEventListener("change", syncTopbarRange);
 
@@ -1801,37 +2281,26 @@
         state.subidPage = 1;
         renderSubIdsDash();
       }
-      const fullSearch = $("#subid-search-full");
-      if (fullSearch) {
-        fullSearch.value = q;
-        state.subidPageFull = 1;
-        renderSubIdsFull();
-      }
     });
     globalSearch?.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && globalSearch.value.trim()) {
         e.preventDefault();
-        setView("subids");
+        const ch = state.channel;
+        if (ch === "meta" || ch === "pinterest" || ch === "organico") setView(`campanhas-${ch === "organico" ? "organicas" : ch === "meta" ? "meta" : "pinterest"}`);
+        else setView("campanhas-meta");
       }
     });
 
     $("#subid-search")?.addEventListener("input", () => { state.subidPage = 1; renderSubIdsDash(); });
-    $("#subid-search-full")?.addEventListener("input", () => { state.subidPageFull = 1; renderSubIdsFull(); });
     $("#ops-search")?.addEventListener("input", () => { state.opsPage = 1; renderOpsTable(); });
     $("#ops-page-size")?.addEventListener("change", () => {
       state.opsPageSize = Number($("#ops-page-size").value) || 25;
       state.opsPage = 1;
       renderOpsTable();
     });
-    wireSortHeaders("#subid-table thead", () => state.subidSort, () => {
+    wireSortHeaders("#subid-thead", () => state.subidSort, () => {
       state.subidPage = 1;
       renderSubIdsDash();
-      renderSubIdsFull();
-    });
-    wireSortHeaders("#subid-table-full thead", () => state.subidSort, () => {
-      state.subidPageFull = 1;
-      renderSubIdsDash();
-      renderSubIdsFull();
     });
     wireSortHeaders("#daily-table thead", () => state.dailySort, () => {
       renderDailyTable(state.dailyRows, state.dash?.kpis || {});

@@ -414,8 +414,10 @@ async function requestHandler(req, res) {
         if (pathname === "/api/meta/sync" && req.method === "POST") {
           const body = await readBody(req);
           try {
-            const daysBack = Number(body.daysBack || url.searchParams.get("days") || 7);
-            const result = await syncMetaDaily({ daysBack });
+            const daysBack = Number(body.daysBack || url.searchParams.get("days") || 30);
+            const since = body.since || url.searchParams.get("since") || null;
+            const until = body.until || url.searchParams.get("until") || null;
+            const result = await syncMetaDaily({ daysBack, since, until });
             sendJson(res, 200, { success: true, ...result });
           } catch (err) {
             sendJson(res, 500, { success: false, error: err.message || String(err) });
@@ -535,8 +537,39 @@ async function requestHandler(req, res) {
                 return;
               }
             }
-            const dash = await buildDashboard({ startDate, endDate, persist: true });
-            sendJson(res, 200, { success: true, cached: false, ...dash });
+
+            // No force: puxa Meta em paralelo (mesmo fluxo do Afiliadoteste ao atualizar período)
+            let metaSync = null;
+            const metaTask = (async () => {
+              try {
+                const metaCred = await metaCredentialsPublic();
+                if (!metaCred.configured) return null;
+                return await syncMetaDaily({ since: startDate, until: endDate });
+              } catch (e) {
+                console.warn("[dashboard] meta sync:", e.message || e);
+                return { error: e.message || String(e) };
+              }
+            })();
+
+            const [dash, metaResult] = await Promise.all([
+              buildDashboard({ startDate, endDate, persist: true }),
+              force ? metaTask : Promise.resolve(null),
+            ]);
+            metaSync = metaResult;
+
+            // Re-enriquece após Meta gravar (buildDashboard já enriqueceu; se Meta rodou, atualiza)
+            let out = dash;
+            if (metaSync && !metaSync.error) {
+              try {
+                out = await enrichDashboardWithAds(dash);
+              } catch (_) { /* keep dash */ }
+            }
+            sendJson(res, 200, {
+              success: true,
+              cached: false,
+              ...out,
+              metaSync: metaSync || undefined,
+            });
           } catch (err) {
             sendJson(res, 500, { success: false, error: err.message || String(err) });
           }

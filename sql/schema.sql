@@ -73,6 +73,7 @@ create table if not exists subid_metrics (
   cancelados integer not null default 0,
   itens integer not null default 0,
   abatimento numeric not null default 0,
+  cliques_shopee integer not null default 0,
   inv_meta numeric not null default 0,
   inv_pin numeric not null default 0,
   inv_total numeric not null default 0,

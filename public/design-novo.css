@@ -682,8 +682,10 @@
 .status-pill i { width: 6px; height: 6px; border-radius: 99px; background: #10b981; }
 .status-pill.st-teste { background: #fefce8; color: #a16207; }
 .status-pill.st-teste i { background: #eab308; }
-.status-pill.st-pausada { background: #fef2f2; color: var(--danger); }
-.status-pill.st-pausada i { background: #ef4444; }
+.status-pill.st-pausada,
+.status-pill.st-desativada { background: #fef2f2; color: var(--danger); }
+.status-pill.st-pausada i,
+.status-pill.st-desativada i { background: #ef4444; }
 
 .count-pill {
   font-size: 11.5px !important;
@@ -983,4 +985,87 @@
   .period-main { width: 100%; justify-content: space-between; }
   .channel-tabs { overflow-x: auto; flex-wrap: nowrap; }
   #view-config .page-head h1 { font-size: 28px; }
+}
+
+/* —— Estrutura Gemini-inspired: análise por canal + IA —— */
+.zone-rule--soft {
+  margin-bottom: 10px;
+  opacity: 0.85;
+}
+.zone-tag--muted {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (min-width: 1100px) {
+  .analysis-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .analysis-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.analysis-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #e8e4dc);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 88px;
+}
+.analysis-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #7a7468);
+}
+.analysis-value {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink, #1c1915);
+  line-height: 1.15;
+}
+.analysis-value.pos { color: var(--green, #1f7a4c); }
+.analysis-value.neg { color: var(--danger, #c23b2e); }
+.analysis-note {
+  font-size: 11px;
+  color: var(--muted, #7a7468);
+}
+
+.canal-chip.ch-indefinido {
+  background: #f3f0ea;
+  color: #6b6458;
+  border: 1px solid #e0d9ce;
+}
+.status-pill.st-desativada {
+  background: #fef2f2;
+  color: var(--danger, #c23b2e);
+}
+.status-pill.st-desativada i {
+  background: #ef4444;
+}
+
+#view-dashboard.is-channel .dash-command {
+  margin-bottom: 8px;
+}
+
+.chan-count--undef {
+  opacity: 0.9;
+}
+
+#cfg-indefinidos-section .table-wrap {
+  border-radius: 12px;
+  overflow: hidden;
 }
