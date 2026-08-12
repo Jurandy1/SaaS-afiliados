@@ -3,23 +3,23 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="color-scheme" content="dark" />
-  <meta name="theme-color" content="#07080b" />
-  <title>Teste de Sistema de afiliados</title>
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#f7f6f2" />
+  <title>Painel de Afiliados</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/design-novo.css" />
 </head>
 <body>
   <div id="auth-gate" class="auth-gate">
     <div class="auth-shell">
       <div class="auth-card" id="auth-card">
         <div class="brand auth-brand">
-          <div class="brand-mark"><span></span></div>
           <div class="brand-text">
-            <div class="brand-name">Painel de afiliados</div>
-            <div class="brand-sub">Shopee · Meta · Pinterest</div>
+            <div class="brand-name">Afiliados</div>
+            <div class="brand-sub">painel · v.1</div>
           </div>
         </div>
 
@@ -31,10 +31,10 @@
         <form id="auth-form" class="form">
           <div class="auth-grid">
             <label>Email
-              <input type="email" id="auth-email" required autocomplete="username" value="teste@gmail.com" />
+              <input type="email" id="auth-email" required autocomplete="username" />
             </label>
             <label>Senha
-              <input type="password" id="auth-password" required minlength="6" autocomplete="current-password" value="123456789" />
+              <input type="password" id="auth-password" required minlength="6" autocomplete="current-password" />
             </label>
           </div>
 
@@ -49,43 +49,36 @@
               </label>
             </div>
 
-            <div class="auth-section-title">API Shopee Affiliate <span class="req">obrigatório</span></div>
-            <p class="hint tight">Painel Open API da Shopee · APP_ID e SECRET da sua conta</p>
+            <div class="auth-section-title">Shopee Affiliate <span class="req">obrigatório</span></div>
+            <p class="hint tight">App ID e Secret do painel Open API da Shopee.</p>
             <div class="auth-grid">
-              <label>SHOPEE_APP_ID
+              <label>App ID
                 <input type="text" id="reg-app-id" autocomplete="off" placeholder="Ex: 18108270013" inputmode="numeric" />
               </label>
-              <label>SHOPEE_SECRET
+              <label>Secret
                 <input type="password" id="reg-app-secret" autocomplete="off" placeholder="Cole o secret" />
               </label>
             </div>
 
-            <div class="auth-section-title">Meta Ads (Facebook) <span class="opt">opcional</span></div>
-            <p class="hint tight">Pode preencher agora ou depois em Configurações. Se informar, será validado.</p>
-            <label>META_ACCESS_TOKEN
-              <input type="password" id="reg-meta-token" autocomplete="off" placeholder="Access token Marketing API" />
+            <div class="auth-section-title">Meta Ads <span class="opt">opcional</span></div>
+            <p class="hint tight">Pode preencher agora ou depois em Configurações.</p>
+            <label>Access token
+              <input type="password" id="reg-meta-token" autocomplete="off" placeholder="Token da Marketing API" />
             </label>
-            <label>META_AD_ACCOUNT_IDS
-              <input type="text" id="reg-meta-accounts" autocomplete="off" placeholder="1396814339172082, 3872115821005137" />
+            <label>Contas de anúncio
+              <input type="text" id="reg-meta-accounts" autocomplete="off" placeholder="IDs separados por vírgula" />
             </label>
-            <label>META_API_VERSION
+            <label>Versão da API
               <input type="text" id="reg-meta-version" value="v19.0" autocomplete="off" />
             </label>
-            <p class="hint tight">A Shopee é testada de verdade. Meta só é testada se você preencher os campos.</p>
           </div>
 
           <button type="submit" class="btn primary auth-submit" id="auth-submit">Entrar</button>
           <div id="auth-status" class="form-status"></div>
         </form>
 
-        <div class="auth-sep">demo</div>
-        <div class="auth-demo">
-          <b>teste@gmail.com</b><br />123456789
-        </div>
-
         <div class="auth-foot">
-          <p class="hint">Cada conta usa a própria Shopee e o próprio Meta. Novos cadastros passam por aprovação do admin.</p>
-          <p class="hint"><a href="/admin">Área Admin</a></p>
+          <p class="hint">Cada conta usa a própria Shopee e o próprio Meta. Novos cadastros passam por aprovação.</p>
         </div>
       </div>
     </div>
@@ -96,16 +89,16 @@
       <div class="brand">
         <div class="brand-text">
           <div class="brand-name">Afiliados</div>
-          <div class="brand-sub">Shopee · Meta · Pin</div>
+          <div class="brand-sub">painel · v.1</div>
         </div>
         <button type="button" class="icon-btn sidebar-close" id="btn-sidebar-close" aria-label="Fechar menu">Fechar</button>
       </div>
 
       <div class="account-pill">
-        <div class="account-avatar">SH</div>
+        <div class="account-avatar">AF</div>
         <div class="account-meta">
           <div class="account-title" id="user-email-label">Conta</div>
-          <div class="account-sub" id="team-plan">Shopee · Meta</div>
+          <div class="account-sub" id="team-plan">Shopee · Meta conectados</div>
         </div>
       </div>
 
@@ -113,7 +106,7 @@
         <div class="nav-sec">
           <div class="nav-sec-title">Operação</div>
           <button type="button" class="nav-item active" data-view="dashboard">
-            <span class="nav-dot"></span><span class="nav-label">Dashboard</span>
+            <img class="nav-logo is-square" src="/assets/dashboard.png" alt="" /><span class="nav-label">Dashboard</span>
             <span class="nav-badge" id="nav-subid-count"></span>
           </button>
           <button type="button" class="nav-item nav-item--meta" data-view="campanhas-meta">
@@ -128,12 +121,18 @@
             <img class="nav-logo is-square" src="/assets/shopee.png" alt="Shopee" /><span class="nav-label">Campanhas orgânicas</span>
             <span class="nav-badge" id="nav-count-org"></span>
           </button>
-          <button type="button" class="nav-item" data-view="produtos"><span class="nav-dot"></span><span class="nav-label">Produtos</span></button>
+          <button type="button" class="nav-item" data-view="produtos">
+            <img class="nav-logo is-square" src="/assets/produtos.png" alt="" /><span class="nav-label">Produtos</span>
+          </button>
         </div>
         <div class="nav-sec">
           <div class="nav-sec-title">Sistema</div>
-          <button type="button" class="nav-item" data-view="canais"><span class="nav-dot"></span><span class="nav-label">Canais e status</span></button>
-          <button type="button" class="nav-item" data-view="config"><span class="nav-dot"></span><span class="nav-label">Configurações</span></button>
+          <button type="button" class="nav-item" data-view="canais">
+            <img class="nav-logo is-square" src="/assets/tag.png" alt="" /><span class="nav-label">Canais e status</span>
+          </button>
+          <button type="button" class="nav-item" data-view="config">
+            <img class="nav-logo is-square" src="/assets/configuracao.png" alt="" /><span class="nav-label">Configurações</span>
+          </button>
         </div>
       </nav>
 
@@ -164,8 +163,8 @@
         </div>
         <div class="top-actions">
           <div class="search-wrap">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7a8194" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-            <input type="search" id="global-search" placeholder="Buscar SubID…" />
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input type="search" id="global-search" placeholder="Buscar SubID, produto…" />
           </div>
           <div class="top-meta" id="topbar-range" title="Período ativo">—</div>
         </div>
@@ -177,78 +176,58 @@
           <div class="dash-command">
             <div class="page-head">
               <div class="page-head-main">
-                <div class="crumb-line">
-                  <span>Painel</span>
-                  <span class="sep">/</span>
-                  <span class="now" id="dash-crumb-view">Dashboard</span>
-                  <span class="sep">/</span>
-                  <span class="crumb-chip" id="dash-crumb-channel">Geral</span>
-                  <span class="live-pill" id="live-pill"><span class="live-dot"></span>Ao vivo</span>
-                </div>
+                <div class="page-eyebrow-live" id="dash-live-eyebrow"><i></i><span id="dash-live-text">Ao vivo</span></div>
                 <h1 id="dash-title">Dashboard</h1>
                 <p class="page-sub" id="page-sub">Lucro, sugestões Meta e operação por SubID.</p>
               </div>
               <div class="page-actions">
                 <div class="page-actions-row">
-                  <button type="button" class="btn quiet" data-goto="config">Configurações</button>
-                  <button type="button" class="btn ghost" id="btn-export">Exportar CSV</button>
-                </div>
-                <div class="page-actions-row">
-                  <button type="button" class="btn ghost" id="btn-meta-sync-top"><span class="dot meta"></span>Sincronizar Meta</button>
-                  <button type="button" class="btn primary" id="btn-sync">Sincronizar Shopee</button>
+                  <button type="button" class="btn ghost" id="btn-export"><span class="mono" aria-hidden="true">↓</span> Exportar CSV</button>
+                  <button type="button" class="btn btn-meta" id="btn-meta-sync-top"><img src="/assets/meta.png" alt="" /> Sincronizar Meta</button>
+                  <button type="button" class="btn btn-shopee" id="btn-sync"><img src="/assets/shopee.png" alt="" /> Puxar Shopee</button>
                 </div>
               </div>
             </div>
 
-            <div class="filter-bar">
-              <div class="tool-group tool-group--channels">
-                <span class="tool-label">Canal</span>
-                <div class="channel-tabs" id="channel-tabs" role="group" aria-label="Canal">
-                  <button type="button" class="channel-tab active" data-channel="geral">Geral</button>
-                  <button type="button" class="channel-tab ch-meta" data-channel="meta"><img src="/assets/meta.png" alt="" />Meta</button>
-                  <button type="button" class="channel-tab ch-pin" data-channel="pinterest"><img class="is-square" src="/assets/pinterest.png" alt="" />Pinterest</button>
-                  <button type="button" class="channel-tab ch-org" data-channel="organico"><img class="is-square" src="/assets/shopee.png" alt="" />Orgânico</button>
-                  <button type="button" class="channel-tab" data-channel="subid">Por SubID</button>
+            <div class="period-bar" id="period-bar">
+              <div class="period-main-wrap">
+                <button type="button" class="period-main" id="btn-period-main" aria-expanded="false" aria-controls="period-dates-pop">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                  <span class="period-range-label mono" id="period-range-label">—</span>
+                  <span class="period-caret" aria-hidden="true">▾</span>
+                </button>
+                <div class="period-dates-pop hidden" id="period-dates-pop">
+                  <label>De <input type="date" id="start-date" /></label>
+                  <label>Até <input type="date" id="end-date" /></label>
+                  <button type="button" class="btn ghost sm" id="btn-period-apply">Aplicar</button>
                 </div>
               </div>
-              <span class="tool-sep" aria-hidden="true"></span>
-              <div class="tool-group">
-                <span class="tool-label">Período</span>
-                <div class="period-group" role="group" aria-label="Atalhos de período">
-                  <button type="button" class="period-btn chip-btn" data-range="7d">7 dias</button>
-                  <button type="button" class="period-btn chip-btn" data-range="month">Este mês</button>
-                  <button type="button" class="period-btn chip-btn" data-range="mtd">MTD</button>
-                </div>
+              <span class="period-days-hint" id="period-days-hint">—</span>
+              <div class="period-presets" role="group" aria-label="Atalhos de período">
+                <button type="button" class="period-preset chip-btn" data-range="7d">7 dias</button>
+                <button type="button" class="period-preset chip-btn" data-range="month">Este mês</button>
+                <button type="button" class="period-preset chip-btn" data-range="mtd">MTD</button>
+                <button type="button" class="period-preset chip-btn" data-range="30d">30 dias</button>
               </div>
-              <span class="tool-sep" aria-hidden="true"></span>
-              <div class="tool-group">
-                <span class="tool-label">Intervalo</span>
-                <div class="filter-dates">
-                  <label class="filter-field">
-                    <span>De</span>
-                    <input type="date" id="start-date" />
-                  </label>
-                  <span class="date-sep" aria-hidden="true">→</span>
-                  <label class="filter-field">
-                    <span>Até</span>
-                    <input type="date" id="end-date" />
-                  </label>
-                </div>
-              </div>
-              <div class="filter-grow"></div>
-              <div class="tool-group tool-group--actions">
-                <button type="button" class="btn ghost sm" id="btn-load">Atualizar</button>
-              </div>
+            </div>
+
+            <div class="channel-tabs" id="channel-tabs" role="group" aria-label="Canal">
+              <button type="button" class="channel-tab active" data-channel="geral">Geral <span class="tab-count" id="tab-count-geral"></span></button>
+              <button type="button" class="channel-tab ch-meta" data-channel="meta"><img src="/assets/meta.png" alt="" />Meta Ads <span class="tab-count" id="tab-count-meta"></span></button>
+              <button type="button" class="channel-tab ch-pin" data-channel="pinterest"><img class="is-square" src="/assets/pinterest.png" alt="" />Pinterest <span class="tab-count" id="tab-count-pin"></span></button>
+              <button type="button" class="channel-tab ch-org" data-channel="organico"><img class="is-square" src="/assets/shopee.png" alt="" />Shopee orgânico <span class="tab-count" id="tab-count-org"></span></button>
+              <button type="button" class="channel-tab" data-channel="subid">Por SubID</button>
             </div>
           </div>
 
-          <div class="banner" id="sync-banner">Configure a API Shopee em <button type="button" class="linkish" data-goto="config">Configurações</button>.</div>
+          <div class="banner hidden" id="sync-banner"></div>
 
           <!-- ZONA 1 · EXECUTIVO -->
           <div class="zone zone--exec">
             <div class="zone-rule"><span class="zone-tag"><b class="zone-num"></b>Executivo</span><i></i></div>
             <div class="zone-body">
               <div class="kpi-grid kpi-grid-core" id="kpi-grid"></div>
+              <div class="kpi-help"><span class="i">i</span><span><b>Como ler:</b> Shopee traz o que você <b>ganhou</b>. Meta e Pinterest mostram o que você <b>gastou</b>. Lucro (verde) = comissão − mídia − impostos.</span></div>
             </div>
           </div>
 
@@ -259,14 +238,17 @@
               <section class="sec" id="dash-suggestions-panel">
                 <header class="sec-head">
                   <div class="sec-head-text">
-                    <h2 class="sec-title">Sugestões Meta</h2>
-                    <span class="sec-eyebrow">ROI 15d</span>
+                    <img class="sec-head-icon" src="/assets/meta.png" alt="" width="22" height="22" />
+                    <div>
+                      <h2 class="sec-title">Sugestões Meta</h2>
+                      <div class="sec-subline">ROI 15d · &lt;40% pausa · +20% escala · −70% teste · máx. 4</div>
+                    </div>
                   </div>
                   <div class="sec-tools">
-                    <span class="panel-meta">&lt;40% off · +20% escala · −70% teste</span>
+                    <span class="sug-count" id="suggestions-count">—</span>
                   </div>
                 </header>
-                <div class="sec-body sec-body--inset suggestions-body" id="suggestions-body">
+                <div class="sec-body suggestions-body" id="suggestions-body">
                   <div class="sec-empty">Sincronize Shopee e Meta para gerar sugestões.</div>
                 </div>
               </section>
@@ -366,7 +348,7 @@
           </div>
 
           <footer class="page-foot">
-            <div>Teste de Sistema de afiliados</div>
+            <div>Painel de Afiliados · v.1 · pt-BR</div>
             <div class="mono" id="footer-sync">Última sincronização —</div>
           </footer>
         </section>
@@ -375,13 +357,12 @@
         <section id="view-subids" class="view hidden">
           <div class="page-head">
             <div class="page-head-main">
-              <div class="page-eyebrow"><span>Relatório · SubID</span></div>
+              <div class="page-eyebrow"><span>Relatório</span></div>
               <h1>SubIDs</h1>
               <p class="page-sub">Lista completa do período selecionado no painel.</p>
             </div>
             <div class="page-actions">
               <div class="page-actions-row">
-                <button type="button" class="btn quiet" data-goto="canais">Canais e status</button>
                 <button type="button" class="btn ghost" data-goto="dashboard">Voltar ao painel</button>
               </div>
             </div>
@@ -422,21 +403,15 @@
 
         <!-- CANAIS E STATUS -->
         <section id="view-canais" class="view hidden">
-          <div class="page-head">
+          <div class="page-head page-head--canais">
             <div class="page-head-main">
-              <div class="page-eyebrow"><span>Operação · Classificação</span></div>
-              <h1>Canais e status dos SubIDs</h1>
-              <p class="page-sub">Defina o canal de cada SubID e o estágio da campanha. As páginas Meta, Pinterest e Orgânico usam essa classificação.</p>
-            </div>
-            <div class="page-actions">
-              <div class="page-actions-row">
-                <div class="chan-count"><img src="/assets/meta.png" alt="" />Meta <b id="canais-count-meta">0</b></div>
-                <div class="chan-count"><img class="is-square" src="/assets/pinterest.png" alt="" />Pin <b id="canais-count-pin">0</b></div>
-                <div class="chan-count"><img class="is-square" src="/assets/shopee.png" alt="" />Org <b id="canais-count-org">0</b></div>
-              </div>
-              <div class="page-actions-row">
-                <button type="button" class="btn quiet" data-goto="subids">Relatório SubID</button>
-                <button type="button" class="btn ghost" data-goto="dashboard">Voltar ao painel</button>
+              <div class="page-eyebrow"><span>Operação</span></div>
+              <h1>Canais e status</h1>
+              <p class="page-sub">Classifique cada SubID por canal e estágio da campanha.</p>
+              <div class="chan-counts" aria-label="Contagem por canal">
+                <span class="chan-count"><img src="/assets/meta.png" alt="" /> Meta <b id="canais-count-meta">0</b></span>
+                <span class="chan-count"><img class="is-square" src="/assets/pinterest.png" alt="" /> Pin <b id="canais-count-pin">0</b></span>
+                <span class="chan-count"><img class="is-square" src="/assets/shopee.png" alt="" /> Org <b id="canais-count-org">0</b></span>
               </div>
             </div>
           </div>
@@ -444,8 +419,7 @@
             <header class="sec-head">
               <div class="sec-head-text">
                 <h2 class="sec-title">SubIDs<span class="count-pill" id="ops-count-pill">0</span></h2>
-                <span class="sec-eyebrow">auto-save em subid_ops</span>
-                <p class="sec-sub">Alterações são salvas automaticamente. Meta · Pinterest · Orgânico e Ativa · Em Teste · Pausada.</p>
+                <span class="sec-eyebrow">Alterações salvam automaticamente</span>
               </div>
               <div class="sec-tools">
                 <select id="ops-page-size" class="search search--select" title="Itens por página">
@@ -477,157 +451,141 @@
 
         <!-- CONFIG / INTEGRAÇÕES -->
         <section id="view-config" class="view hidden">
-          <div class="page-head">
+          <div class="page-head page-head--config">
             <div class="page-head-main">
-              <div class="page-eyebrow"><span>Sistema · Integrações</span></div>
-              <h1>Configurações e integrações</h1>
-              <p class="page-sub">Credenciais e impostos que alimentam o cálculo de lucro do painel.</p>
-            </div>
-            <div class="page-actions">
-              <div class="page-actions-row">
-                <button type="button" class="btn quiet" data-goto="canais">Canais e status</button>
-                <button type="button" class="btn ghost" data-goto="dashboard">Voltar ao painel</button>
-              </div>
+              <div class="page-eyebrow"><span>Sistema</span></div>
+              <h1>Configurações</h1>
+              <p class="page-sub">Conecte Shopee, Meta e Pinterest e ajuste impostos.</p>
             </div>
           </div>
 
-          <div class="zone zone--exec">
-            <div class="zone-rule"><span class="zone-tag"><b class="zone-num"></b>Fontes de dados</span><i></i></div>
-            <div class="zone-body">
-              <div class="settings-grid">
-                <article class="settings-card">
-                  <header class="settings-card-head">
+          <div class="cfg-section">
+            <h2 class="cfg-section-title">Conexões</h2>
+            <p class="cfg-section-sub">Fontes que alimentam o painel. Salve e teste antes de sincronizar.</p>
+            <div class="settings-grid">
+              <article class="settings-card">
+                <header class="settings-card-head">
+                  <div class="settings-card-brand">
+                    <img class="settings-card-icon" src="/assets/shopee.png" alt="" width="22" height="22" />
                     <div>
-                      <div class="settings-card-title">API Shopee</div>
-                      <div class="settings-card-sub">APP_ID + SECRET · affiliate.shopee.com.br/open_api</div>
+                      <div class="settings-card-title">Shopee Affiliate</div>
+                      <div class="settings-card-sub">Comissão, pedidos e SubIDs</div>
                     </div>
-                    <span class="state-chip" id="cfg-shopee-state">Pendente</span>
-                  </header>
-                  <form id="cred-form" class="form">
-                    <div class="form-grid">
-                      <label>SHOPEE_APP_ID
-                        <input type="text" id="app-id" name="appId" autocomplete="off" placeholder="Ex: 18108270013" required />
-                      </label>
-                      <label>SHOPEE_SECRET
-                        <input type="password" id="app-secret" name="secret" autocomplete="off" placeholder="Cole o secret aqui" required />
-                      </label>
-                    </div>
-                    <p class="hint">Trocar o APP_ID reseta métricas Shopee (pedidos, diário e SubID) e puxa a nova conta.</p>
-                    <div class="form-actions">
-                      <button type="submit" class="btn primary sm">Salvar Shopee</button>
-                      <button type="button" class="btn ghost sm" id="btn-test">Testar API</button>
-                    </div>
-                    <div id="cred-status" class="form-status"></div>
-                  </form>
-                </article>
+                  </div>
+                  <span class="state-chip" id="cfg-shopee-state">Pendente</span>
+                </header>
+                <form id="cred-form" class="form">
+                  <div class="form-grid">
+                    <label>App ID
+                      <input type="text" id="app-id" name="appId" autocomplete="off" placeholder="Ex: 18108270013" required />
+                    </label>
+                    <label>Secret
+                      <input type="password" id="app-secret" name="secret" autocomplete="off" placeholder="Cole o secret" required />
+                    </label>
+                  </div>
+                  <p class="hint">Trocar o App ID reseta métricas Shopee e puxa a nova conta.</p>
+                  <div class="form-actions">
+                    <button type="submit" class="btn primary sm">Salvar</button>
+                    <button type="button" class="btn ghost sm" id="btn-test">Testar</button>
+                  </div>
+                  <div id="cred-status" class="form-status"></div>
+                </form>
+              </article>
 
-                <article class="settings-card">
-                  <header class="settings-card-head">
+              <article class="settings-card">
+                <header class="settings-card-head">
+                  <div class="settings-card-brand">
+                    <img class="settings-card-icon" src="/assets/meta.png" alt="" width="22" height="22" />
                     <div>
                       <div class="settings-card-title">Meta Ads</div>
-                      <div class="settings-card-sub" id="meta-status-sub">Marketing API · invest e ROI por SubID</div>
+                      <div class="settings-card-sub" id="meta-status-sub">Investimento e ROI por SubID</div>
                     </div>
-                    <span class="state-chip" id="cfg-meta-state">Pendente</span>
-                  </header>
-                  <form id="meta-form" class="form">
-                    <label>META_ACCESS_TOKEN
-                      <input type="password" id="meta-token" autocomplete="off" placeholder="Access token Marketing API" />
-                    </label>
-                    <div class="form-grid">
-                      <label>META_AD_ACCOUNT_IDS
-                        <input type="text" id="meta-accounts" autocomplete="off" placeholder="1396814339172082, act_123..." />
-                      </label>
-                      <label>META_API_VERSION
-                        <input type="text" id="meta-version" value="v19.0" autocomplete="off" />
-                      </label>
-                    </div>
-                    <p class="hint">IDs separados por vírgula. O token fica no Supabase e não reseta dados Shopee.</p>
-                    <div class="form-actions">
-                      <button type="submit" class="btn primary sm">Salvar Meta</button>
-                      <button type="button" class="btn ghost sm" id="btn-meta-test">Testar Meta</button>
-                      <button type="button" class="btn ghost sm" id="btn-meta-sync">Sincronizar Meta</button>
-                    </div>
-                    <div id="meta-status" class="form-status"></div>
-                  </form>
-                </article>
-
-                <article class="settings-card">
-                  <header class="settings-card-head">
-                    <div>
-                      <div class="settings-card-title">Pinterest CSV</div>
-                      <div class="settings-card-sub">Import manual no formato AfiliadosPRO</div>
-                    </div>
-                    <span class="state-chip is-manual">Manual</span>
-                  </header>
-                  <div class="form">
-                    <label>Arquivo CSV
-                      <input type="file" id="pin-file" accept=".csv,text/csv" />
-                    </label>
-                    <p class="hint">O investimento Pinterest entra por dia e por SubID, sem imposto adicional.</p>
-                    <div class="form-actions">
-                      <button type="button" class="btn primary sm" id="btn-pin-import">Importar CSV</button>
-                    </div>
-                    <div id="pin-status" class="form-status"></div>
                   </div>
-                </article>
-              </div>
+                  <span class="state-chip" id="cfg-meta-state">Pendente</span>
+                </header>
+                <form id="meta-form" class="form">
+                  <label>Access token
+                    <input type="password" id="meta-token" autocomplete="off" placeholder="Token da Marketing API" />
+                  </label>
+                  <div class="form-grid">
+                    <label>Contas de anúncio
+                      <input type="text" id="meta-accounts" autocomplete="off" placeholder="IDs separados por vírgula" />
+                    </label>
+                    <label>Versão da API
+                      <input type="text" id="meta-version" value="v19.0" autocomplete="off" />
+                    </label>
+                  </div>
+                  <p class="hint">O token fica seguro no Supabase e não apaga dados da Shopee.</p>
+                  <div class="form-actions">
+                    <button type="submit" class="btn primary sm">Salvar</button>
+                    <button type="button" class="btn ghost sm" id="btn-meta-test">Testar</button>
+                    <button type="button" class="btn ghost sm" id="btn-meta-sync">Sincronizar</button>
+                  </div>
+                  <div id="meta-status" class="form-status"></div>
+                </form>
+              </article>
+
+              <article class="settings-card">
+                <header class="settings-card-head">
+                  <div class="settings-card-brand">
+                    <img class="settings-card-icon is-square" src="/assets/pinterest.png" alt="" width="22" height="22" />
+                    <div>
+                      <div class="settings-card-title">Pinterest</div>
+                      <div class="settings-card-sub">Investimento via CSV</div>
+                    </div>
+                  </div>
+                  <span class="state-chip is-manual">Manual</span>
+                </header>
+                <div class="form">
+                  <label>Arquivo CSV
+                    <input type="file" id="pin-file" accept=".csv,text/csv" />
+                  </label>
+                  <p class="hint">Formato AfiliadosPRO. Entra por dia e SubID, sem imposto extra.</p>
+                  <div class="form-actions">
+                    <button type="button" class="btn primary sm" id="btn-pin-import">Importar CSV</button>
+                  </div>
+                  <div id="pin-status" class="form-status"></div>
+                </div>
+              </article>
             </div>
           </div>
 
-          <div class="zone zone--ops" style="margin-top:24px">
-            <div class="zone-rule"><span class="zone-tag"><b class="zone-num"></b>Cálculo</span><i></i></div>
-            <div class="zone-body" style="display:block">
-              <div class="settings-grid settings-grid--wide">
-                <article class="settings-card settings-card--gold">
-                  <header class="settings-card-head">
-                    <div>
-                      <div class="settings-card-title">Impostos e equipe</div>
-                      <div class="settings-card-sub">Entra na fórmula de lucro e ROI de todo o painel</div>
-                    </div>
-                  </header>
-                  <form id="settings-form" class="form">
-                    <div class="form-grid">
-                      <label>Imposto governo s/ comissão (%)
-                        <input type="text" id="set-tax" inputmode="decimal" placeholder="11,70" />
-                      </label>
-                      <label>Imposto s/ invest Meta (%)
-                        <input type="text" id="set-meta-tax" inputmode="decimal" placeholder="12,00" />
-                      </label>
-                      <label>Nome da equipe
-                        <input type="text" id="set-team-name" />
-                      </label>
-                      <label>Plano / subtítulo
-                        <input type="text" id="set-team-plan" />
-                      </label>
-                    </div>
-                    <div class="form-actions">
-                      <button type="submit" class="btn primary sm">Salvar ajustes</button>
-                    </div>
-                    <div id="settings-status" class="form-status"></div>
-                  </form>
-                </article>
-
-                <article class="settings-card settings-card--link">
-                  <header class="settings-card-head">
-                    <div>
-                      <div class="settings-card-title">Canais e status</div>
-                      <div class="settings-card-sub">Meta · Pinterest · Orgânico e Ativa · Em Teste · Pausada</div>
-                    </div>
-                  </header>
-                  <div class="settings-card-body">
-                    <p class="hint">A classificação define o que aparece em cada página de campanhas e alimenta as sugestões Meta.</p>
-                    <div class="form-actions">
-                      <button type="button" class="btn ghost sm" data-goto="canais">Abrir lista de SubIDs</button>
-                    </div>
+          <div class="cfg-section">
+            <h2 class="cfg-section-title">Cálculo e equipe</h2>
+            <p class="cfg-section-sub">Impostos e identidade do painel.</p>
+            <article class="settings-card settings-card--wide">
+              <header class="settings-card-head">
+                <div class="settings-card-brand">
+                  <img class="settings-card-icon is-square" src="/assets/configuracao.png" alt="" width="22" height="22" />
+                  <div>
+                    <div class="settings-card-title">Impostos e equipe</div>
+                    <div class="settings-card-sub">Entram na fórmula de lucro e ROI</div>
                   </div>
-                </article>
-              </div>
-              <div class="formula-note">
-                Fórmula: <code>lucro = comissão × (1 − gov%) − (invMeta × (1 + metaTax%) + invPin)</code>
-              </div>
-            </div>
+                </div>
+              </header>
+              <form id="settings-form" class="form">
+                <div class="form-grid">
+                  <label>Imposto s/ comissão (%)
+                    <input type="text" id="set-tax" inputmode="decimal" placeholder="11,70" />
+                  </label>
+                  <label>Imposto s/ invest Meta (%)
+                    <input type="text" id="set-meta-tax" inputmode="decimal" placeholder="12,00" />
+                  </label>
+                  <label>Nome da equipe
+                    <input type="text" id="set-team-name" />
+                  </label>
+                  <label>Plano / subtítulo
+                    <input type="text" id="set-team-plan" />
+                  </label>
+                </div>
+                <p class="hint cfg-formula">Lucro = comissão × (1 − gov%) − (invest Meta × (1 + taxa Meta%) + invest Pin)</p>
+                <div class="form-actions">
+                  <button type="submit" class="btn primary sm">Salvar ajustes</button>
+                </div>
+                <div id="settings-status" class="form-status"></div>
+              </form>
+            </article>
           </div>
-
         </section>
 
         <!-- DATA VIEWS -->

@@ -106,6 +106,10 @@
   };
 
   function fmt(v) {
+    if (v == null || v === "" || Number.isNaN(Number(v))) return "—";
+    return "R$ " + Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtMoney(v) {
     return "R$ " + Number(v || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   function fmtNum(v) {
@@ -117,7 +121,8 @@
   }
   /** Valor com centavos rebaixados — usado no herói de lucro. */
   function fmtDisplay(v) {
-    const full = fmt(v);
+    if (v == null || v === "" || Number.isNaN(Number(v))) return "—";
+    const full = fmtMoney(v);
     const i = full.lastIndexOf(",");
     if (i < 0) return escapeHtml(full);
     return `${escapeHtml(full.slice(0, i))}<span class="cents">${escapeHtml(full.slice(i))}</span>`;
@@ -317,26 +322,28 @@
    * seguido da linha secundária — receita Shopee e investimento por canal.
    */
   function renderKpis(k, subCount) {
-    const invMeta = Number(k.inv_meta || 0);
-    const invPin = Number(k.inv_pin || 0);
-    const invTotal = Number(k.inv_total || 0);
-    const lucro = k.lucro != null ? Number(k.lucro) : Number(k.comissao || 0) - invTotal;
-    const roi = k.roi;
-    const hasRoi = invTotal > 0 && Number.isFinite(Number(roi));
+    const hasData = Boolean(state.dash);
+    const invMeta = hasData ? Number(k.inv_meta || 0) : null;
+    const invPin = hasData ? Number(k.inv_pin || 0) : null;
+    const invTotal = hasData ? Number(k.inv_total || 0) : null;
+    const lucro = !hasData ? null : (k.lucro != null ? Number(k.lucro) : Number(k.comissao || 0) - Number(invTotal || 0));
+    const roi = hasData ? k.roi : null;
+    const hasRoi = hasData && invTotal > 0 && Number.isFinite(Number(roi));
     const roiTone = hasRoi ? (Number(roi) >= 0 ? "pos" : "neg") : "";
-    const trendTone = lucro > 0 ? "" : lucro < 0 ? "neg" : "off";
-    const trendText = lucro > 0 ? "▲ lucro" : lucro < 0 ? "▼ prejuízo" : "— neutro";
-    const subs = subCount != null ? fmtNum(subCount) : "—";
+    const subs = hasData && subCount != null ? fmtNum(subCount) : "—";
+    const fat = hasData ? Number(k.faturamento || 0) : null;
+    const com = hasData ? Number(k.comissao || 0) : null;
+    const abat = hasData ? k.abatimento : null;
 
     $("#kpi-grid").innerHTML = `
       <article class="kpi--hero">
         <div class="kpi-hero-inner">
           <div class="kpi-top">
+            <img class="kpi-channel-logo" src="/assets/lucro.png" alt="" />
             <span class="kpi-label">Lucro líquido</span>
-            <span class="kpi-hero-note">Após impostos · período selecionado</span>
-            <span class="kpi-trend ${trendTone}">${trendText}</span>
           </div>
-          <div class="kpi-hero-value ${lucro >= 0 ? "pos" : "neg"}">${fmtDisplay(lucro)}</div>
+          <div class="kpi-hero-value ${lucro == null ? "" : lucro >= 0 ? "pos" : "neg"}">${fmtDisplay(lucro)}</div>
+          <div class="kpi-hero-note">= comissão − mídia − impostos</div>
           <div class="kpi-hero-foot">
             <div class="kpi-mini">
               <span class="kpi-mini-label">ROI</span>
@@ -344,56 +351,44 @@
             </div>
             <div class="kpi-mini">
               <span class="kpi-mini-label">Abatimento</span>
-              <span class="kpi-mini-value">${fmtPct(k.abatimento)}</span>
+              <span class="kpi-mini-value">${fmtPct(abat)}</span>
             </div>
             <div class="kpi-mini">
-              <span class="kpi-mini-label">SubIDs</span>
+              <span class="kpi-mini-label">SubIDs ativos</span>
               <span class="kpi-mini-value">${subs}</span>
-            </div>
-            <div class="kpi-mini">
-              <span class="kpi-mini-label">Pedidos</span>
-              <span class="kpi-mini-value">${fmtNum(k.pedidos)}</span>
             </div>
           </div>
         </div>
       </article>
 
-      <div class="kpi-row">
-        <div class="kpi">
-          <div class="kpi-head">
-            <span class="kpi-label">Faturamento</span>
-            <span class="kpi-delta on">bruto Shopee</span>
-          </div>
-          <div class="kpi-value">${fmt(k.faturamento)}</div>
-          <div class="kpi-foot">GMV do período</div>
+      <div class="kpi kpi--channel is-shopee">
+        <div class="kpi-channel-top">
+          <img class="kpi-channel-logo" src="/assets/shopee.png" alt="Shopee" />
+          <span class="kpi-channel-pill">Shopee API</span>
         </div>
+        <span class="kpi-label">Faturamento bruto</span>
+        <div class="kpi-value">${fmtDisplay(fat)}</div>
+        <div class="kpi-foot">Comissão <b>${fmt(com)}</b></div>
+      </div>
 
-        <div class="kpi">
-          <div class="kpi-head">
-            <span class="kpi-label">Comissão</span>
-            <span class="kpi-delta on">antes do imposto</span>
-          </div>
-          <div class="kpi-value">${fmt(k.comissao)}</div>
-          <div class="kpi-foot">${fmtPct(k.abatimento)} do faturamento</div>
+      <div class="kpi kpi--channel is-meta">
+        <div class="kpi-channel-top">
+          <img class="kpi-channel-logo" src="/assets/meta.png" alt="Meta" />
+          <span class="kpi-channel-pill">Meta Ads</span>
         </div>
+        <span class="kpi-label">Invest em anúncios</span>
+        <div class="kpi-value">${fmtDisplay(invMeta)}</div>
+        <div class="kpi-foot">${hasData ? (invMeta > 0 ? "taxado no ROI" : "sem sync Meta") : "—"}</div>
+      </div>
 
-        <div class="kpi${invMeta > 0 ? "" : " is-off"}">
-          <div class="kpi-head">
-            <span class="kpi-label">${CHANNEL_ICONS.meta}Invest Meta</span>
-            <span class="kpi-delta ${invMeta > 0 ? "on" : "off"}">${invMeta > 0 ? "bruto API" : "sem sync"}</span>
-          </div>
-          <div class="kpi-value">${fmt(invMeta)}</div>
-          <div class="kpi-foot">taxado para o ROI</div>
+      <div class="kpi kpi--channel is-pin">
+        <div class="kpi-channel-top">
+          <img class="kpi-channel-logo" src="/assets/pinterest.png" alt="Pinterest" />
+          <span class="kpi-channel-pill">CSV manual</span>
         </div>
-
-        <div class="kpi${invPin > 0 ? "" : " is-off"}">
-          <div class="kpi-head">
-            <span class="kpi-label">${CHANNEL_ICONS.pinterest}Invest Pin + Total</span>
-            <span class="kpi-delta ${invPin > 0 ? "on" : "off"}">${invPin > 0 ? "CSV importado" : "CSV"}</span>
-          </div>
-          <div class="kpi-value">${fmt(invPin)} · <span class="split">${fmt(invTotal)}</span></div>
-          <div class="kpi-foot">Pin bruto · total com imposto Meta</div>
-        </div>
+        <span class="kpi-label">Invest em anúncios</span>
+        <div class="kpi-value">${fmtDisplay(invPin)}</div>
+        <div class="kpi-foot">${hasData ? (invPin > 0 ? `total c/ imposto · ${fmt(invTotal)}` : "Sem CSV neste período") : "—"}</div>
       </div>`;
   }
 
@@ -426,10 +421,12 @@
 
   function renderSuggestions(dash) {
     const el = $("#suggestions-body");
+    const countEl = $("#suggestions-count");
     if (!el) return;
     const ch = state.channel;
     if (ch !== "geral" && ch !== "meta") {
       el.innerHTML = `<div class="sec-empty">Sugestões disponíveis na visão Geral ou Meta.</div>`;
+      if (countEl) countEl.textContent = "—";
       return;
     }
     const subs = (dash?.subIds || []).filter((s) => (s.canal || "meta") === "meta");
@@ -444,54 +441,68 @@
       const lucro = Number(s.lucro || 0);
       const st = s.status || "ativa";
       const roi = Number.isFinite(roi15) ? roi15 : Number(s.roi);
+      const vendas = Number(s.pedidos || 0);
 
       if (st === "ativa" && Number.isFinite(roi) && roi < 40 && inv > 0) {
         tips.push({
           subid: s.subid,
-          kind: "desativar",
-          reason: `ROI 15d ${fmtPct(roi)} abaixo de 40%`,
-          action: "Considerar pausar",
+          tag: "PAUSAR",
+          tagKind: "pausar",
+          reason: `ROI 15d ${fmtPct(roi)} · invest ${fmtMoney(inv)} · ${fmtNum(vendas)} vendas · sem escala`,
+          action: "Pausar campanha",
+          actionKind: "pausar",
         });
       } else if (st === "ativa" && Number.isFinite(roi) && roi >= 40 && inv > 0) {
         const recent = last15.filter((d) => Number(d.inv_meta || 0) > 0).slice(-4);
         if (recent.length >= 4 && recent.every((d) => Number(d.roi || 0) >= 0)) {
-          const avg = recent.reduce((a, d) => a + Number(d.inv_meta || 0), 0) / recent.length;
           tips.push({
             subid: s.subid,
-            kind: "escalar",
-            reason: "4 dias com ROI ≥ 0 e ROI 15d ≥ 40%",
-            action: `Escalar ~${fmt(avg * 0.2)} (+20%)`,
+            tag: "ESCALAR",
+            tagKind: "escalar",
+            reason: `ROI 15d ${fmtPct(roi)} · consistente · aumentar budget +20%`,
+            action: "Escalar +20%",
+            actionKind: "escalar",
           });
         }
       } else if (st === "teste" && Number.isFinite(roi) && roi <= -70) {
         tips.push({
           subid: s.subid,
-          kind: "desativar",
-          reason: `Teste com ROI ${fmtPct(roi)} (≤ −70%)`,
-          action: "Encerrar teste",
+          tag: "TESTAR",
+          tagKind: "testar",
+          reason: `Teste com ROI ${fmtPct(roi)} · reduzir budget −70%`,
+          action: "Reduzir −70%",
+          actionKind: "reduzir",
         });
       } else if (st === "teste" && lucro > 0 && Number.isFinite(roi) && roi > 0) {
         tips.push({
           subid: s.subid,
-          kind: "promover",
-          reason: "Teste com ROI positivo",
-          action: "Promover para Ativa",
+          tag: "ESCALAR",
+          tagKind: "escalar",
+          reason: "Teste com ROI positivo · promover para Ativa",
+          action: "Escalar +20%",
+          actionKind: "escalar",
         });
       }
     }
-    if (!tips.length) {
+    const shown = tips.slice(0, 4);
+    if (countEl) {
+      countEl.textContent = shown.length
+        ? `${shown.length} ${shown.length > 1 ? "ações" : "ação"}`
+        : "—";
+    }
+    if (!shown.length) {
       el.innerHTML = `<div class="sec-empty">Nenhum sinal de corte ou escala no período — Meta está estável.</div>`;
       return;
     }
-    const kindLabel = { escalar: "Escalar +20%", desativar: "Desativar", promover: "Promover" };
-    el.innerHTML = tips.map((t) => `
+    el.innerHTML = shown.map((t) => `
       <div class="sug-row">
-        <div class="sug-main">
-          <div class="sug-subid">${escapeHtml(t.subid)}</div>
-          <div class="sug-reason">${escapeHtml(t.reason)}</div>
+        <div class="sug-subid-cell">
+          <img src="/assets/meta.png" alt="" width="16" height="16" />
+          <span class="sug-subid">${escapeHtml(t.subid)}</span>
         </div>
-        <span class="sug-pill is-${escapeHtml(t.kind)}">${kindLabel[t.kind] || escapeHtml(t.kind)}</span>
-        <span class="sug-action">${escapeHtml(t.action)}</span>
+        <div><span class="sug-tag is-${t.tagKind}">${escapeHtml(t.tag)}</span></div>
+        <div class="sug-reason">${escapeHtml(t.reason)}</div>
+        <button type="button" class="sug-action-btn is-${t.actionKind}">${escapeHtml(t.action.replace("Pausar campanha", "Pausar"))}</button>
       </div>`).join("");
   }
 
@@ -621,7 +632,7 @@
   }
 
   function statusLabel(s) {
-    if (s === "teste") return "Em Teste";
+    if (s === "teste") return "Em teste";
     if (s === "pausada") return "Pausada";
     return "Ativa";
   }
@@ -807,6 +818,15 @@
     setHard("#canais-count-meta", totals.meta);
     setHard("#canais-count-pin", totals.pinterest);
     setHard("#canais-count-org", totals.organico);
+    const setTab = (sel, v) => {
+      const el = $(sel);
+      if (!el) return;
+      el.textContent = list.length ? fmtNum(v) : "";
+    };
+    setTab("#tab-count-geral", totals.all);
+    setTab("#tab-count-meta", totals.meta);
+    setTab("#tab-count-pin", totals.pinterest);
+    setTab("#tab-count-org", totals.organico);
   }
 
   function applyChannelView() {
@@ -839,10 +859,14 @@
     renderDailyTable(daily, k);
     renderSubIdsDash();
 
-    const base = `Comissão ${fmt(k.comissao)} · invest ${fmt(k.inv_total)} · ROI ${fmtPct(k.roi)}`;
-    $("#page-sub").textContent = isChannel
-      ? `${base} · ${fmtNum(channelSubs.length)} SubIDs no canal`
-      : base;
+    const liveText = $("#dash-live-text");
+    if (liveText) {
+      const n = channelSubs.length;
+      const label = isChannel ? `${canalLabel(ch)} · ` : "";
+      liveText.textContent = n
+        ? `${label}${fmtNum(n)} SubIDs no período`
+        : `${label}Ao vivo`;
+    }
   }
 
   function renderOpsTable() {
@@ -1408,12 +1432,36 @@
     return d && m ? `${d}/${m}` : iso;
   }
 
+  function brPeriodLabel(iso) {
+    if (!iso) return "—";
+    const months = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+    const [y, m, d] = String(iso).split("-");
+    if (!y || !m || !d) return iso;
+    return `${d} ${months[Number(m) - 1]} ${y}`;
+  }
+
   function syncTopbarRange() {
-    const el = $("#topbar-range");
-    if (!el) return;
     const start = $("#start-date")?.value;
     const end = $("#end-date")?.value;
-    el.textContent = start && end ? `${brShortDate(start)} → ${brShortDate(end)}` : "—";
+    const el = $("#topbar-range");
+    if (el) el.textContent = start && end ? `${brShortDate(start)} → ${brShortDate(end)}` : "—";
+    const label = $("#period-range-label");
+    if (label) {
+      label.textContent = start && end
+        ? `${brPeriodLabel(start)} – ${brPeriodLabel(end)}`
+        : "—";
+    }
+    const hint = $("#period-days-hint");
+    if (hint) {
+      if (start && end) {
+        const a = new Date(`${start}T12:00:00`);
+        const b = new Date(`${end}T12:00:00`);
+        const days = Math.max(1, Math.round((b - a) / 86400000) + 1);
+        hint.textContent = `${days} dia${days > 1 ? "s" : ""}`;
+      } else {
+        hint.textContent = "—";
+      }
+    }
   }
 
   async function loadCredentials() {
@@ -1427,8 +1475,8 @@
     if (c.appId) $("#app-id").value = c.appId;
     const banner = $("#sync-banner");
     if (c.configured) {
-      banner.className = "banner ok";
-      banner.innerHTML = "APIs prontas. Use <strong>Sincronizar Shopee</strong> e, em Config, <strong>Sincronizar Meta</strong>.";
+      banner.className = "banner hidden";
+      banner.innerHTML = "";
     } else {
       banner.className = "banner";
       banner.innerHTML = 'Configure Shopee em <button type="button" class="linkish" data-goto="config">Configurações</button>.';
@@ -1493,8 +1541,11 @@
       const r = await api("/api/meta/sync", { method: "POST", body: JSON.stringify({ daysBack: 7 }) });
       if (status) {
         if (isBanner) {
-          status.className = "banner ok";
+          status.className = "banner ok keep";
           status.textContent = `Meta sync: ${r.gravados} linhas (${r.range?.since} a ${r.range?.until})`;
+          setTimeout(() => {
+            if (status.classList.contains("keep")) status.className = "banner hidden";
+          }, 6000);
         } else {
           status.className = "form-status ok";
           status.textContent = `Meta sync: ${r.gravados} linhas (${r.range?.since} a ${r.range?.until})` +
@@ -1523,26 +1574,32 @@
   async function loadDashboard({ force = false } = {}) {
     const start = $("#start-date").value;
     const end = $("#end-date").value;
-    const btn = force ? $("#btn-sync") : $("#btn-load");
-    const prev = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = force ? "Sincronizando…" : "Carregando…";
+    const btn = force ? $("#btn-sync") : ($("#btn-load") || $("#btn-sync"));
+    const prev = btn ? btn.textContent : "";
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = force ? "Sincronizando…" : "Carregando…";
+    }
     try {
       const q = new URLSearchParams({ start, end });
       if (force) q.set("force", "1");
       const dash = await api(`/api/dashboard?${q}`);
       applyDash(dash, { cached: dash.cached });
       const banner = $("#sync-banner");
-      banner.className = "banner ok";
-      banner.textContent = `${start} a ${end}: ${fmt(dash.kpis.comissao)} comissão · ${fmt(dash.kpis.inv_total)} invest · ROI ${fmtPct(dash.kpis.roi)}`;
+      if (!banner.classList.contains("keep")) {
+        banner.className = "banner hidden";
+        banner.textContent = "";
+      }
     } catch (err) {
       const banner = $("#sync-banner");
       banner.className = "banner err";
       banner.textContent = err.message || String(err);
       if (err.code === "CREDS_MISSING") setView("config");
     } finally {
-      btn.disabled = false;
-      btn.textContent = prev;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
     }
   }
 
@@ -1550,6 +1607,9 @@
     $$(".chip-btn").forEach((b) => b.classList.toggle("active", b.dataset.range === kind));
     if (kind === "7d") {
       $("#start-date").value = daysAgoISO(6);
+      $("#end-date").value = todayISO();
+    } else if (kind === "30d") {
+      $("#start-date").value = daysAgoISO(29);
       $("#end-date").value = todayISO();
     } else {
       $("#start-date").value = monthStartISO();
@@ -1577,7 +1637,26 @@
     $("#start-date").value = daysAgoISO(6);
     $("#end-date").value = todayISO();
     syncTopbarRange();
+    $$(".chip-btn").forEach((b) => b.classList.toggle("active", b.dataset.range === "7d"));
 
+    const periodPop = $("#period-dates-pop");
+    const periodBtn = $("#btn-period-main");
+    periodBtn?.addEventListener("click", () => {
+      const open = periodPop?.classList.toggle("hidden") === false;
+      periodBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    $("#btn-period-apply")?.addEventListener("click", () => {
+      periodPop?.classList.add("hidden");
+      periodBtn?.setAttribute("aria-expanded", "false");
+      syncTopbarRange();
+      loadDashboard({ force: false });
+    });
+    document.addEventListener("click", (e) => {
+      if (!periodPop || periodPop.classList.contains("hidden")) return;
+      if (e.target.closest("#period-bar")) return;
+      periodPop.classList.add("hidden");
+      periodBtn?.setAttribute("aria-expanded", "false");
+    });
     let authMode = "login";
     function setAuthMode(mode) {
       authMode = mode;
@@ -1587,14 +1666,8 @@
       $("#auth-submit").textContent = isReg ? "Validar APIs e criar conta" : "Entrar";
       $("#register-extra")?.classList.toggle("hidden", !isReg);
       $("#auth-card")?.classList.toggle("register-mode", isReg);
-      if (isReg) {
-        if ($("#auth-email").value === "teste@gmail.com") $("#auth-email").value = "";
-        if ($("#auth-password").value === "123456789") $("#auth-password").value = "";
-        $("#auth-email").placeholder = "seu@email.com";
-      } else {
-        if (!$("#auth-email").value) $("#auth-email").value = "teste@gmail.com";
-        if (!$("#auth-password").value) $("#auth-password").value = "123456789";
-      }
+      const email = $("#auth-email");
+      if (email) email.placeholder = "seu@email.com";
     }
     $("#auth-tab-login")?.addEventListener("click", () => setAuthMode("login"));
     $("#auth-tab-register")?.addEventListener("click", () => setAuthMode("register"));
@@ -1686,7 +1759,7 @@
 
     $$(".chip-btn").forEach((b) => b.addEventListener("click", () => setRange(b.dataset.range)));
 
-    $("#btn-load").addEventListener("click", () => loadDashboard({ force: false }));
+    $("#btn-load")?.addEventListener("click", () => loadDashboard({ force: false }));
     $("#btn-sync").addEventListener("click", () => loadDashboard({ force: true }));
     $("#btn-export").addEventListener("click", exportCsv);
     $("#btn-meta-sync-top")?.addEventListener("click", async () => {
