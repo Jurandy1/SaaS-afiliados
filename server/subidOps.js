@@ -45,13 +45,14 @@ async function upsertSubidOps(subid, partial, userId = requireUserId()) {
 function inferCanal(subid, invMeta, invPin) {
   const invM = Number(invMeta || 0);
   const invP = Number(invPin || 0);
+  // Canal pago só com gasto real (Meta API / CSV Pin)
   if (invM > 0 && invP <= 0) return "meta";
   if (invP > 0 && invM <= 0) return "pinterest";
   if (invM > 0 && invP > 0) return "indefinido";
+  // Sem mídia: pin* fica indefinido até importar CSV ou classificar manualmente
   const sid = String(subid || "").trim().toLowerCase();
-  // Convenção comum: SubIDs Pin### sem CSV ainda → Pinterest
-  if (/^pin\d/.test(sid) || /^pin[_-]/.test(sid) || sid === "pinterest") return "pinterest";
-  // Sem mídia paga = orgânico (stories, links, busca, etc.)
+  if (/^pin\d/.test(sid) || /^pin[_-]/.test(sid) || sid === "pinterest") return "indefinido";
+  // Resto sem ads = orgânico
   return "organico";
 }
 
