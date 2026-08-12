@@ -453,95 +453,95 @@
     const money = (v) => (v == null || Number.isNaN(Number(v)) ? "—" : Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 
     el.innerHTML = `
-      <div class="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700 text-white rounded-2xl p-5 shadow-lg shadow-emerald-500/10">
-        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl"></div>
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-emerald-100 flex items-center gap-1.5">
-            <img src="/assets/lucro.png" alt="" width="18" height="18" class="rounded-sm drop-shadow" /> Lucro Líquido
+      <div class="kpi-hero relative overflow-hidden bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-700 text-white rounded-2xl p-4 sm:p-5 shadow-lg shadow-emerald-500/10 min-w-0">
+        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
+        <div class="relative flex items-center justify-between mb-3 gap-2 min-w-0">
+          <span class="text-xs font-bold uppercase tracking-wider text-emerald-100 flex items-center gap-1.5 min-w-0">
+            <img src="/assets/lucro.png" alt="" width="18" height="18" class="rounded-sm drop-shadow shrink-0" /> Lucro Líquido
           </span>
         </div>
-        <div class="mb-4">
-          <div class="text-3xl sm:text-4xl font-black tracking-tight text-white flex items-baseline gap-1">
-            <span class="text-lg font-bold text-emerald-200">R$</span>
+        <div class="relative mb-4 min-w-0">
+          <div class="kpi-hero-value text-white">
+            <span class="text-lg font-bold text-emerald-200 shrink-0">R$</span>
             <span>${money(lucro)}</span>
           </div>
           <p class="text-[11px] text-emerald-100/90 mt-1 font-medium">Lucro real após mídia e impostos</p>
         </div>
-        <div class="grid grid-cols-3 gap-2 pt-3 border-t border-white/20 text-center">
-          <div class="bg-black/10 p-1.5 rounded-xl">
+        <div class="relative grid grid-cols-3 gap-1.5 sm:gap-2 pt-3 border-t border-white/20 text-center min-w-0">
+          <div class="bg-black/10 p-1.5 rounded-xl min-w-0">
             <p class="text-[10px] text-emerald-100">ROI</p>
-            <p class="text-xs font-extrabold text-white">${fmtPct(hasRoi ? roi : null)}</p>
+            <p class="text-xs font-extrabold text-white break-words">${fmtPct(hasRoi ? roi : null)}</p>
           </div>
-          <div class="bg-black/10 p-1.5 rounded-xl">
+          <div class="bg-black/10 p-1.5 rounded-xl min-w-0">
             <p class="text-[10px] text-emerald-100">Abatimento</p>
-            <p class="text-xs font-extrabold text-amber-200">${fmtPct(abat)}</p>
+            <p class="text-xs font-extrabold text-amber-200 break-words">${fmtPct(abat)}</p>
           </div>
-          <div class="bg-black/10 p-1.5 rounded-xl">
+          <div class="bg-black/10 p-1.5 rounded-xl min-w-0">
             <p class="text-[10px] text-emerald-100">SubIDs</p>
-            <p class="text-xs font-extrabold text-white">${subs}</p>
+            <p class="text-xs font-extrabold text-white break-words">${subs}</p>
           </div>
         </div>
       </div>
 
-      <div class="relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 text-white rounded-2xl p-5 shadow-lg shadow-orange-500/10">
-        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl"></div>
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-orange-100 flex items-center gap-1.5">
-            <img src="/assets/shopee.png" alt="" width="16" height="16" /> Faturamento Bruto
+      <div class="kpi-hero relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 text-white rounded-2xl p-4 sm:p-5 shadow-lg shadow-orange-500/10 min-w-0">
+        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
+        <div class="relative flex items-center justify-between mb-3 gap-2 min-w-0">
+          <span class="text-xs font-bold uppercase tracking-wider text-orange-100 flex items-center gap-1.5 min-w-0">
+            <img src="/assets/shopee.png" alt="" width="16" height="16" class="shrink-0" /> Faturamento Bruto
           </span>
-          <span class="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-md font-bold">Shopee API</span>
+          <span class="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-md font-bold shrink-0">Shopee API</span>
         </div>
-        <div class="mb-4">
-          <div class="text-3xl sm:text-4xl font-black tracking-tight text-white flex items-baseline gap-1">
-            <span class="text-lg font-bold text-orange-200">R$</span>
+        <div class="relative mb-4 min-w-0">
+          <div class="kpi-hero-value text-white">
+            <span class="text-lg font-bold text-orange-200 shrink-0">R$</span>
             <span>${money(fat)}</span>
           </div>
           <p class="text-[11px] text-orange-100/90 mt-1 font-medium">Volume total vendido gerado por SubIDs</p>
         </div>
-        <div class="bg-black/10 p-2.5 rounded-xl flex items-center justify-between mt-auto">
-          <span class="text-xs text-orange-100">Comissão Shopee Total:</span>
+        <div class="relative kpi-hero-foot bg-black/10 p-2.5 rounded-xl mt-auto">
+          <span class="text-xs text-orange-100 shrink-0">Comissão Shopee Total:</span>
           <span class="text-xs font-black text-white">${fmt(com)}</span>
         </div>
       </div>
 
-      <div class="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 text-white rounded-2xl p-5 shadow-lg shadow-blue-500/10">
-        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl"></div>
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-blue-100 flex items-center gap-1.5">
-            <img src="/assets/meta.png" alt="" width="16" height="16" /> Invest. Meta Ads
+      <div class="kpi-hero relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 text-white rounded-2xl p-4 sm:p-5 shadow-lg shadow-blue-500/10 min-w-0">
+        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
+        <div class="relative flex items-center justify-between mb-3 gap-2 min-w-0">
+          <span class="text-xs font-bold uppercase tracking-wider text-blue-100 flex items-center gap-1.5 min-w-0">
+            <img src="/assets/meta.png" alt="" width="16" height="16" class="shrink-0" /> Invest. Meta Ads
           </span>
-          <span class="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-md font-bold">Meta Ads</span>
+          <span class="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-md font-bold shrink-0">Meta Ads</span>
         </div>
-        <div class="mb-4">
-          <div class="text-3xl sm:text-4xl font-black tracking-tight text-white flex items-baseline gap-1">
-            <span class="text-lg font-bold text-blue-200">R$</span>
+        <div class="relative mb-4 min-w-0">
+          <div class="kpi-hero-value text-white">
+            <span class="text-lg font-bold text-blue-200 shrink-0">R$</span>
             <span>${money(invMeta)}</span>
           </div>
           <p class="text-[11px] text-blue-100/90 mt-1 font-medium">${hasData ? (invMeta > 0 ? "Sincronizado via API" : "Sem sync Meta neste período") : "—"}</p>
         </div>
-        <div class="bg-black/10 p-2.5 rounded-xl flex items-center justify-between mt-auto">
-          <span class="text-xs text-blue-100">Taxado no ROI:</span>
+        <div class="relative kpi-hero-foot bg-black/10 p-2.5 rounded-xl mt-auto">
+          <span class="text-xs text-blue-100 shrink-0">Taxado no ROI:</span>
           <span class="text-xs font-black text-white">${hasData && invMeta > 0 ? "Sim" : "—"}</span>
         </div>
       </div>
 
-      <div class="relative overflow-hidden bg-gradient-to-br from-rose-500 via-rose-600 to-red-600 text-white rounded-2xl p-5 shadow-lg shadow-rose-500/10">
-        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl"></div>
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-bold uppercase tracking-wider text-rose-100 flex items-center gap-1.5">
-            <img src="/assets/pinterest.png" alt="" width="16" height="16" /> Invest. Pinterest
+      <div class="kpi-hero relative overflow-hidden bg-gradient-to-br from-rose-500 via-rose-600 to-red-600 text-white rounded-2xl p-4 sm:p-5 shadow-lg shadow-rose-500/10 min-w-0">
+        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
+        <div class="relative flex items-center justify-between mb-3 gap-2 min-w-0">
+          <span class="text-xs font-bold uppercase tracking-wider text-rose-100 flex items-center gap-1.5 min-w-0">
+            <img src="/assets/pinterest.png" alt="" width="16" height="16" class="shrink-0" /> Invest. Pinterest
           </span>
-          <span class="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-md font-bold">CSV</span>
+          <span class="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-md font-bold shrink-0">CSV</span>
         </div>
-        <div class="mb-4">
-          <div class="text-3xl sm:text-4xl font-black tracking-tight text-white flex items-baseline gap-1">
-            <span class="text-lg font-bold text-rose-200">R$</span>
+        <div class="relative mb-4 min-w-0">
+          <div class="kpi-hero-value text-white">
+            <span class="text-lg font-bold text-rose-200 shrink-0">R$</span>
             <span>${money(invPin)}</span>
           </div>
           <p class="text-[11px] text-rose-100/90 mt-1 font-medium">${hasData ? (invPin > 0 ? `total c/ imposto · ${fmt(invTotal)}` : "Nenhum gasto neste período") : "—"}</p>
         </div>
-        <div class="bg-black/10 p-2.5 rounded-xl flex items-center justify-between mt-auto">
-          <span class="text-xs text-rose-100">Status:</span>
+        <div class="relative kpi-hero-foot bg-black/10 p-2.5 rounded-xl mt-auto">
+          <span class="text-xs text-rose-100 shrink-0">Status:</span>
           <span class="text-xs font-black text-white">${hasData && invPin > 0 ? "Ativo" : "Inativo"}</span>
         </div>
       </div>`;

@@ -2,7 +2,7 @@
 <html lang="pt-BR" class="light">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#f8fafc" />
   <title>Painel de Afiliados</title>
@@ -99,8 +99,8 @@
   </div>
 
   <!-- APP (layout Gemini) -->
-  <div id="app-shell" class="hidden flex flex-col lg:flex-row min-h-screen">
-    <aside id="sidebar" class="sidebar-afiliado w-full lg:w-[252px] bg-sidebar text-slate-400 flex flex-col justify-between shrink-0 z-30 border-r border-slate-800/50">
+  <div id="app-shell" class="hidden flex flex-col lg:flex-row min-h-screen w-full max-w-full overflow-x-hidden">
+    <aside id="sidebar" class="sidebar-afiliado w-full lg:w-[252px] lg:max-w-[252px] bg-sidebar text-slate-400 flex flex-col justify-between shrink-0 z-30 border-r border-slate-800/50">
       <div class="flex flex-col min-h-0 flex-1">
         <div class="px-5 py-5 flex items-center justify-between border-b border-slate-800/50">
           <div class="flex items-center gap-3 min-w-0">
@@ -208,7 +208,7 @@
 
     <div id="sidebar-backdrop" class="hidden" hidden></div>
 
-    <main class="flex-1 flex flex-col min-w-0 page-main overflow-y-auto">
+    <main class="flex-1 flex flex-col min-w-0 max-w-full page-main overflow-y-auto overflow-x-hidden">
       <header class="bg-white/90 dark:bg-slate-900/80 sticky top-0 z-20 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
         <div class="flex items-center gap-3">
           <button type="button" id="btn-sidebar-open" class="lg:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200" aria-label="Abrir menu">
@@ -315,8 +315,8 @@
 
           <!-- KPIs + Progresso Meta -->
           <div class="dash-only space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="kpi-grid"></div>
-            <div id="meta-progress-card"></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 min-w-0 w-full" id="kpi-grid"></div>
+            <div id="meta-progress-card" class="min-w-0 w-full"></div>
           </div>
 
           <div class="dash-only">
@@ -390,7 +390,7 @@
 
           <!-- SubIDs da campanha -->
           <div class="channel-only hidden space-y-4">
-            <div class="channel-kpi-grid" id="channel-kpi-grid"></div>
+            <div class="channel-kpi-grid min-w-0 w-full" id="channel-kpi-grid"></div>
             <section class="surface-card overflow-hidden" id="dash-subids-panel">
               <div class="panel-head px-4 sm:px-5 py-4 border-b border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div class="flex items-center gap-3">

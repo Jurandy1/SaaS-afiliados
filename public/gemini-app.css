@@ -45,27 +45,35 @@ html.light { color-scheme: light; }
   border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
-/* KPIs — Campanhas (cards uniformes, sem hero do dashboard) */
+/* KPIs — Campanhas (auto-fit: não força 8 cols apertadas no Mac/Chrome) */
+.channel-kpi-grid,
+#channel-kpi-grid {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
 .channel-kpi-metrics {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr));
   gap: 10px;
+  width: 100%;
+  min-width: 0;
 }
-@media (min-width: 640px) {
-  .channel-kpi-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.channel-kpi-metrics--5 {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
 }
-@media (min-width: 1024px) {
+.channel-kpi-metrics--8 {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 156px), 1fr));
+}
+@media (min-width: 1600px) {
   .channel-kpi-metrics--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-  .channel-kpi-metrics--8 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
-@media (min-width: 1280px) {
   .channel-kpi-metrics--8 { grid-template-columns: repeat(8, minmax(0, 1fr)); }
 }
 .channel-metric {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 12px 14px;
   border-radius: 1rem;
   border: 1px solid rgba(226, 232, 240, 0.9);
   border-top-width: 3px;
@@ -73,30 +81,39 @@ html.light { color-scheme: light; }
   background: #fff;
   box-shadow: 0 4px 16px -8px rgba(15, 23, 42, 0.1);
   transition: box-shadow 0.15s ease, transform 0.15s ease;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .channel-metric:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 20px -10px rgba(15, 23, 42, 0.15);
 }
 .channel-metric-icon {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  flex: 0 0 auto;
   background: #f8fafc;
   overflow: hidden;
 }
 .channel-metric-icon img {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
   display: block;
 }
 .channel-metric-icon img.is-square {
   border-radius: 6px;
+}
+.channel-metric-body {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 .channel-metric--orange { border-top-color: #f97316; }
 .channel-metric--orange .channel-metric-icon { background: #fff7ed; }
@@ -124,14 +141,19 @@ html.light { color-scheme: light; }
   letter-spacing: 0.06em;
   color: #94a3b8;
   margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .channel-metric-val {
-  font-size: 1.05rem;
+  font-size: clamp(0.82rem, 1.6vw, 1.05rem);
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.01em;
-  line-height: 1.2;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
   word-break: break-word;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Card Progresso Meta — dashboard geral */
@@ -199,10 +221,15 @@ html.light { color-scheme: light; }
   text-transform: capitalize;
 }
 .meta-progress-headline {
-  font-size: 1.35rem;
+  font-size: clamp(1rem, 2.4vw, 1.35rem);
   font-weight: 900;
   letter-spacing: -0.02em;
-  white-space: nowrap;
+  white-space: normal;
+  text-align: right;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
 }
 .meta-progress-bar-wrap {
   height: 10px;
@@ -579,12 +606,18 @@ html.dark .light-card {
 
 /* Tables — SubIDs / escuro (fiel ao Afiliadoteste) */
 .data-table--ops {
-  min-width: 1080px;
   width: 100%;
   font-size: 12px;
   font-family: Inter, system-ui, sans-serif;
   border-collapse: collapse;
   text-align: left;
+}
+#subid-table.data-table--ops,
+#daily-table.data-table--ops {
+  min-width: 960px;
+}
+#ops-table.data-table--ops {
+  min-width: 0;
 }
 .data-table--ops thead tr {
   background: #020617;
@@ -1152,30 +1185,84 @@ html.dark .produto-input {
   color: #f8fafc;
 }
 
-/* Responsivo — evita quebra em mobile e telas estreitas */
+/* Responsivo — Chrome Mac / zoom / Retina / mobile */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 html, body {
   overflow-x: clip;
   max-width: 100%;
+  width: 100%;
 }
 #app-shell {
   width: 100%;
-  max-width: 100vw;
+  max-width: 100%; /* nunca 100vw — scrollbar do Chrome Mac estoura layout */
 }
 #app-shell > main {
   min-width: 0;
+  max-width: 100%;
   overflow-x: hidden;
 }
-.page-main > div {
+.page-main > div,
+#kpi-grid,
+#channel-kpi-grid,
+#meta-progress-card,
+.dash-only,
+.channel-only,
+.surface-card {
   min-width: 0;
+  max-width: 100%;
+}
+#kpi-grid {
+  width: 100%;
+}
+#kpi-grid > .kpi-hero,
+#kpi-grid > div {
+  min-width: 0;
+  max-width: 100%;
+}
+.kpi-hero-value {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  min-width: 0;
+  max-width: 100%;
+  font-size: clamp(1.35rem, 2.4vw, 2.25rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-hero-value > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.kpi-hero-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.kpi-hero-foot > span:last-child {
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 .topbar-actions {
   width: 100%;
+  min-width: 0;
 }
 @media (min-width: 640px) {
   .topbar-actions { width: auto; }
 }
 .table-scroll {
   -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+  max-width: 100%;
 }
 .data-table {
   width: 100%;
@@ -1185,24 +1272,40 @@ html, body {
   #ops-table.data-table--ops { min-width: 520px; }
   #indef-table { min-width: 640px; }
 }
-@media (max-width: 639px) {
-  #kpi-grid > div .text-3xl,
-  #kpi-grid > div .sm\:text-4xl {
-    font-size: 1.65rem !important;
-    line-height: 1.15;
+/* MacBook / laptop estreito com sidebar (Chrome zoom 110–125%) */
+@media (max-width: 1366px) {
+  .channel-kpi-metrics--8 {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr));
   }
+  .channel-metric {
+    gap: 8px;
+    padding: 12px;
+  }
+  .channel-metric-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .channel-metric-icon img {
+    width: 20px;
+    height: 20px;
+  }
+  .channel-metric-val {
+    font-size: clamp(0.8rem, 1.4vw, 0.98rem);
+  }
+}
+@media (max-width: 639px) {
   #kpi-grid > div .grid.grid-cols-3 {
     gap: 0.375rem;
   }
   #kpi-grid > div .grid.grid-cols-3 p.text-xs {
     font-size: 10px;
   }
+  .kpi-hero-value {
+    font-size: clamp(1.25rem, 7vw, 1.75rem);
+  }
   .channel-metric {
     padding: 12px;
-    gap: 10px;
-  }
-  .channel-metric-val {
-    font-size: 0.95rem;
+    gap: 8px;
   }
   #dash-chart-foot {
     flex-direction: column;
@@ -1243,9 +1346,17 @@ html, body {
     padding-left: 1rem;
     padding-right: 1rem;
   }
+  .meta-progress-card-top {
+    flex-direction: column;
+  }
+  .meta-progress-headline {
+    text-align: left;
+  }
 }
-@media (max-width: 380px) {
-  .channel-kpi-metrics {
+@media (max-width: 420px) {
+  .channel-kpi-metrics,
+  .channel-kpi-metrics--5,
+  .channel-kpi-metrics--8 {
     grid-template-columns: 1fr;
   }
   .period-bar-actions {
