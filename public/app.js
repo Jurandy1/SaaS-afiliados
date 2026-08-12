@@ -122,6 +122,7 @@
     configured: false,
     metaConfigured: false,
     settings: { taxRate: 11.7, metaTaxRate: 12, teamName: "SaaS SHOPPE", teamPlan: "Shopee · Meta" },
+    periodPreset: "7d",
     subidPage: 1,
     opsPage: 1,
     opsPageSize: 25,
@@ -204,6 +205,18 @@
     if (roi == null || !Number.isFinite(Number(roi))) return "";
     return Number(roi) >= 0 ? "green" : "neg";
   }
+
+  function roiTierClass(roi) {
+    const r = Number(roi);
+    if (!Number.isFinite(r)) return "";
+    if (r < 0) return "cell-roi-bad";
+    if (r >= 40) return "cell-roi-good";
+    return "cell-roi-warn";
+  }
+
+  function lucroCellClass(v) {
+    return Number(v) >= 0 ? "cell-lucro-pos" : "cell-lucro-neg";
+  }
   /** Aceita "R$ 1.234.567,89" / "1234567.89" / "1234567,89" */
   function parseBrNumber(raw) {
     let s = String(raw ?? "").trim();
@@ -233,6 +246,17 @@
   function monthStartISO() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+  }
+  function monthPreviousRangeISO() {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - 1);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const start = `${y}-${String(m).padStart(2, "0")}-01`;
+    const last = new Date(y, m, 0);
+    const end = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`;
+    return { start, end };
   }
   function shortDay(iso) {
     if (!iso) return "—";
@@ -495,14 +519,73 @@
       </div>`;
   }
 
+  function channelMetricCard(label, value, tone, iconClass) {
+    const toneClass = tone ? `channel-metric--${tone}` : "";
+    return `<article class="channel-metric ${toneClass}">
+      <div class="channel-metric-icon"><i class="${iconClass}" aria-hidden="true"></i></div>
+      <div class="channel-metric-body">
+        <p class="channel-metric-lab">${escapeHtml(label)}</p>
+        <p class="channel-metric-val">${value}</p>
+      </div>
+    </article>`;
+  }
+
+  function renderChannelKpis(ch, k) {
+    const el = $("#channel-kpi-grid");
+    if (!el) return;
+    const hasData = Boolean(state.dash);
+    const money = (v) => (!hasData || v == null || Number.isNaN(Number(v)) ? "—" : fmt(v));
+    const num = (v) => (!hasData || v == null ? "—" : fmtNum(v));
+    const pct = (v) => (!hasData ? "—" : fmtPct(v));
+    const lucroNeg = Number(k?.lucro) < 0;
+    const roiNeg = Number(k?.roi) < 0;
+    const invMeta = k?.inv_meta_taxed != null ? k.inv_meta_taxed : k?.inv_meta;
+    const hasRoi = hasData && Number(k?.inv_total) > 0 && Number.isFinite(Number(k?.roi));
+    const lucroTone = lucroNeg ? "rose" : "emerald";
+    const roiTone = roiNeg ? "rose" : "emerald";
+
+    let cards = [];
+    if (ch === "meta") {
+      cards = [
+        ["Faturamento", money(k?.faturamento), "orange", "fa-solid fa-receipt"],
+        ["Comissão", money(k?.comissao), "emerald", "fa-solid fa-coins"],
+        ["Investimento Meta", money(invMeta), "meta", "fa-solid fa-bullhorn"],
+        ["Lucro", money(k?.lucro), lucroTone, "fa-solid fa-sack-dollar"],
+        ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "fa-solid fa-chart-line"],
+        ["Pedidos", num(k?.pedidos), "indigo", "fa-solid fa-bag-shopping"],
+        ["Cliques Shopee", num(k?.cliques_shopee), "sky", "fa-solid fa-computer-mouse"],
+        ["Abatimento", pct(k?.abatimento_cliques), "amber", "fa-solid fa-percent"],
+      ];
+    } else if (ch === "pinterest") {
+      cards = [
+        ["Faturamento", money(k?.faturamento), "orange", "fa-solid fa-receipt"],
+        ["Comissão", money(k?.comissao), "emerald", "fa-solid fa-coins"],
+        ["Investimento Pinterest", money(k?.inv_pin), "pin", "fa-brands fa-pinterest-p"],
+        ["Lucro", money(k?.lucro), lucroTone, "fa-solid fa-sack-dollar"],
+        ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "fa-solid fa-chart-line"],
+        ["Pedidos", num(k?.pedidos), "indigo", "fa-solid fa-bag-shopping"],
+        ["Cliques Shopee", num(k?.cliques_shopee), "sky", "fa-solid fa-computer-mouse"],
+        ["Abatimento", pct(k?.abatimento_cliques), "amber", "fa-solid fa-percent"],
+      ];
+    } else if (ch === "organico") {
+      cards = [
+        ["Faturamento", money(k?.faturamento), "orange", "fa-solid fa-receipt"],
+        ["Comissão", money(k?.comissao), "emerald", "fa-solid fa-coins"],
+        ["Lucro", money(k?.lucro), lucroTone, "fa-solid fa-sack-dollar"],
+        ["Pedidos", num(k?.pedidos), "indigo", "fa-solid fa-bag-shopping"],
+        ["Cliques Shopee", num(k?.cliques_shopee), "sky", "fa-solid fa-computer-mouse"],
+      ];
+    }
+
+    el.innerHTML = `<div class="channel-kpi-metrics channel-kpi-metrics--${cards.length}">${cards.map(([lab, val, tone, icon]) => channelMetricCard(lab, val, tone, icon)).join("")}</div>`;
+  }
+
   function chartGridColor() {
-    return document.documentElement.classList.contains("dark")
-      ? "rgba(51, 65, 85, 0.45)"
-      : "#e2e8f0";
+    return "rgba(30, 41, 59, 0.65)";
   }
 
   function chartTickColor() {
-    return document.documentElement.classList.contains("dark") ? "#94a3b8" : "#64748b";
+    return "#94a3b8";
   }
 
   function valuesForChartMode(rows, mode) {
@@ -515,8 +598,8 @@
   function paintChartToggle(mode) {
     const profit = $("#btn-chart-profit");
     const revenue = $("#btn-chart-revenue");
-    const on = "px-2.5 py-1 rounded-lg text-xs font-bold bg-brand-500 text-white transition-all shadow-sm";
-    const off = "px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all";
+    const on = "period-preset chip-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-600 text-white shadow-sm";
+    const off = "period-preset chip-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900";
     if (profit) profit.className = mode === "profit" ? on : off;
     if (revenue) revenue.className = mode === "revenue" ? on : off;
   }
@@ -850,30 +933,30 @@
       const com = Number(d.comissao || 0);
       const abat = fat > 0 ? (com / fat) * 100 : 0;
       const lucro = d.lucro != null ? d.lucro : com - Number(d.inv_total || 0);
-      return `<tr class="hover:bg-slate-50 transition-colors">
-        <td class="font-bold text-slate-900">${shortDay(d.data)}</td>
-        <td class="num">${fmt(fat)}</td>
-        <td class="num">${fmt(com)}</td>
-        <td class="num text-meta-600" style="color:#0081fb">${fmt(d.inv_meta)}</td>
-        <td class="num">${fmt(d.inv_pin)}</td>
-        <td class="num font-bold">${fmt(d.inv_total)}</td>
-        <td class="num font-extrabold ${lucro >= 0 ? "green" : "neg"}" style="${lucro >= 0 ? "background:rgba(16,185,129,.06)" : ""}">${fmt(lucro)}</td>
-        <td class="num text-center"><span class="inline-block px-2 py-0.5 rounded font-bold text-[11px] ${Number(d.roi) >= 0 ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"}">${fmtPct(d.roi)}</span></td>
-        <td class="num text-center text-slate-500">${fmtPct(abat)}</td>
+      return `<tr>
+        <td class="font-medium subid">${shortDay(d.data)}</td>
+        <td class="num cell-emerald">${fmt(fat)}</td>
+        <td class="num cell-emerald">${fmt(com)}</td>
+        <td class="num cell-gasto">${fmt(d.inv_meta)}</td>
+        <td class="num cell-gasto">${fmt(d.inv_pin)}</td>
+        <td class="num cell-gasto">${fmt(d.inv_total)}</td>
+        <td class="num ${lucroCellClass(lucro)}">${fmt(lucro)}</td>
+        <td class="num ${roiTierClass(d.roi)}">${fmtPct(d.roi)}</td>
+        <td class="num muted">${fmtPct(abat)}</td>
       </tr>`;
     }).join("") || `<tr><td colspan="9">Sem dias no período.</td></tr>`;
 
     if (state.dailyRows.length) {
       $("#daily-tfoot").innerHTML = `<tr>
-        <td class="text-emerald-400 uppercase tracking-wider">TOTAL</td>
-        <td class="num">${fmt(k.faturamento)}</td>
-        <td class="num text-amber-300">${fmt(k.comissao)}</td>
-        <td class="num text-blue-300">${fmt(k.inv_meta)}</td>
-        <td class="num">${fmt(k.inv_pin)}</td>
-        <td class="num">${fmt(k.inv_total)}</td>
-        <td class="num green text-sm">${fmt(k.lucro)}</td>
-        <td class="num text-center"><span class="bg-emerald-500 text-slate-950 font-black px-2 py-0.5 rounded text-[11px]">${fmtPct(k.roi)}</span></td>
-        <td class="num text-center text-slate-300">${fmtPct(k.abatimento)}</td>
+        <td class="subid uppercase tracking-wider">TOTAL</td>
+        <td class="num cell-emerald">${fmt(k.faturamento)}</td>
+        <td class="num cell-emerald">${fmt(k.comissao)}</td>
+        <td class="num cell-gasto">${fmt(k.inv_meta)}</td>
+        <td class="num cell-gasto">${fmt(k.inv_pin)}</td>
+        <td class="num cell-gasto">${fmt(k.inv_total)}</td>
+        <td class="num ${lucroCellClass(k.lucro)}">${fmt(k.lucro)}</td>
+        <td class="num ${roiTierClass(k.roi)}">${fmtPct(k.roi)}</td>
+        <td class="num muted">${fmtPct(k.abatimento)}</td>
       </tr>`;
     } else $("#daily-tfoot").innerHTML = "";
   }
@@ -1429,19 +1512,19 @@
         return `<td class="subid" data-subid="${escapeHtml(String(r.subid || ""))}" title="Clique para ver o historico diario">
           <span class="subid-caret"></span>${escapeHtml(String(r.subid || ""))}
         </td>`;
-      case "faturamento": return `<td class="num">${fmt(r.faturamento)}</td>`;
-      case "comissao": return `<td class="num">${fmt(r.comissao)}</td>`;
-      case "inv_total": return `<td class="num">${fmt(inv)}</td>`;
-      case "lucro": return `<td class="num ${lucro >= 0 ? "green" : "neg"}">${fmt(lucro)}</td>`;
-      case "roi": return `<td class="num ${roiClass(roi)}">${fmtPct(roi)}</td>`;
-      case "pedidos": return `<td class="num">${fmtNum(r.pedidos)}</td>`;
-      case "concluidos": return `<td class="num">${fmtNum(r.concluidos)}</td>`;
-      case "pendentes": return `<td class="num">${fmtNum(r.pendentes)}</td>`;
-      case "cancelados": return `<td class="num">${fmtNum(r.cancelados)}</td>`;
-      case "cliques_shopee": return `<td class="num">${r.cliques_shopee != null ? fmtNum(r.cliques_shopee) : "—"}</td>`;
-      case "cliques_meta": return `<td class="num">${fmtNum(r.cliques_meta)}</td>`;
-      case "cliques_pin": return `<td class="num">${fmtNum(r.cliques_pin)}</td>`;
-      case "cliques_ads": return `<td class="num">${fmtNum(adsClicksFor(r, ch))}</td>`;
+      case "faturamento": return `<td class="num cell-emerald">${fmt(r.faturamento)}</td>`;
+      case "comissao": return `<td class="num cell-emerald">${fmt(r.comissao)}</td>`;
+      case "inv_total": return `<td class="num cell-gasto">${fmt(inv)}</td>`;
+      case "lucro": return `<td class="num ${lucroCellClass(lucro)}">${fmt(lucro)}</td>`;
+      case "roi": return `<td class="num ${roiTierClass(roi)}">${fmtPct(roi)}</td>`;
+      case "pedidos": return `<td class="num cell-emerald">${fmtNum(r.pedidos)}</td>`;
+      case "concluidos": return `<td class="num cell-emerald">${fmtNum(r.concluidos)}</td>`;
+      case "pendentes": return `<td class="num cell-emerald">${fmtNum(r.pendentes)}</td>`;
+      case "cancelados": return `<td class="num cell-emerald">${fmtNum(r.cancelados)}</td>`;
+      case "cliques_shopee": return `<td class="num cell-gasto">${r.cliques_shopee != null ? fmtNum(r.cliques_shopee) : "—"}</td>`;
+      case "cliques_meta": return `<td class="num cell-gasto">${fmtNum(r.cliques_meta)}</td>`;
+      case "cliques_pin": return `<td class="num cell-gasto">${fmtNum(r.cliques_pin)}</td>`;
+      case "cliques_ads": return `<td class="num cell-gasto">${fmtNum(adsClicksFor(r, ch))}</td>`;
       case "impressoes": return `<td class="num">${fmtNum(r.impressoes)}</td>`;
       case "alcance": return `<td class="num">${fmtNum(r.alcance)}</td>`;
       case "ctr_meta": return `<td class="num">${fmtPct(r.ctr_meta)}</td>`;
@@ -1464,6 +1547,7 @@
     const dash = state.dash;
     if (!dash) {
       renderKpis({});
+      renderChannelKpis(ch, {});
       renderSuggestions(null);
       renderChart([]);
       return;
@@ -1508,12 +1592,16 @@
         k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_meta)) * 10000) / 100;
       }
     }
+    if (ch === "pinterest" && k.cliques_shopee != null && Number(k.cliques_pin) > 0) {
+      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_pin)) * 10000) / 100;
+    }
     const daily = isChannel ? dailyFromSubIds(channelSubs) : (dash.daily || []);
     if (!isChannel) {
       renderKpis(k, (dash.subIds || []).length);
       renderChart(daily);
       renderDailyTable(daily, k);
     } else {
+      renderChannelKpis(ch, k);
       if (!state.subidColPrefs) state.subidColPrefs = {};
       if (!state.subidColPrefs[ch]) state.subidColPrefs[ch] = readSubidColPrefs(ch);
       paintSubidColPicker(ch);
@@ -1649,10 +1737,10 @@
       const roi = displayRoi(d);
       return `<tr>
         <td>${escapeHtml(shortDayLabel(d.data))}</td>
-        <td class="num">${fmt(d.comissao)}</td>
-        <td class="num">${fmt(inv)}</td>
-        <td class="num ${lucro >= 0 ? "green" : "neg"}">${fmt(lucro)}</td>
-        <td class="num ${roiClass(roi)}">${fmtPct(roi)}</td>
+        <td class="num cell-emerald">${fmt(d.comissao)}</td>
+        <td class="num cell-gasto">${fmt(inv)}</td>
+        <td class="num ${lucroCellClass(lucro)}">${fmt(lucro)}</td>
+        <td class="num ${roiTierClass(roi)}">${fmtPct(roi)}</td>
       </tr>`;
     }).join("");
     return `<tr class="subid-detail" data-parent="${escapeHtml(key)}">
@@ -1676,10 +1764,10 @@
               ${rows}
               <tr class="subid-history-total">
                 <td>Total ${days.length}d</td>
-                <td class="num">${fmt(totCom)}</td>
-                <td class="num">${fmt(totInv)}</td>
-                <td class="num ${totLucro >= 0 ? "green" : "neg"}">${fmt(totLucro)}</td>
-                <td class="num ${roiClass(totRoi)}">${fmtPct(totRoi)}</td>
+                <td class="num cell-emerald">${fmt(totCom)}</td>
+                <td class="num cell-gasto">${fmt(totInv)}</td>
+                <td class="num ${lucroCellClass(totLucro)}">${fmt(totLucro)}</td>
+                <td class="num ${roiTierClass(totRoi)}">${fmtPct(totRoi)}</td>
               </tr>
             </tbody>
           </table>
@@ -2059,28 +2147,48 @@
     return `${d} ${months[Number(m) - 1]} ${y}`;
   }
 
+  function brShortDateFull(iso) {
+    if (!iso) return "—";
+    const [y, m, d] = String(iso).split("-");
+    return y && m && d ? `${d}/${m}/${y}` : iso;
+  }
+
+  const PRESET_SUBTITLES = {
+    all: "Todo período",
+    yesterday: "Ontem",
+    "7d": "7 dias",
+    "14d": "14 dias",
+    "30d": "30 dias",
+    month: "Este mês",
+    prev_month: "Mês anterior",
+    custom: "Personalizado",
+  };
+
   function syncTopbarRange() {
     const start = $("#start-date")?.value;
     const end = $("#end-date")?.value;
     const el = $("#topbar-range");
     if (el) el.textContent = start && end ? `${brShortDate(start)} → ${brShortDate(end)}` : "—";
-    const label = $("#period-range-label");
-    if (label) {
-      label.textContent = start && end
-        ? `${brPeriodLabel(start)} – ${brPeriodLabel(end)}`
+
+    const display = $("#period-range-display");
+    if (display) {
+      display.textContent = start && end
+        ? (start === end ? brShortDateFull(start) : `${brShortDateFull(start)} – ${brShortDateFull(end)}`)
         : "—";
+      display.title = start && end ? `${start} – ${end}` : "";
     }
-    const hint = $("#period-days-hint");
-    if (hint) {
-      if (start && end) {
-        const a = new Date(`${start}T12:00:00`);
-        const b = new Date(`${end}T12:00:00`);
-        const days = Math.max(1, Math.round((b - a) / 86400000) + 1);
-        hint.textContent = `${days} dia${days > 1 ? "s" : ""}`;
-      } else {
-        hint.textContent = "—";
-      }
+
+    const subtitle = $("#period-preset-subtitle");
+    if (subtitle) {
+      const key = state.periodPreset || "custom";
+      subtitle.textContent = (PRESET_SUBTITLES[key] || PRESET_SUBTITLES.custom).toUpperCase();
     }
+
+    const hint = $("#period-data-hint");
+    if (hint) hint.textContent = `Dados disponíveis até ${brShortDateFull(yesterdayISO())}`;
+
+    const applyBtn = $("#btn-period-apply");
+    if (applyBtn) applyBtn.disabled = !(start && end);
   }
 
   async function loadCredentials() {
@@ -2245,23 +2353,55 @@
   }
 
   function clearPeriodPresets() {
-    $$(".period-preset").forEach((b) => b.classList.remove("active"));
+    $$("#period-bar .period-preset[data-range]").forEach((b) => b.classList.remove("active"));
   }
 
   function setRange(kind) {
-    $$(".period-preset").forEach((b) => b.classList.toggle("active", b.dataset.range === kind));
+    state.periodPreset = kind || "7d";
+    $$("#period-bar .period-preset[data-range]").forEach((b) => b.classList.toggle("active", b.dataset.range === kind));
     if (kind === "yesterday") {
       $("#start-date").value = yesterdayISO();
       $("#end-date").value = yesterdayISO();
     } else if (kind === "7d") {
       $("#start-date").value = daysAgoISO(6);
       $("#end-date").value = todayISO();
+    } else if (kind === "14d") {
+      $("#start-date").value = daysAgoISO(13);
+      $("#end-date").value = todayISO();
+    } else if (kind === "30d") {
+      $("#start-date").value = daysAgoISO(29);
+      $("#end-date").value = todayISO();
+    } else if (kind === "all") {
+      $("#start-date").value = daysAgoISO(89);
+      $("#end-date").value = todayISO();
+    } else if (kind === "prev_month") {
+      const range = monthPreviousRangeISO();
+      $("#start-date").value = range.start;
+      $("#end-date").value = range.end;
     } else {
       $("#start-date").value = monthStartISO();
       $("#end-date").value = todayISO();
     }
     syncTopbarRange();
     loadDashboard({ force: false });
+  }
+
+  function togglePeriodCustom(open) {
+    const panel = $("#period-custom-panel");
+    const btn = $("#btn-period-custom");
+    if (!panel || !btn) return;
+    let isOpen;
+    if (open === true) {
+      panel.classList.remove("hidden");
+      isOpen = true;
+    } else if (open === false) {
+      panel.classList.add("hidden");
+      isOpen = false;
+    } else {
+      isOpen = panel.classList.toggle("hidden") === false;
+    }
+    btn.classList.toggle("is-open", isOpen);
+    btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
   }
 
   function exportCsv() {
@@ -2289,28 +2429,25 @@
 
     $("#start-date").value = daysAgoISO(6);
     $("#end-date").value = todayISO();
+    state.periodPreset = "7d";
     syncTopbarRange();
-    $$(".period-preset").forEach((b) => b.classList.toggle("active", b.dataset.range === "7d"));
+    $$("#period-bar .period-preset[data-range]").forEach((b) => b.classList.toggle("active", b.dataset.range === "7d"));
 
-    const periodPop = $("#period-dates-pop");
-    const periodBtn = $("#btn-period-main");
-    periodBtn?.addEventListener("click", () => {
-      const open = periodPop?.classList.toggle("hidden") === false;
-      periodBtn.setAttribute("aria-expanded", open ? "true" : "false");
-    });
+    $("#btn-period-custom")?.addEventListener("click", () => togglePeriodCustom());
     $("#btn-period-apply")?.addEventListener("click", () => {
-      periodPop?.classList.add("hidden");
-      periodBtn?.setAttribute("aria-expanded", "false");
+      const start = $("#start-date")?.value;
+      const end = $("#end-date")?.value;
+      if (!start || !end) return;
       clearPeriodPresets();
+      state.periodPreset = "custom";
       syncTopbarRange();
       loadDashboard({ force: false });
     });
-    document.addEventListener("click", (e) => {
-      if (!periodPop || periodPop.classList.contains("hidden")) return;
-      if (e.target.closest("#period-bar")) return;
-      periodPop.classList.add("hidden");
-      periodBtn?.setAttribute("aria-expanded", "false");
+    $("#btn-period-clear")?.addEventListener("click", () => {
+      togglePeriodCustom(false);
+      setRange("7d");
     });
+    $("#btn-period-refresh")?.addEventListener("click", () => loadDashboard({ force: true }));
     let authMode = "login";
     function setAuthMode(mode) {
       authMode = mode;
@@ -2411,7 +2548,7 @@
       if (t) setView(t.dataset.goto);
     });
 
-    $$(".period-preset").forEach((b) => b.addEventListener("click", () => setRange(b.dataset.range)));
+    $$("#period-bar .period-preset[data-range]").forEach((b) => b.addEventListener("click", () => setRange(b.dataset.range)));
 
     wireSubidColPicker();
 
