@@ -85,7 +85,7 @@ async function credentialsPublic(userId = requireUserId()) {
   };
 }
 
-async function saveDashboardSnapshot(dash, userId = requireUserId()) {
+async function saveDashboardSnapshot(dash, userId = requireUserId(), { persistSubIds = true } = {}) {
   const supabase = getSupabase();
   const now = new Date().toISOString();
 
@@ -113,40 +113,41 @@ async function saveDashboardSnapshot(dash, userId = requireUserId()) {
     if (error) throw new Error(`daily_metrics: ${error.message}`);
   }
 
-  // Upsert SubIDs do snapshot (não apaga métricas de outros contextos no meio do upsert;
-  // substitui o conjunto gravado neste sync para o usuário).
-  await supabase.from("subid_metrics").delete().eq("user_id", userId);
-  const subRows = (dash.subIds || []).map((r) => ({
-    user_id: userId,
-    subid: r.subid,
-    faturamento: r.faturamento,
-    comissao: r.comissao,
-    pedidos: r.pedidos,
-    concluidos: r.concluidos,
-    pendentes: r.pendentes,
-    cancelados: r.cancelados,
-    itens: r.itens || 0,
-    abatimento: r.abatimento || 0,
-    cliques_shopee: r.cliques_shopee != null ? Number(r.cliques_shopee) : 0,
-    inv_meta: r.inv_meta || 0,
-    inv_pin: r.inv_pin || 0,
-    inv_total: r.inv_total || 0,
-    lucro: r.lucro != null ? r.lucro : r.comissao || 0,
-    roi: r.roi != null ? r.roi : 0,
-    updated_at: now,
-  }));
-  if (subRows.length) {
-    for (let i = 0; i < subRows.length; i += 200) {
-      const chunk = subRows.slice(i, i + 200);
-      let { error } = await supabase.from("subid_metrics").upsert(chunk);
-      if (error && /cliques_shopee/i.test(error.message || "")) {
-        const stripped = chunk.map(({ cliques_shopee, ...rest }) => rest);
-        ({ error } = await supabase.from("subid_metrics").upsert(stripped));
-        if (!error) {
-          console.warn("[store] coluna cliques_shopee ausente — rode sql/migrate-cliques-shopee.sql");
+  // Sync automático (janela curta) não pode apagar o snapshot de SubIDs do mês.
+  if (persistSubIds) {
+    await supabase.from("subid_metrics").delete().eq("user_id", userId);
+    const subRows = (dash.subIds || []).map((r) => ({
+      user_id: userId,
+      subid: r.subid,
+      faturamento: r.faturamento,
+      comissao: r.comissao,
+      pedidos: r.pedidos,
+      concluidos: r.concluidos,
+      pendentes: r.pendentes,
+      cancelados: r.cancelados,
+      itens: r.itens || 0,
+      abatimento: r.abatimento || 0,
+      cliques_shopee: r.cliques_shopee != null ? Number(r.cliques_shopee) : 0,
+      inv_meta: r.inv_meta || 0,
+      inv_pin: r.inv_pin || 0,
+      inv_total: r.inv_total || 0,
+      lucro: r.lucro != null ? r.lucro : r.comissao || 0,
+      roi: r.roi != null ? r.roi : 0,
+      updated_at: now,
+    }));
+    if (subRows.length) {
+      for (let i = 0; i < subRows.length; i += 200) {
+        const chunk = subRows.slice(i, i + 200);
+        let { error } = await supabase.from("subid_metrics").upsert(chunk);
+        if (error && /cliques_shopee/i.test(error.message || "")) {
+          const stripped = chunk.map(({ cliques_shopee, ...rest }) => rest);
+          ({ error } = await supabase.from("subid_metrics").upsert(stripped));
+          if (!error) {
+            console.warn("[store] coluna cliques_shopee ausente — rode sql/migrate-cliques-shopee.sql");
+          }
         }
+        if (error) throw new Error(`subid_metrics: ${error.message}`);
       }
-      if (error) throw new Error(`subid_metrics: ${error.message}`);
     }
   }
 

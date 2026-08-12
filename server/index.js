@@ -27,6 +27,7 @@ const {
   loadCampaigns,
 } = require("./meta");
 const { importPinterestCsv } = require("./pinterest");
+const { runAutoSync, cronAuthorized, startLocalAutoSync } = require("./autoSync");
 const {
   runWithUser,
   verifyAccessToken,
@@ -150,6 +151,7 @@ const PUBLIC_API = new Set([
   "/api/health",
   "/api/auth/login",
   "/api/auth/register",
+  "/api/cron/sync",
 ]);
 
 async function requestHandler(req, res) {
@@ -173,6 +175,21 @@ async function requestHandler(req, res) {
         multiUser: true,
         supabase: Boolean(process.env.SUPABASE_URL),
       });
+      return;
+    }
+
+    if (pathname === "/api/cron/sync" && (req.method === "GET" || req.method === "POST")) {
+      if (!cronAuthorized(req)) {
+        sendJson(res, 401, { success: false, error: "unauthorized", code: "CRON_UNAUTHORIZED" });
+        return;
+      }
+      const mode = String(url.searchParams.get("mode") || "daily").toLowerCase();
+      try {
+        const result = await runAutoSync({ mode: mode === "recent" ? "recent" : "daily" });
+        sendJson(res, 200, { success: true, ...result });
+      } catch (err) {
+        sendJson(res, 500, { success: false, error: err.message || String(err) });
+      }
       return;
     }
 
@@ -608,5 +625,6 @@ if (!process.env.VERCEL) {
     console.log(`\n  Teste de Sistema de afiliados - http://localhost:${PORT}`);
     console.log(`  Auth: login/registro por conta`);
     console.log(`  Cada usuário: Shopee + Meta + dados isolados\n`);
+    startLocalAutoSync();
   });
 }

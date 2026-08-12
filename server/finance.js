@@ -80,7 +80,7 @@ function calcLucroRoi(comissao, invMetaRaw, invPinRaw, tax) {
  * Cruza comissão Shopee (daily/subid já no dash) com gasto Meta+Pin.
  * Atualiza colunas inv_* / lucro / roi no Supabase e devolve kpis enriquecidos.
  */
-async function enrichDashboardWithAds(dash, userId = requireUserId()) {
+async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistSubIds = true } = {}) {
   const start = dash.range?.startDate;
   const end = dash.range?.endDate;
   if (!start || !end) return dash;
@@ -299,7 +299,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId()) {
         { onConflict: "user_id,data" }
       );
     }
-    if (subIdsAll.length) {
+    if (persistSubIds && subIdsAll.length) {
       await supabase.from("subid_metrics").upsert(
         subIdsAll.map((r) => ({
           user_id: userId,

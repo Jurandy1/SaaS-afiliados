@@ -10,7 +10,9 @@
     "setup:db": "node scripts/setup-db.cjs",
     "setup:profiles": "node scripts/setup-profiles.cjs",
     "seed": "node scripts/seed-credentials.cjs",
-    "seed:demo": "node scripts/seed-demo.cjs"
+    "seed:demo": "node scripts/seed-demo.cjs",
+    "sync:auto": "node scripts/run-auto-sync.cjs",
+    "sync:gcp": "node gcp/sync-server.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",

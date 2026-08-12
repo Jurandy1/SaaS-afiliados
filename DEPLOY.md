@@ -19,10 +19,32 @@ SUPABASE_URL=https://tirvmswpccejqasmauug.supabase.co
 SUPABASE_ANON_KEY=<anon jwt>
 SUPABASE_SERVICE_ROLE_KEY=<service_role jwt>
 ADMIN_EMAIL=teste@gmail.com
+CRON_SECRET=<token longo, o Cloud Scheduler usa o mesmo>
 ```
 
 4. Deploy. A URL ficará tipo `https://saas-afiliados-xxx.vercel.app`.
 5. No Supabase Auth → URL Configuration, adicione a URL do Vercel em Site URL / Redirect URLs se precisar.
+
+### Sync automático no Google Cloud
+
+A **Vercel só serve o painel**. Quem **puxa** Shopee + Meta é o **Google Cloud** (Cloud Run + Cloud Scheduler), no mesmo fuso do Afiliadoteste (`America/Sao_Paulo`).
+
+```powershell
+gcloud auth login
+gcloud config set project SEU_PROJECT_ID
+.\gcp\deploy.ps1 -ProjectId SEU_PROJECT_ID
+```
+
+Isso cria:
+
+- Cloud Run `saas-afiliados-sync` (timeout 15 min) em `southamerica-east1`
+- Job `saas-afiliados-recent` — a cada 2 horas (últimos 3 dias)
+- Job `saas-afiliados-daily` — 04:00 BRT (últimos 7 dias)
+
+Detalhes: `gcp/README.md`.
+
+- **Local (`npm start`):** ainda puxa a cada 2h na máquina.
+- Manual: `npm run sync:auto`
 
 ### Observações Vercel
 

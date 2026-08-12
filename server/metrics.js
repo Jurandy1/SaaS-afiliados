@@ -283,7 +283,7 @@ function aggregateReport(nodes) {
   };
 }
 
-async function buildDashboard({ startDate, endDate, persist = true }) {
+async function buildDashboard({ startDate, endDate, persist = true, persistSubIds = true } = {}) {
   const { nodes, pages } = await pullConversionReport(startDate, endDate);
   const agg = aggregateReport(nodes);
   let dash = {
@@ -297,14 +297,14 @@ async function buildDashboard({ startDate, endDate, persist = true }) {
   };
 
   try {
-    dash = await enrichDashboardWithAds(dash);
+    dash = await enrichDashboardWithAds(dash, undefined, { persistSubIds });
   } catch (err) {
     console.warn("[metrics] finance enrich:", err.message || err);
   }
 
   if (persist) {
     try {
-      await saveDashboardSnapshot(dash);
+      await saveDashboardSnapshot(dash, undefined, { persistSubIds });
       await persistOrdersAndProducts({
         orders: agg.orders,
         orderItems: agg.orderItems,
