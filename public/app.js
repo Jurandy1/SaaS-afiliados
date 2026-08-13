@@ -647,10 +647,10 @@
         <section class="surface-card overflow-hidden meta-proj-panel" id="meta-proj-panel">
           <div class="meta-proj-empty">
             <div>
-              <h3 class="meta-proj-title">Projeção de Metas &amp; Bonificação de Volume</h3>
-              <p class="meta-proj-empty-sub">Defina a meta 100% em Configurações para ativar a projeção.</p>
+              <h3 class="meta-proj-title">Metas e bônus do mês</h3>
+              <p class="meta-proj-empty-sub">Defina a meta 100% em Configurações para acompanhar o ritmo e o bônus por faixa.</p>
             </div>
-            <button type="button" class="meta-proj-btn-params" data-goto-cfg="1">Ajustar Parâmetros</button>
+            <button type="button" class="meta-proj-btn-params" data-goto-cfg="1">Definir meta</button>
           </div>
         </section>`;
       el.querySelector("[data-goto-cfg]")?.addEventListener("click", () => openConfig("metas"));
@@ -687,14 +687,14 @@
       const isRec = i === recIdx;
       const pctW = Math.max(0, Math.min(100, c.pct * 100));
       return `
-        <article class="meta-tier meta-tier--${c.key}${isRec ? " is-recommended" : ""}">
-          ${isRec ? `<span class="meta-tier-ai"><i class="fa-solid fa-bolt"></i> Recomendado pela IA</span>` : ""}
+        <article class="meta-tier meta-tier--${c.key}${isRec ? " is-recommended" : ""}${c.atingida ? " is-done" : ""}">
+          ${isRec ? `<span class="meta-tier-tag">No ritmo</span>` : ""}
           <div class="meta-tier-top">
             <div>
-              <div class="meta-tier-name">${escapeHtml(c.label)} <span>(${escapeHtml(c.sub)})</span></div>
-              <div class="meta-tier-alvo">Alvo do Mês: <b>${fmt(c.alvo)}</b></div>
+              <div class="meta-tier-name">${escapeHtml(c.label)}</div>
+              <div class="meta-tier-alvo">Meta: <b>${fmt(c.alvo)}</b></div>
             </div>
-            <span class="meta-tier-bonus-badge">Bônus ${bonusPctLabel(c.bonus)}</span>
+            <span class="meta-tier-bonus-badge">+${bonusPctLabel(c.bonus)}</span>
           </div>
           <div class="meta-tier-bonus-box">
             <span>Bônus estimado</span>
@@ -702,14 +702,16 @@
           </div>
           <div class="meta-tier-prog">
             <div class="meta-tier-bar"><span style="width:${pctW.toFixed(1)}%"></span></div>
-            <span class="meta-tier-pct">${c.atingida ? "✓" : fmtPct1(pctW)}</span>
+            <span class="meta-tier-pct">${c.atingida ? "ok" : fmtPct1(pctW)}</span>
           </div>
-          <div class="meta-tier-falta">Falta realizar: <b>${fmt(c.falta)}</b></div>
+          <div class="meta-tier-falta">${c.atingida ? "Faixa atingida" : `Falta <b>${fmt(c.falta)}</b>`}${
+            !c.atingida && c.diario != null ? ` · ${fmt(c.diario)}/dia` : ""
+          }</div>
         </article>`;
     }).join("");
 
     const cmpHead = tiers.map((c) =>
-      `<th>${escapeHtml(c.label)} (${bonusPctLabel(c.bonus)})</th>`
+      `<th>${escapeHtml(c.label)}</th>`
     ).join("");
     const rowAlvo = tiers.map((c) => `<td>${fmt(c.alvo)}</td>`).join("");
     const rowFalta = tiers.map((c) => `<td>${fmt(c.falta)}</td>`).join("");
@@ -721,21 +723,20 @@
     ).join("");
 
     const pacingTxt = hasData && avg7 > 0
-      ? `Mantendo a média dos últimos 7 dias (<b>${fmt(avg7)}/dia</b>), a estimativa é atingir a <b>${escapeHtml(rec.label)}</b> com previsão de comissão extra de <b>${fmt(rec.bonusVal)}</b>.`
-      : "Sincronize Shopee para calcular o ritmo dos últimos 7 dias e a faixa recomendada.";
+      ? `Com a média dos últimos 7 dias (${fmt(avg7)}/dia), a faixa mais próxima no ritmo atual é <b>${escapeHtml(rec.label)}</b> — bônus estimado <b>${fmt(rec.bonusVal)}</b>.`
+      : "Sincronize a Shopee para calcular o ritmo dos últimos 7 dias.";
 
     el.innerHTML = `
       <section class="surface-card overflow-hidden meta-proj-panel ${expanded ? "is-open" : ""}" id="meta-proj-panel">
         <div class="meta-proj-head">
           <div class="meta-proj-head-main">
             <div class="meta-proj-title-row">
-              <span class="meta-proj-trophy" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></span>
-              <h3 class="meta-proj-title">Projeção de Metas &amp; Bonificação de Volume</h3>
+              <h3 class="meta-proj-title">Metas e bônus do mês</h3>
               <span class="meta-proj-ciclo">${escapeHtml(cicloMetaLabel())}</span>
             </div>
             <p class="meta-proj-sub">
-              Faltam <b>${diasRestantes} dia${diasRestantes === 1 ? "" : "s"}</b> para o fechamento
-              ${ritmo100 != null ? ` • Ritmo Meta 100%: <b>${fmt(ritmo100)}/dia</b>` : ""}
+              ${diasRestantes} dia${diasRestantes === 1 ? "" : "s"} restantes
+              ${ritmo100 != null ? ` · para 100%: <b>${fmt(ritmo100)}/dia</b>` : ""}
             </p>
           </div>
           <div class="meta-proj-head-stats">
@@ -744,11 +745,11 @@
               <span class="meta-proj-stat-val">${hasData ? fmt(fat) : "—"}</span>
             </div>
             <div class="meta-proj-stat">
-              <span class="meta-proj-stat-lab">Atingimento M1</span>
+              <span class="meta-proj-stat-lab">Atingimento</span>
               <span class="meta-proj-stat-val meta-proj-stat-val--pct">${hasData ? fmtPct1(pctM1) : "—"}</span>
             </div>
             <button type="button" class="meta-proj-collapse" id="btn-meta-proj-toggle" aria-expanded="${expanded ? "true" : "false"}">
-              <span class="meta-proj-expand-lab">${expanded ? "Recolher" : "Expandir"}</span>
+              <span class="meta-proj-expand-lab">${expanded ? "Recolher" : "Detalhes"}</span>
               <i class="fa-solid fa-chevron-${expanded ? "up" : "down"}" aria-hidden="true"></i>
             </button>
           </div>
@@ -757,32 +758,31 @@
           <div class="meta-tier-grid">${tierCards}</div>
           <div class="meta-cmp">
             <div class="meta-cmp-head">
-              <h4>Quadro Comparativo de Bônus por Faixa</h4>
-              <span>Fonte: regras de afiliado · metas da operação</span>
+              <h4>Comparativo por faixa</h4>
             </div>
             <div class="table-scroll">
               <table class="meta-cmp-table">
                 <thead>
                   <tr>
-                    <th class="l">Indicador</th>
+                    <th class="l"></th>
                     ${cmpHead}
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td class="l">Faturamento alvo requerido</td>
+                    <td class="l">Alvo</td>
                     ${rowAlvo}
                   </tr>
                   <tr>
-                    <td class="l">Saldo restante a vender</td>
+                    <td class="l">Falta</td>
                     ${rowFalta}
                   </tr>
                   <tr>
-                    <td class="l">Comissão de bônus estimada</td>
+                    <td class="l">Bônus</td>
                     ${rowBonus}
                   </tr>
                   <tr>
-                    <td class="l">Meta diária necessária (${diasRestantes} dias)</td>
+                    <td class="l">Por dia (${diasRestantes}d)</td>
                     ${rowDiario}
                   </tr>
                 </tbody>
@@ -790,11 +790,8 @@
             </div>
           </div>
           <div class="meta-proj-foot">
-            <p class="meta-proj-pacing">
-              <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
-              <span><b>Diagnóstico de Pacing:</b> ${pacingTxt}</span>
-            </p>
-            <button type="button" class="meta-proj-btn-params" data-goto-cfg="1">Ajustar Parâmetros</button>
+            <p class="meta-proj-pacing">${pacingTxt}</p>
+            <button type="button" class="meta-proj-btn-params" data-goto-cfg="1">Ajustar meta</button>
           </div>
         </div>
       </section>`;
@@ -2224,15 +2221,11 @@
     return `<tr class="subid-detail" data-parent="${escapeHtml(key)}">
       <td colspan="${colSpan}">
         <div class="subid-history">
-          <div class="subid-history-head">
-            <span>Historico diario</span>
-            <span class="muted">Ultimos ${days.length} dia(s) — ${escapeHtml(key)}</span>
-          </div>
           <table class="subid-history-table">
             <thead>
               <tr>
                 <th>Dia</th>
-                <th class="num">Comissao</th>
+                <th class="num">Comissão</th>
                 <th class="num">Investim.</th>
                 <th class="num">Lucro</th>
                 <th class="num">ROI</th>
@@ -2259,10 +2252,12 @@
     if (!tb || tb.dataset.expandWired) return;
     tb.dataset.expandWired = "1";
     tb.addEventListener("click", (e) => {
+      if (e.target.closest("select, button, input, a, label, .op-select")) return;
       const cell = e.target.closest("td.subid[data-subid]");
       if (!cell) return;
       e.preventDefault();
       const id = cell.dataset.subid;
+      if (!id) return;
       state.expandedSubIds[id] = !state.expandedSubIds[id];
       renderFn();
     });
@@ -2299,11 +2294,21 @@
     const span = cols.length;
     tbody.innerHTML = slice.map((r) => {
       const id = String(r.subid || "");
-      return `<tr class="subid-row" data-subid="${escapeHtml(id)}">
-        ${cols.map((c) => cellForSubidCol(r, c, ch)).join("")}
-      </tr>`;
+      const open = Boolean(state.expandedSubIds[id]);
+      const cells = cols.map((c) => {
+        if (c.key === "subid") {
+          return `<td class="subid is-clickable" data-subid="${escapeHtml(id)}" title="Ver histórico diário">
+            <span class="subid-caret" aria-hidden="true"></span>${escapeHtml(id)}
+          </td>`;
+        }
+        return cellForSubidCol(r, c, ch);
+      }).join("");
+      return `<tr class="subid-row${open ? " is-open" : ""}" data-subid="${escapeHtml(id)}">${cells}</tr>${
+        open ? subIdDailyHistoryHtml(r, span) : ""
+      }`;
     }).join("") || `<tr><td colspan="${span}">Nenhum SubID neste canal no período.</td></tr>`;
     wireOpsSelects("#subid-tbody");
+    wireSubIdExpand("#subid-tbody", renderSubIdsDash);
     renderInfiniteHint($("#subid-pager"), slice.length, total);
     wireInfiniteScroll("#subid-scroll", () => {
       if (state.subidVisible >= total) return;
