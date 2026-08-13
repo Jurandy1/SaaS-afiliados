@@ -1,4 +1,4 @@
-/* Layout Gemini â suporte a auth, tabelas, charts e estados JS */
+/* Layout Gemini Ã¢ÂÂ suporte a auth, tabelas, charts e estados JS */
 html.light { color-scheme: light; }
 .hidden { display: none !important; }
 
@@ -45,7 +45,7 @@ html.light { color-scheme: light; }
   border: 1px solid rgba(226, 232, 240, 0.8);
 }
 
-/* KPIs â Campanhas (auto-fit: nÃ£o forÃ§a 8 cols apertadas no Mac/Chrome) */
+/* KPIs Ã¢ÂÂ Campanhas (auto-fit: nÃÂ£o forÃÂ§a 8 cols apertadas no Mac/Chrome) */
 .channel-kpi-grid,
 #channel-kpi-grid {
   width: 100%;
@@ -230,10 +230,10 @@ html.light { color-scheme: light; }
   font-variant-numeric: tabular-nums;
 }
 
-/* Card Progresso Meta â legado */
+/* Card Progresso Meta Ã¢ÂÂ legado */
 .meta-progress-card { display: none; }
 
-/* Metas e bônus do mês — colorido */
+/* Metas e bÃ´nus do mÃªs â colorido */
 .meta-proj-panel {
   background: linear-gradient(145deg, #0c4a6e 0%, #134e4a 48%, #1e3a5f 100%);
   border: 1px solid rgba(56, 189, 248, 0.28);
@@ -599,7 +599,7 @@ html.light { color-scheme: light; }
   .meta-proj-collapse { margin-left: auto; }
 }
 
-/* Config â bloco dedicado da projeÃ§Ã£o */
+/* Config Ã¢ÂÂ bloco dedicado da projeÃÂ§ÃÂ£o */
 .cfg-meta-block {
   margin-top: 1.25rem;
   padding: 1rem 1.1rem;
@@ -631,7 +631,7 @@ html.light { color-scheme: light; }
   letter-spacing: 0;
 }
 
-/* PainÃ©is â cabeÃ§alho claro + corpo escuro (Afiliadoteste) */
+/* PainÃÂ©is Ã¢ÂÂ cabeÃÂ§alho claro + corpo escuro (Afiliadoteste) */
 .panel-head { background: #fff; }
 .panel-title {
   font-size: 0.875rem;
@@ -648,7 +648,7 @@ html.light { color-scheme: light; }
 .panel-dark-foot .chart-peak-label { color: #34d399; font-weight: 700; }
 .table-scroll--dark { background: #0f172a; }
 
-/* Barra de perÃ­odo â estilo Afiliadoteste */
+/* Barra de perÃÂ­odo Ã¢ÂÂ estilo Afiliadoteste */
 .period-preset-strip {
   display: flex;
   align-items: center;
@@ -904,7 +904,7 @@ html.dark .light-card {
   background: #0d9488;
 }
 
-/* Nav legado (outras Ã¡reas) */
+/* Nav legado (outras ÃÂ¡reas) */
 .nav-item {
   display: flex; align-items: center; justify-content: space-between;
   width: 100%; text-align: left; gap: 8px;
@@ -953,7 +953,7 @@ html.dark .light-card {
   font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #94a3b8;
 }
 
-/* Tables â resumo diÃ¡rio (claro, estilo Afiliadoteste) */
+/* Tables Ã¢ÂÂ resumo diÃÂ¡rio (claro, estilo Afiliadoteste) */
 .data-table { width: 100%; border-collapse: collapse; text-align: left; }
 .data-table--daily thead tr {
   background: #f8fafc;
@@ -974,7 +974,7 @@ html.dark .light-card {
 .data-table--daily tbody td.green { color: #059669; }
 .data-table--daily tbody td.neg { color: #dc2626; }
 
-/* Tables â SubIDs / escuro (fiel ao Afiliadoteste) */
+/* Tables Ã¢ÂÂ SubIDs / escuro (fiel ao Afiliadoteste) */
 .data-table--ops {
   width: 100%;
   font-size: 12px;
@@ -1093,7 +1093,7 @@ html.dark .light-card {
 }
 .data-table--ops .th-sort:hover { background: #1e293b; }
 
-/* Tables â fallback / shared (exceto ops) */
+/* Tables Ã¢ÂÂ fallback / shared (exceto ops) */
 .data-table { width: 100%; border-collapse: collapse; text-align: left; }
 .data-table:not(.data-table--ops) thead tr {
   background: rgba(241,245,249,.7); font-size: 11px; font-weight: 800;
@@ -1124,8 +1124,8 @@ html.dark .light-card {
   box-shadow: 0 1px 2px rgba(0,0,0,.06);
 }
 
-.th-sort.asc::after { content: " â"; }
-.th-sort.desc::after { content: " â"; }
+.th-sort.asc::after { content: " Ã¢ÂÂ"; }
+.th-sort.desc::after { content: " Ã¢ÂÂ"; }
 .th-sort.is-asc::after, .th-sort.is-desc::after { content: none; }
 
 
@@ -1352,7 +1352,7 @@ html.dark .light-card {
   display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px;
 }
 
-/* SubIDs â cabeÃ§alho claro, tabela/pager escuros */
+/* SubIDs Ã¢ÂÂ cabeÃÂ§alho claro, tabela/pager escuros */
 #dash-subids-panel .panel-head .search {
   background: #f8fafc;
   border-color: #e2e8f0;
@@ -1388,7 +1388,7 @@ html.dark .light-card {
   color: #fff;
 }
 
-/* Canais â mesmo padrÃ£o escuro dos SubIDs de campanha */
+/* Canais Ã¢ÂÂ mesmo padrÃÂ£o escuro dos SubIDs de campanha */
 #canais-ops-panel .panel-head .search,
 #canais-ops-panel .panel-head .search--select {
   background: #f8fafc;
@@ -1425,7 +1425,7 @@ html.dark .surface-card {
   background: #0f172a;
   border-color: #1e293b;
 }
-/* Dark theme â conteÃºdo principal (sidebar permanece escura) */
+/* Dark theme Ã¢ÂÂ conteÃÂºdo principal (sidebar permanece escura) */
 html.dark .nav-item { color: #94a3b8; }
 html.dark .nav-item:hover { background: rgba(30,41,59,.6); color: #f1f5f9; }
 html.dark .nav-item.active {
@@ -1539,7 +1539,7 @@ html.dark .auth-brand .brand-name { color: #f8fafc; }
 html.dark .auth-tabs { background: #1e293b; }
 html.dark .auth-tabs .tab.active { background: #0f172a; color: #34d399; }
 
-/* Colunas SubID + produto + tendÃªncia */
+/* Colunas SubID + produto + tendÃÂªncia */
 .col-picker-wrap { position: relative; }
 .col-picker-count {
   margin-left: 4px;
@@ -1639,7 +1639,7 @@ html.dark .produto-input {
   color: #f8fafc;
 }
 
-/* Responsivo â Chrome Mac / zoom / Retina / mobile */
+/* Responsivo Ã¢ÂÂ Chrome Mac / zoom / Retina / mobile */
 *,
 *::before,
 *::after {
@@ -1652,7 +1652,7 @@ html, body {
 }
 #app-shell {
   width: 100%;
-  max-width: 100%; /* nunca 100vw â scrollbar do Chrome Mac estoura layout */
+  max-width: 100%; /* nunca 100vw Ã¢ÂÂ scrollbar do Chrome Mac estoura layout */
 }
 #app-shell > main {
   min-width: 0;
@@ -1716,6 +1716,19 @@ html, body {
 .table-scroll--infinite {
   max-height: min(70vh, 560px);
   overflow: auto;
+  position: relative;
+}
+/* Cabeçalhos ficam fixos enquanto a lista infinita rola */
+.table-scroll--infinite .data-table--ops {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.table-scroll--infinite .data-table--ops thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #020617;
+  box-shadow: inset 0 -1px 0 #1e293b;
 }
 .infinite-hint {
   display: block;
@@ -1740,7 +1753,7 @@ html, body {
   #ops-table.data-table--ops { min-width: 520px; }
   #indef-table { min-width: 640px; }
 }
-/* MacBook / laptop estreito com sidebar (Chrome zoom 110â125%) */
+/* MacBook / laptop estreito com sidebar (Chrome zoom 110Ã¢ÂÂ125%) */
 @media (max-width: 1366px) {
   .channel-kpi-metrics--8 {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr));
@@ -1830,7 +1843,7 @@ html, body {
   }
 }
 
-/*  Backup (Afiliadoteste)  */
+/* ÂÂÂ Backup (Afiliadoteste) ÂÂÂ */
 .backup-tab {
   padding: 0.55rem 1rem;
   font-size: 0.8125rem;
