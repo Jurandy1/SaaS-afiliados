@@ -1012,6 +1012,50 @@ html.dark .light-card {
 .cfg-section { margin-bottom: 28px; }
 .cfg-section-title { font-size: 16px; font-weight: 800; color: #0f172a; }
 .cfg-section-sub { font-size: 12px; color: #64748b; margin: 4px 0 14px; }
+
+.cfg-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+.cfg-subnav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.cfg-subnav-btn i { font-size: 12px; opacity: .85; }
+.cfg-subnav-btn:hover { background: #f8fafc; color: #0f172a; }
+.cfg-subnav-btn.active {
+  background: #0f172a;
+  color: #fff;
+}
+.cfg-subnav-btn.active .cfg-subnav-count,
+.cfg-subnav-btn.active .count-pill {
+  background: rgba(255,255,255,.16);
+  color: #fff;
+  border-color: transparent;
+}
+.cfg-subnav-count { margin-left: 2px; }
+.cfg-panel { display: block; }
+@media (max-width: 640px) {
+  .cfg-subnav { flex-direction: column; }
+  .cfg-subnav-btn { width: 100%; justify-content: flex-start; }
+}
+
 .count-pill {
   display: inline-flex; margin-left: 8px; font-size: 11px; font-weight: 700;
   background: #f1f5f9; color: #334155; padding: 2px 8px; border-radius: 999px; border: 1px solid #e2e8f0;
@@ -1177,6 +1221,17 @@ html.dark .hint { color: #94a3b8; }
 html.dark .analysis-value,
 html.dark .settings-card-title,
 html.dark .cfg-section-title { color: #f1f5f9; }
+html.dark .cfg-subnav {
+  background: #0f172a;
+  border-color: #1e293b;
+}
+html.dark .cfg-subnav-btn { color: #94a3b8; }
+html.dark .cfg-subnav-btn:hover { background: #1e293b; color: #f1f5f9; }
+html.dark .cfg-subnav-btn.active { background: #10b981; color: #020617; }
+html.dark .cfg-subnav-btn.active .count-pill {
+  background: rgba(2,6,23,.25);
+  color: #020617;
+}
 html.dark .form label { color: #cbd5e1; }
 html.dark .form input,
 html.dark .form select,

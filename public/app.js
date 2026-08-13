@@ -133,6 +133,7 @@
       teamPlan: "Shopee · Meta",
     },
     periodPreset: "7d",
+    cfgTab: "conexoes",
     subidPage: 1,
     opsPage: 1,
     opsPageSize: 25,
@@ -356,6 +357,24 @@
     return json;
   }
 
+  function setCfgTab(tab) {
+    const allowed = ["conexoes", "impostos", "metas", "indefinidos"];
+    const key = allowed.includes(tab) ? tab : "conexoes";
+    state.cfgTab = key;
+    $$("#cfg-subnav .cfg-subnav-btn").forEach((b) => {
+      b.classList.toggle("active", b.dataset.cfgTab === key);
+    });
+    $$(".cfg-panel").forEach((p) => {
+      p.classList.toggle("hidden", p.dataset.cfgPanel !== key);
+    });
+    if (key === "indefinidos") renderIndefinidos();
+  }
+
+  function openConfig(tab = "conexoes") {
+    setView("config");
+    setCfgTab(tab);
+  }
+
   function setView(navKey) {
     let view = navKey === "integracoes" ? "config" : navKey;
     if (view === "subids") view = "dashboard";
@@ -397,7 +416,10 @@
     if (view === "dashboard") applyChannelView();
     if (view === "analise-ia") renderSuggestions(state.dash);
     if (view === "canais") renderOpsTable();
-    if (view === "config") renderIndefinidos();
+    if (view === "config") {
+      setCfgTab(navKey === "integracoes" ? "conexoes" : state.cfgTab || "conexoes");
+      renderIndefinidos();
+    }
     if (isData) loadDataView(view);
   }
 
@@ -600,7 +622,7 @@
             <button type="button" class="btn ghost sm" data-goto-cfg="1">Abrir Configurações</button>
           </div>
         </section>`;
-      el.querySelector("[data-goto-cfg]")?.addEventListener("click", () => setView("config"));
+      el.querySelector("[data-goto-cfg]")?.addEventListener("click", () => openConfig("conexoes"));
       return;
     }
 
@@ -687,7 +709,7 @@
 
     el.querySelector("[data-goto-cfg]")?.addEventListener("click", (e) => {
       e.stopPropagation();
-      setView("config");
+      openConfig("metas");
     });
     el.querySelector("#btn-meta-proj-toggle")?.addEventListener("click", () => {
       const panel = $("#meta-proj-panel");
@@ -3111,60 +3133,11 @@
       }
     });
 
-    $("#settings-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const status = $("#settings-status");
-      try {
-        const taxRate = parseBrNumber($("#set-tax").value);
-        const metaTaxRate = parseBrNumber($("#set-meta-tax")?.value || "12");
-        const metaBase = parseBrNumber($("#set-meta-base")?.value || "0");
-        const metaDiasRaw = ($("#set-meta-dias")?.value || "").trim();
-        const metaDias = metaDiasRaw === "" ? null : Math.max(1, Math.min(31, parseInt(metaDiasRaw, 10) || 0)) || null;
-        const metaBonus100 = parseBrNumber($("#set-bonus-100")?.value || "1");
-        const metaBonus125 = parseBrNumber($("#set-bonus-125")?.value || "2");
-        const metaBonus150 = parseBrNumber($("#set-bonus-150")?.value || "3");
-        const s = await api("/api/settings", {
-          method: "POST",
-          body: JSON.stringify({
-            taxRate,
-            metaTaxRate,
-            metaBase,
-            metaDias,
-            metaBonus100,
-            metaBonus125,
-            metaBonus150,
-            teamName: $("#set-team-name").value.trim(),
-            teamPlan: $("#set-team-plan").value.trim(),
-          }),
-        });
-        state.settings = {
-          taxRate: s.taxRate,
-          metaTaxRate: s.metaTaxRate != null ? s.metaTaxRate : metaTaxRate,
-          metaBase: s.metaBase != null ? Number(s.metaBase) : metaBase,
-          metaDias: s.metaDias != null ? Number(s.metaDias) : metaDias,
-          metaBonus100: s.metaBonus100 != null ? Number(s.metaBonus100) : metaBonus100,
-          metaBonus125: s.metaBonus125 != null ? Number(s.metaBonus125) : metaBonus125,
-          metaBonus150: s.metaBonus150 != null ? Number(s.metaBonus150) : metaBonus150,
-          teamName: s.teamName,
-          teamPlan: s.teamPlan,
-        };
-        $("#set-tax").value = formatBrPctInput(s.taxRate);
-        if ($("#set-meta-tax")) $("#set-meta-tax").value = formatBrPctInput(state.settings.metaTaxRate);
-        if ($("#set-meta-base")) $("#set-meta-base").value = formatBrMoneyInput(state.settings.metaBase);
-        if ($("#set-meta-dias")) $("#set-meta-dias").value = state.settings.metaDias != null ? String(state.settings.metaDias) : "";
-        if ($("#set-bonus-100")) $("#set-bonus-100").value = formatBrPctInput(state.settings.metaBonus100);
-        if ($("#set-bonus-125")) $("#set-bonus-125").value = formatBrPctInput(state.settings.metaBonus125);
-        if ($("#set-bonus-150")) $("#set-bonus-150").value = formatBrPctInput(state.settings.metaBonus150);
-        $("#team-name").textContent = s.teamName;
-        $("#team-plan").textContent = s.teamPlan;
-        cacheMetaProjSettings(state.settings);
-        await loadDashboard({ force: false });
-        status.className = "form-status ok";
-        status.textContent = "Ajustes salvos.";
-      } catch (err) {
-        status.className = "form-status err";
-        status.textContent = err.message;
-      }
+    $("#settings-form-taxes")?.addEventListener("submit", (e) => saveSettingsFromForms(e, "taxes"));
+    $("#settings-form-metas")?.addEventListener("submit", (e) => saveSettingsFromForms(e, "metas"));
+
+    $$("#cfg-subnav .cfg-subnav-btn").forEach((b) => {
+      b.addEventListener("click", () => setCfgTab(b.dataset.cfgTab));
     });
 
     const taxInput = $("#set-tax");
@@ -3185,6 +3158,68 @@
         inp.value = formatBrPctInput(parseBrNumber(inp.value));
       });
     });
+  }
+
+  async function saveSettingsFromForms(e, part) {
+    e.preventDefault();
+    const status = $(part === "metas" ? "#settings-status-metas" : "#settings-status-taxes");
+    try {
+      const taxRate = parseBrNumber($("#set-tax")?.value || String(state.settings.taxRate || 11.7));
+      const metaTaxRate = parseBrNumber($("#set-meta-tax")?.value || String(state.settings.metaTaxRate || 12));
+      const metaBase = parseBrNumber($("#set-meta-base")?.value || String(state.settings.metaBase || 0));
+      const metaDiasRaw = ($("#set-meta-dias")?.value || "").trim();
+      const metaDias = metaDiasRaw === "" ? null : Math.max(1, Math.min(31, parseInt(metaDiasRaw, 10) || 0)) || null;
+      const metaBonus100 = parseBrNumber($("#set-bonus-100")?.value || String(state.settings.metaBonus100 ?? 1));
+      const metaBonus125 = parseBrNumber($("#set-bonus-125")?.value || String(state.settings.metaBonus125 ?? 2));
+      const metaBonus150 = parseBrNumber($("#set-bonus-150")?.value || String(state.settings.metaBonus150 ?? 3));
+      const s = await api("/api/settings", {
+        method: "POST",
+        body: JSON.stringify({
+          taxRate,
+          metaTaxRate,
+          metaBase,
+          metaDias,
+          metaBonus100,
+          metaBonus125,
+          metaBonus150,
+          teamName: ($("#set-team-name")?.value || state.settings.teamName || "").trim(),
+          teamPlan: ($("#set-team-plan")?.value || state.settings.teamPlan || "").trim(),
+        }),
+      });
+      state.settings = {
+        taxRate: s.taxRate,
+        metaTaxRate: s.metaTaxRate != null ? s.metaTaxRate : metaTaxRate,
+        metaBase: s.metaBase != null ? Number(s.metaBase) : metaBase,
+        metaDias: s.metaDias != null ? Number(s.metaDias) : metaDias,
+        metaBonus100: s.metaBonus100 != null ? Number(s.metaBonus100) : metaBonus100,
+        metaBonus125: s.metaBonus125 != null ? Number(s.metaBonus125) : metaBonus125,
+        metaBonus150: s.metaBonus150 != null ? Number(s.metaBonus150) : metaBonus150,
+        teamName: s.teamName,
+        teamPlan: s.teamPlan,
+      };
+      if ($("#set-tax")) $("#set-tax").value = formatBrPctInput(s.taxRate);
+      if ($("#set-meta-tax")) $("#set-meta-tax").value = formatBrPctInput(state.settings.metaTaxRate);
+      if ($("#set-meta-base")) $("#set-meta-base").value = formatBrMoneyInput(state.settings.metaBase);
+      if ($("#set-meta-dias")) $("#set-meta-dias").value = state.settings.metaDias != null ? String(state.settings.metaDias) : "";
+      if ($("#set-bonus-100")) $("#set-bonus-100").value = formatBrPctInput(state.settings.metaBonus100);
+      if ($("#set-bonus-125")) $("#set-bonus-125").value = formatBrPctInput(state.settings.metaBonus125);
+      if ($("#set-bonus-150")) $("#set-bonus-150").value = formatBrPctInput(state.settings.metaBonus150);
+      if ($("#set-team-name")) $("#set-team-name").value = s.teamName;
+      if ($("#set-team-plan")) $("#set-team-plan").value = s.teamPlan;
+      $("#team-name").textContent = s.teamName;
+      $("#team-plan").textContent = s.teamPlan;
+      cacheMetaProjSettings(state.settings);
+      await loadDashboard({ force: false });
+      if (status) {
+        status.className = "form-status ok";
+        status.textContent = part === "metas" ? "Metas e bônus salvos." : "Impostos e equipe salvos.";
+      }
+    } catch (err) {
+      if (status) {
+        status.className = "form-status err";
+        status.textContent = err.message;
+      }
+    }
   }
 
   async function bootApp() {

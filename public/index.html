@@ -520,178 +520,217 @@
           <div>
             <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1">Sistema</div>
             <h1 class="text-2xl font-extrabold text-slate-900">Configurações</h1>
-            <p class="text-xs text-slate-500 mt-1">Conecte Shopee, Meta e Pinterest e ajuste impostos.</p>
+            <p class="text-xs text-slate-500 mt-1">Organize conexões, impostos, metas e SubIDs indefinidos.</p>
           </div>
 
-          <div class="cfg-section">
-            <h2 class="cfg-section-title">Conexões</h2>
-            <p class="cfg-section-sub">Fontes que alimentam o painel. Salve e teste antes de sincronizar.</p>
-            <div class="settings-grid">
-              <article class="settings-card">
-                <header class="settings-card-head">
-                  <div class="settings-card-brand">
-                    <img src="/assets/shopee.png" alt="" width="22" height="22" />
-                    <div>
-                      <div class="settings-card-title">Shopee Affiliate</div>
-                      <div class="settings-card-sub">Comissão, pedidos e SubIDs</div>
-                    </div>
-                  </div>
-                  <span class="state-chip" id="cfg-shopee-state">Pendente</span>
-                </header>
-                <form id="cred-form" class="form">
-                  <div class="form-grid">
-                    <label>App ID
-                      <input type="text" id="app-id" name="appId" autocomplete="off" placeholder="Ex: 18108270013" required />
-                    </label>
-                    <label>Secret
-                      <input type="password" id="app-secret" name="secret" autocomplete="off" placeholder="Cole o secret" required />
-                    </label>
-                  </div>
-                  <p class="hint">Trocar o App ID reseta métricas Shopee e puxa a nova conta.</p>
-                  <div class="form-actions">
-                    <button type="submit" class="btn primary sm">Salvar</button>
-                    <button type="button" class="btn ghost sm" id="btn-test">Testar</button>
-                  </div>
-                  <div id="cred-status" class="form-status"></div>
-                </form>
-              </article>
+          <nav class="cfg-subnav" id="cfg-subnav" aria-label="Submenus de configurações">
+            <button type="button" class="cfg-subnav-btn active" data-cfg-tab="conexoes">
+              <i class="fa-solid fa-plug" aria-hidden="true"></i>
+              <span>Conexões</span>
+            </button>
+            <button type="button" class="cfg-subnav-btn" data-cfg-tab="impostos">
+              <i class="fa-solid fa-percent" aria-hidden="true"></i>
+              <span>Impostos e equipe</span>
+            </button>
+            <button type="button" class="cfg-subnav-btn" data-cfg-tab="metas">
+              <i class="fa-solid fa-bullseye" aria-hidden="true"></i>
+              <span>Metas e bônus</span>
+            </button>
+            <button type="button" class="cfg-subnav-btn" data-cfg-tab="indefinidos">
+              <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
+              <span>SubIDs indefinidos</span>
+              <span class="count-pill cfg-subnav-count" id="indef-count-pill">0</span>
+            </button>
+          </nav>
 
-              <article class="settings-card">
-                <header class="settings-card-head">
-                  <div class="settings-card-brand">
-                    <img src="/assets/meta.png" alt="" width="22" height="22" />
-                    <div>
-                      <div class="settings-card-title">Meta Ads</div>
-                      <div class="settings-card-sub" id="meta-status-sub">Investimento e ROI por SubID</div>
+          <div class="cfg-panel" data-cfg-panel="conexoes" id="cfg-panel-conexoes">
+            <div class="cfg-section">
+              <h2 class="cfg-section-title">Conexões</h2>
+              <p class="cfg-section-sub">Fontes que alimentam o painel. Salve e teste antes de sincronizar.</p>
+              <div class="settings-grid">
+                <article class="settings-card">
+                  <header class="settings-card-head">
+                    <div class="settings-card-brand">
+                      <img src="/assets/shopee.png" alt="" width="22" height="22" />
+                      <div>
+                        <div class="settings-card-title">Shopee Affiliate</div>
+                        <div class="settings-card-sub">Comissão, pedidos e SubIDs</div>
+                      </div>
                     </div>
-                  </div>
-                  <span class="state-chip" id="cfg-meta-state">Pendente</span>
-                </header>
-                <form id="meta-form" class="form">
-                  <label>Access token
-                    <input type="password" id="meta-token" autocomplete="off" placeholder="Token da Marketing API" />
-                  </label>
-                  <div class="form-grid">
-                    <label>Contas de anúncio
-                      <input type="text" id="meta-accounts" autocomplete="off" placeholder="IDs separados por vírgula" />
-                    </label>
-                    <label>Versão da API
-                      <input type="text" id="meta-version" value="v19.0" autocomplete="off" />
-                    </label>
-                  </div>
-                  <p class="hint">O token fica seguro no Supabase e não apaga dados da Shopee.</p>
-                  <div class="form-actions">
-                    <button type="submit" class="btn primary sm">Salvar</button>
-                    <button type="button" class="btn ghost sm" id="btn-meta-test">Testar</button>
-                    <button type="button" class="btn ghost sm" id="btn-meta-sync">Sincronizar</button>
-                  </div>
-                  <div id="meta-status" class="form-status"></div>
-                </form>
-              </article>
+                    <span class="state-chip" id="cfg-shopee-state">Pendente</span>
+                  </header>
+                  <form id="cred-form" class="form">
+                    <div class="form-grid">
+                      <label>App ID
+                        <input type="text" id="app-id" name="appId" autocomplete="off" placeholder="Ex: 18108270013" required />
+                      </label>
+                      <label>Secret
+                        <input type="password" id="app-secret" name="secret" autocomplete="off" placeholder="Cole o secret" required />
+                      </label>
+                    </div>
+                    <p class="hint">Trocar o App ID reseta métricas Shopee e puxa a nova conta.</p>
+                    <div class="form-actions">
+                      <button type="submit" class="btn primary sm">Salvar</button>
+                      <button type="button" class="btn ghost sm" id="btn-test">Testar</button>
+                    </div>
+                    <div id="cred-status" class="form-status"></div>
+                  </form>
+                </article>
 
-              <article class="settings-card">
-                <header class="settings-card-head">
-                  <div class="settings-card-brand">
-                    <img class="is-square" src="/assets/pinterest.png" alt="" width="22" height="22" />
-                    <div>
-                      <div class="settings-card-title">Pinterest</div>
-                      <div class="settings-card-sub">Investimento via CSV</div>
+                <article class="settings-card">
+                  <header class="settings-card-head">
+                    <div class="settings-card-brand">
+                      <img src="/assets/meta.png" alt="" width="22" height="22" />
+                      <div>
+                        <div class="settings-card-title">Meta Ads</div>
+                        <div class="settings-card-sub" id="meta-status-sub">Investimento e ROI por SubID</div>
+                      </div>
                     </div>
+                    <span class="state-chip" id="cfg-meta-state">Pendente</span>
+                  </header>
+                  <form id="meta-form" class="form">
+                    <label>Access token
+                      <input type="password" id="meta-token" autocomplete="off" placeholder="Token da Marketing API" />
+                    </label>
+                    <div class="form-grid">
+                      <label>Contas de anúncio
+                        <input type="text" id="meta-accounts" autocomplete="off" placeholder="IDs separados por vírgula" />
+                      </label>
+                      <label>Versão da API
+                        <input type="text" id="meta-version" value="v19.0" autocomplete="off" />
+                      </label>
+                    </div>
+                    <p class="hint">O token fica seguro no Supabase e não apaga dados da Shopee.</p>
+                    <div class="form-actions">
+                      <button type="submit" class="btn primary sm">Salvar</button>
+                      <button type="button" class="btn ghost sm" id="btn-meta-test">Testar</button>
+                      <button type="button" class="btn ghost sm" id="btn-meta-sync">Sincronizar</button>
+                    </div>
+                    <div id="meta-status" class="form-status"></div>
+                  </form>
+                </article>
+
+                <article class="settings-card">
+                  <header class="settings-card-head">
+                    <div class="settings-card-brand">
+                      <img class="is-square" src="/assets/pinterest.png" alt="" width="22" height="22" />
+                      <div>
+                        <div class="settings-card-title">Pinterest</div>
+                        <div class="settings-card-sub">Investimento via CSV</div>
+                      </div>
+                    </div>
+                    <span class="state-chip is-manual">Manual</span>
+                  </header>
+                  <div class="form">
+                    <label>Arquivo CSV
+                      <input type="file" id="pin-file" accept=".csv,text/csv" />
+                    </label>
+                    <p class="hint">Formato AfiliadosPRO. Entra por dia e SubID, sem imposto extra.</p>
+                    <div class="form-actions">
+                      <button type="button" class="btn primary sm" id="btn-pin-import">Importar CSV</button>
+                    </div>
+                    <div id="pin-status" class="form-status"></div>
                   </div>
-                  <span class="state-chip is-manual">Manual</span>
-                </header>
-                <div class="form">
-                  <label>Arquivo CSV
-                    <input type="file" id="pin-file" accept=".csv,text/csv" />
-                  </label>
-                  <p class="hint">Formato AfiliadosPRO. Entra por dia e SubID, sem imposto extra.</p>
+                </article>
+              </div>
+            </div>
+          </div>
+
+          <div class="cfg-panel hidden" data-cfg-panel="impostos" id="cfg-panel-impostos">
+            <div class="cfg-section">
+              <h2 class="cfg-section-title">Impostos e equipe</h2>
+              <p class="cfg-section-sub">Alíquotas usadas no lucro/ROI e identidade exibida no painel.</p>
+              <article class="settings-card settings-card--wide">
+                <form id="settings-form-taxes" class="form" data-settings-part="taxes">
+                  <div class="form-grid">
+                    <label>Imposto s/ comissão (%)
+                      <input type="text" id="set-tax" inputmode="decimal" placeholder="11,70" />
+                    </label>
+                    <label>Imposto s/ invest Meta (%)
+                      <input type="text" id="set-meta-tax" inputmode="decimal" placeholder="12,00" />
+                    </label>
+                    <label>Nome da equipe
+                      <input type="text" id="set-team-name" />
+                    </label>
+                    <label>Plano / subtítulo
+                      <input type="text" id="set-team-plan" />
+                    </label>
+                  </div>
+                  <p class="hint cfg-formula">Lucro = comissão × (1 − gov%) − (invest Meta × (1 + taxa Meta%) + invest Pin)</p>
                   <div class="form-actions">
-                    <button type="button" class="btn primary sm" id="btn-pin-import">Importar CSV</button>
+                    <button type="submit" class="btn primary sm">Salvar impostos e equipe</button>
                   </div>
-                  <div id="pin-status" class="form-status"></div>
-                </div>
+                  <div id="settings-status-taxes" class="form-status"></div>
+                </form>
               </article>
             </div>
           </div>
 
-          <div class="cfg-section">
-            <h2 class="cfg-section-title">Cálculo e equipe</h2>
-            <p class="cfg-section-sub">Impostos e identidade do painel.</p>
-            <article class="settings-card settings-card--wide">
-              <form id="settings-form" class="form">
-                <div class="form-grid">
-                  <label>Imposto s/ comissão (%)
-                    <input type="text" id="set-tax" inputmode="decimal" placeholder="11,70" />
-                  </label>
-                  <label>Imposto s/ invest Meta (%)
-                    <input type="text" id="set-meta-tax" inputmode="decimal" placeholder="12,00" />
-                  </label>
-                  <label>Nome da equipe
-                    <input type="text" id="set-team-name" />
-                  </label>
-                  <label>Plano / subtítulo
-                    <input type="text" id="set-team-plan" />
-                  </label>
-                </div>
-                <p class="hint cfg-formula">Lucro = comissão × (1 − gov%) − (invest Meta × (1 + taxa Meta%) + invest Pin)</p>
-
-                <div class="cfg-meta-block">
-                  <div class="cfg-meta-block-head">
-                    <h3>Projeção de Metas e Bônus</h3>
-                    <p>Aparece no Dashboard (bloco recolhido). Compara o faturamento do mês com a meta 100% e as faixas de bônus.</p>
+          <div class="cfg-panel hidden" data-cfg-panel="metas" id="cfg-panel-metas">
+            <div class="cfg-section">
+              <h2 class="cfg-section-title">Metas e bônus</h2>
+              <p class="cfg-section-sub">Alimenta o bloco “Projeção de Metas e Bônus” no Dashboard.</p>
+              <article class="settings-card settings-card--wide">
+                <form id="settings-form-metas" class="form" data-settings-part="metas">
+                  <div class="cfg-meta-block" style="margin-top:0">
+                    <div class="cfg-meta-block-head">
+                      <h3>Projeção de Metas e Bônus</h3>
+                      <p>Compara o faturamento do mês com a meta 100% e as faixas de bônus (100% / 125% / 150%).</p>
+                    </div>
+                    <div class="form-grid">
+                      <label>Meta 100% — faturamento do mês (R$)
+                        <input type="text" id="set-meta-base" inputmode="decimal" placeholder="863.959,00" />
+                        <span class="field-hint">Alvo base. META 125% = este valor × 1,25 · META 150% = × 1,5</span>
+                      </label>
+                      <label>Dias do mês (opcional)
+                        <input type="number" id="set-meta-dias" min="1" max="31" placeholder="Auto (calendário)" />
+                        <span class="field-hint">Vazio = dias do calendário. Usado no “faturamento diário necessário”</span>
+                      </label>
+                      <label>Bônus META 100% (%)
+                        <input type="text" id="set-bonus-100" inputmode="decimal" placeholder="1" />
+                        <span class="field-hint">% sobre o faturamento-alvo da faixa 100%</span>
+                      </label>
+                      <label>Bônus META 125% (%)
+                        <input type="text" id="set-bonus-125" inputmode="decimal" placeholder="2" />
+                        <span class="field-hint">% sobre o faturamento-alvo da faixa 125%</span>
+                      </label>
+                      <label>Bônus META 150% (%)
+                        <input type="text" id="set-bonus-150" inputmode="decimal" placeholder="3" />
+                        <span class="field-hint">% sobre o faturamento-alvo da faixa 150%</span>
+                      </label>
+                    </div>
+                    <p class="hint cfg-formula">Ex.: meta R$ 100.000 → alvo 125% = R$ 125.000 · bônus 2% = R$ 2.500.</p>
                   </div>
-                  <div class="form-grid">
-                    <label>Meta 100% — faturamento do mês (R$)
-                      <input type="text" id="set-meta-base" inputmode="decimal" placeholder="863.959,00" />
-                      <span class="field-hint">Alvo base. META 125% = este valor × 1,25 · META 150% = × 1,5</span>
-                    </label>
-                    <label>Dias do mês (opcional)
-                      <input type="number" id="set-meta-dias" min="1" max="31" placeholder="Auto (calendário)" />
-                      <span class="field-hint">Vazio = dias do calendário. Usado no “faturamento diário necessário”</span>
-                    </label>
-                    <label>Bônus META 100% (%)
-                      <input type="text" id="set-bonus-100" inputmode="decimal" placeholder="1" />
-                      <span class="field-hint">% sobre o faturamento-alvo da faixa 100%</span>
-                    </label>
-                    <label>Bônus META 125% (%)
-                      <input type="text" id="set-bonus-125" inputmode="decimal" placeholder="2" />
-                      <span class="field-hint">% sobre o faturamento-alvo da faixa 125%</span>
-                    </label>
-                    <label>Bônus META 150% (%)
-                      <input type="text" id="set-bonus-150" inputmode="decimal" placeholder="3" />
-                      <span class="field-hint">% sobre o faturamento-alvo da faixa 150%</span>
-                    </label>
+                  <div class="form-actions" style="margin-top:1rem">
+                    <button type="submit" class="btn primary sm">Salvar metas e bônus</button>
                   </div>
-                  <p class="hint cfg-formula">Ex.: meta R$ 100.000 → alvo 125% = R$ 125.000 · bônus 2% = R$ 2.500. No Dashboard o bloco fica minimizado; clique para expandir a tabela.</p>
-                </div>
-
-                <div class="form-actions">
-                  <button type="submit" class="btn primary sm">Salvar ajustes</button>
-                </div>
-                <div id="settings-status" class="form-status"></div>
-              </form>
-            </article>
+                  <div id="settings-status-metas" class="form-status"></div>
+                </form>
+              </article>
+            </div>
           </div>
 
-          <div class="cfg-section" id="cfg-indefinidos-section">
-            <h2 class="cfg-section-title">SubIDs indefinidos <span class="count-pill" id="indef-count-pill">0</span></h2>
-            <p class="cfg-section-sub">Sem gasto Meta/Pin claro — classifique o canal para aparecer na campanha certa.</p>
-            <article class="settings-card settings-card--wide overflow-hidden p-0">
-              <div class="overflow-x-auto">
-                <table class="data-table" id="indef-table">
-                  <thead>
-                    <tr>
-                      <th>SubID</th>
-                      <th>Canal</th>
-                      <th>Status</th>
-                      <th class="num">Faturamento</th>
-                      <th class="num">Comissão</th>
-                    </tr>
-                  </thead>
-                  <tbody id="indef-tbody"></tbody>
-                </table>
-              </div>
-            </article>
+          <div class="cfg-panel hidden" data-cfg-panel="indefinidos" id="cfg-panel-indefinidos">
+            <div class="cfg-section" id="cfg-indefinidos-section">
+              <h2 class="cfg-section-title">SubIDs indefinidos</h2>
+              <p class="cfg-section-sub">Sem gasto Meta/Pin claro — classifique o canal para aparecer na campanha certa.</p>
+              <article class="settings-card settings-card--wide overflow-hidden p-0">
+                <div class="overflow-x-auto">
+                  <table class="data-table" id="indef-table">
+                    <thead>
+                      <tr>
+                        <th>SubID</th>
+                        <th>Canal</th>
+                        <th>Status</th>
+                        <th class="num">Faturamento</th>
+                        <th class="num">Comissão</th>
+                      </tr>
+                    </thead>
+                    <tbody id="indef-tbody"></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
           </div>
         </section>
 
