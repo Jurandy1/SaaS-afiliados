@@ -486,8 +486,15 @@ async function loadSettings(userId = requireUserId()) {
   const { data } = await supabase.from("app_settings").select("*").eq("user_id", userId).maybeSingle();
   const taxRate = data?.tax_rate != null ? Number(data.tax_rate) : 11.7;
   const metaTaxRate = data?.meta_tax_rate != null ? Number(data.meta_tax_rate) : 12;
+  const metaDias = data?.meta_dias != null && data.meta_dias !== ""
+    ? Number(data.meta_dias)
+    : null;
   return {
     metaBase: Number(data?.meta_base || 863959),
+    metaDias: Number.isFinite(metaDias) && metaDias > 0 ? metaDias : null,
+    metaBonus100: data?.meta_bonus_100 != null ? Number(data.meta_bonus_100) : 1,
+    metaBonus125: data?.meta_bonus_125 != null ? Number(data.meta_bonus_125) : 2,
+    metaBonus150: data?.meta_bonus_150 != null ? Number(data.meta_bonus_150) : 3,
     taxRate,
     metaTaxRate,
     teamName: data?.team_name || "Minha conta",
@@ -508,10 +515,30 @@ async function saveSettings(partial, userId = requireUserId()) {
   if (partial.metaTaxRate != null) next.meta_tax_rate = Number(partial.metaTaxRate);
   else if (prev.metaTaxRate != null) next.meta_tax_rate = Number(prev.metaTaxRate);
 
+  if (partial.metaDias !== undefined) {
+    next.meta_dias = partial.metaDias == null || partial.metaDias === ""
+      ? null
+      : Number(partial.metaDias);
+  } else if (prev.metaDias != null) {
+    next.meta_dias = Number(prev.metaDias);
+  }
+
+  if (partial.metaBonus100 != null) next.meta_bonus_100 = Number(partial.metaBonus100);
+  else if (prev.metaBonus100 != null) next.meta_bonus_100 = Number(prev.metaBonus100);
+  if (partial.metaBonus125 != null) next.meta_bonus_125 = Number(partial.metaBonus125);
+  else if (prev.metaBonus125 != null) next.meta_bonus_125 = Number(prev.metaBonus125);
+  if (partial.metaBonus150 != null) next.meta_bonus_150 = Number(partial.metaBonus150);
+  else if (prev.metaBonus150 != null) next.meta_bonus_150 = Number(prev.metaBonus150);
+
   const supabase = getSupabase();
   let { error } = await supabase.from("app_settings").upsert(next);
-  if (error && /meta_tax_rate/i.test(error.message || "")) {
+  // Colunas opcionais podem não existir ainda — tenta sem elas
+  if (error && /(meta_tax_rate|meta_dias|meta_bonus_)/i.test(error.message || "")) {
     delete next.meta_tax_rate;
+    delete next.meta_dias;
+    delete next.meta_bonus_100;
+    delete next.meta_bonus_125;
+    delete next.meta_bonus_150;
     ({ error } = await supabase.from("app_settings").upsert(next));
   }
   if (error) throw new Error(error.message);

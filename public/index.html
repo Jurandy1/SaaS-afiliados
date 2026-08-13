@@ -626,9 +626,6 @@
                   <label>Imposto s/ invest Meta (%)
                     <input type="text" id="set-meta-tax" inputmode="decimal" placeholder="12,00" />
                   </label>
-                  <label>Meta mensal de faturamento (R$)
-                    <input type="text" id="set-meta-base" inputmode="decimal" placeholder="863.959,00" />
-                  </label>
                   <label>Nome da equipe
                     <input type="text" id="set-team-name" />
                   </label>
@@ -637,6 +634,37 @@
                   </label>
                 </div>
                 <p class="hint cfg-formula">Lucro = comissão × (1 − gov%) − (invest Meta × (1 + taxa Meta%) + invest Pin)</p>
+
+                <div class="cfg-meta-block">
+                  <div class="cfg-meta-block-head">
+                    <h3>Projeção de Metas e Bônus</h3>
+                    <p>Aparece no Dashboard (bloco recolhido). Compara o faturamento do mês com a meta 100% e as faixas de bônus.</p>
+                  </div>
+                  <div class="form-grid">
+                    <label>Meta 100% — faturamento do mês (R$)
+                      <input type="text" id="set-meta-base" inputmode="decimal" placeholder="863.959,00" />
+                      <span class="field-hint">Alvo base. META 125% = este valor × 1,25 · META 150% = × 1,5</span>
+                    </label>
+                    <label>Dias do mês (opcional)
+                      <input type="number" id="set-meta-dias" min="1" max="31" placeholder="Auto (calendário)" />
+                      <span class="field-hint">Vazio = dias do calendário. Usado no “faturamento diário necessário”</span>
+                    </label>
+                    <label>Bônus META 100% (%)
+                      <input type="text" id="set-bonus-100" inputmode="decimal" placeholder="1" />
+                      <span class="field-hint">% sobre o faturamento-alvo da faixa 100%</span>
+                    </label>
+                    <label>Bônus META 125% (%)
+                      <input type="text" id="set-bonus-125" inputmode="decimal" placeholder="2" />
+                      <span class="field-hint">% sobre o faturamento-alvo da faixa 125%</span>
+                    </label>
+                    <label>Bônus META 150% (%)
+                      <input type="text" id="set-bonus-150" inputmode="decimal" placeholder="3" />
+                      <span class="field-hint">% sobre o faturamento-alvo da faixa 150%</span>
+                    </label>
+                  </div>
+                  <p class="hint cfg-formula">Ex.: meta R$ 100.000 → alvo 125% = R$ 125.000 · bônus 2% = R$ 2.500. No Dashboard o bloco fica minimizado; clique para expandir a tabela.</p>
+                </div>
+
                 <div class="form-actions">
                   <button type="submit" class="btn primary sm">Salvar ajustes</button>
                 </div>
