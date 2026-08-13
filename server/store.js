@@ -263,12 +263,19 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
     : 0;
 
   let faturamentoMtd = kpis.faturamento;
+  let faturamentoAvg7 = 0;
   try {
-    faturamentoMtd = await loadFaturamentoMtd(userId);
+    const [mtd, avg7] = await Promise.all([
+      loadFaturamentoMtd(userId),
+      loadFaturamentoAvgDays(7, userId),
+    ]);
+    faturamentoMtd = mtd;
+    faturamentoAvg7 = avg7;
   } catch (e) {
     console.warn("[store] mtd:", e.message);
   }
   kpis.faturamentoMtd = faturamentoMtd;
+  kpis.faturamentoAvg7 = faturamentoAvg7;
 
   return {
     range: { startDate, endDate },
@@ -396,7 +403,15 @@ function monthStartISO(d = new Date()) {
 }
 
 function todayISO(d = new Date()) {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function daysAgoISO(n, d = new Date()) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate() - n);
+  return todayISO(x);
 }
 
 async function loadFaturamentoMtd(userId = requireUserId()) {
@@ -405,19 +420,47 @@ async function loadFaturamentoMtd(userId = requireUserId()) {
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("daily_metrics")
-    .select("faturamento")
+    .select("data, faturamento")
     .eq("user_id", userId)
     .gte("data", start)
-    .lte("data", end);
+    .lte("data", end)
+    .order("data", { ascending: true });
   if (error) throw new Error(error.message);
-  const fat = (data || []).reduce((a, r) => a + Number(r.faturamento || 0), 0);
+  const rows = data || [];
+  const fat = rows.reduce((a, r) => a + Number(r.faturamento || 0), 0);
   return Math.round(fat * 100) / 100;
+}
+
+/** Média de faturamento dos últimos N dias do mês (calendário), independente do filtro do dashboard. */
+async function loadFaturamentoAvgDays(n = 7, userId = requireUserId()) {
+  const end = todayISO();
+  const startMonth = monthStartISO();
+  const startWindow = daysAgoISO(Math.max(0, n - 1));
+  const start = startWindow > startMonth ? startWindow : startMonth;
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("daily_metrics")
+    .select("data, faturamento")
+    .eq("user_id", userId)
+    .gte("data", start)
+    .lte("data", end)
+    .order("data", { ascending: true });
+  if (error) throw new Error(error.message);
+  const rows = data || [];
+  if (!rows.length) return 0;
+  const sum = rows.reduce((a, r) => a + Number(r.faturamento || 0), 0);
+  return Math.round((sum / rows.length) * 100) / 100;
 }
 
 async function attachMtdKpis(dash, userId = requireUserId()) {
   if (!dash?.kpis) return dash;
   try {
-    dash.kpis.faturamentoMtd = await loadFaturamentoMtd(userId);
+    const [mtd, avg7] = await Promise.all([
+      loadFaturamentoMtd(userId),
+      loadFaturamentoAvgDays(7, userId),
+    ]);
+    dash.kpis.faturamentoMtd = mtd;
+    dash.kpis.faturamentoAvg7 = avg7;
   } catch (e) {
     console.warn("[store] attachMtdKpis:", e.message);
   }

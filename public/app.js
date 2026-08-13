@@ -275,12 +275,15 @@
   function escapeHtml(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
-  function todayISO() { return new Date().toISOString().slice(0, 10); }
+  function todayISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
   function yesterdayISO() { return daysAgoISO(1); }
   function daysAgoISO(n) {
     const d = new Date();
     d.setDate(d.getDate() - n);
-    return d.toISOString().slice(0, 10);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
   function monthStartISO() {
     const d = new Date();
@@ -589,10 +592,40 @@
     const b125 = Number(state.settings.metaBonus125 != null ? state.settings.metaBonus125 : 2) / 100;
     const b150 = Number(state.settings.metaBonus150 != null ? state.settings.metaBonus150 : 3) / 100;
     return [
-      { mult: 1, bonus: b100, label: "META 100%" },
-      { mult: 1.25, bonus: b125, label: "META 125%" },
-      { mult: 1.5, bonus: b150, label: "META 150%" },
+      { mult: 1, bonus: b100, label: "Meta 100%", sub: "Base", key: "base" },
+      { mult: 1.25, bonus: b125, label: "Meta 125%", sub: "Turbo", key: "turbo" },
+      { mult: 1.5, bonus: b150, label: "Meta 150%", sub: "VIP Max", key: "vip" },
     ];
+  }
+
+  function avgFaturamentoLastDays(n = 7) {
+    const fromApi = Number(state.dash?.kpis?.faturamentoAvg7);
+    if (Number.isFinite(fromApi) && fromApi > 0) return fromApi;
+
+    const ym = todayISO().slice(0, 7);
+    const rows = [...(state.dash?.daily || [])]
+      .filter((d) => d && d.data && String(d.data).startsWith(ym))
+      .sort((a, b) => String(a.data).localeCompare(String(b.data)));
+    if (!rows.length) {
+      const mtd = Number(state.dash?.kpis?.faturamentoMtd || 0);
+      const diasPassados = Number(String(todayISO()).slice(8, 10)) || 1;
+      return diasPassados > 0 ? mtd / diasPassados : 0;
+    }
+    const slice = rows.slice(-Math.max(1, n));
+    const sum = slice.reduce((acc, d) => acc + Number(d.faturamento || 0), 0);
+    return sum / slice.length;
+  }
+
+  function fmtPct1(v) {
+    if (v == null || Number.isNaN(Number(v))) return "—";
+    return Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+  }
+
+  function cicloMetaLabel() {
+    const now = new Date();
+    const mes = now.toLocaleDateString("pt-BR", { month: "long" });
+    const mesCap = mes.charAt(0).toUpperCase() + mes.slice(1);
+    return `Ciclo ${mesCap}/${now.getFullYear()}`;
   }
 
   function renderMetaProgressCard(k) {
@@ -600,8 +633,7 @@
     if (!el) return;
     const hasData = Boolean(state.dash);
     const base = Number(state.settings.metaBase || 0);
-    const fat = hasData ? Number(k?.faturamentoMtd ?? 0) : 0;
-    const monthLabel = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    const fat = hasData ? Number(k?.faturamentoMtd ?? state.dash?.kpis?.faturamentoMtd ?? 0) : 0;
     const today = todayISO();
     const totalDias = Number(state.settings.metaDias) > 0
       ? Number(state.settings.metaDias)
@@ -613,19 +645,23 @@
 
     if (!base) {
       el.innerHTML = `
-        <section class="surface-card overflow-hidden" id="meta-proj-panel">
-          <div class="panel-head px-4 sm:px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
+        <section class="surface-card overflow-hidden meta-proj-panel" id="meta-proj-panel">
+          <div class="meta-proj-empty">
             <div>
-              <h3 class="panel-title">Projeção de Metas e Bônus</h3>
-              <p class="dashboard-section-desc">Defina a meta 100% em Configurações</p>
+              <h3 class="meta-proj-title">Projeção de Metas &amp; Bonificação de Volume</h3>
+              <p class="meta-proj-empty-sub">Defina a meta 100% em Configurações para ativar a projeção.</p>
             </div>
-            <button type="button" class="btn ghost sm" data-goto-cfg="1">Abrir Configurações</button>
+            <button type="button" class="meta-proj-btn-params" data-goto-cfg="1">Ajustar Parâmetros</button>
           </div>
         </section>`;
-      el.querySelector("[data-goto-cfg]")?.addEventListener("click", () => openConfig("conexoes"));
+      el.querySelector("[data-goto-cfg]")?.addEventListener("click", () => openConfig("metas"));
       return;
     }
 
+    const avg7 = hasData
+      ? Number(k?.faturamentoAvg7 ?? state.dash?.kpis?.faturamentoAvg7 ?? avgFaturamentoLastDays(7))
+      : 0;
+    const projected = fat + avg7 * diasRestantes;
     const tiers = metaBonusTiers().map((t) => {
       const alvo = base * t.mult;
       const bonusVal = alvo * t.bonus;
@@ -633,76 +669,133 @@
       const diario = diasRestantes > 0 ? falta / diasRestantes : (falta > 0.005 ? null : 0);
       const pct = alvo > 0 ? Math.min(1, fat / alvo) : 0;
       const atingida = hasData && fat >= alvo;
-      return { ...t, alvo, bonusVal, falta, diario, pct, atingida };
+      const reachable = hasData && (atingida || (diario != null && avg7 >= diario - 0.005) || projected >= alvo);
+      return { ...t, alvo, bonusVal, falta, diario, pct, atingida, reachable };
     });
-    const bestPct = tiers[0] ? tiers[0].pct : 0;
-    const barTone = (p) => (p >= 1 ? "good" : p >= 0.66 ? "warn" : "bad");
-    const head = tiers.map((c) =>
-      `<th class="num">${escapeHtml(c.label)} (${(c.bonus * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%)</th>`
-    ).join("");
-    const progressCells = tiers.map((c) => {
-      const pctLabel = c.atingida
-        ? "✓"
-        : `${(c.pct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
-      return `<td class="num">
-        <div class="meta-proj-prog">
-          <div class="meta-proj-bar" aria-hidden="true"><span class="meta-proj-bar-fill meta-proj-bar-fill--${barTone(c.pct)}" style="width:${(c.pct * 100).toFixed(1)}%"></span></div>
-          <span class="meta-proj-pct meta-proj-pct--${barTone(c.pct)}">${pctLabel}</span>
-        </div>
-      </td>`;
+    let recIdx = -1;
+    for (let i = 0; i < tiers.length; i++) {
+      if (tiers[i].reachable) recIdx = i;
+    }
+    if (recIdx < 0 && tiers.length) recIdx = 0;
+    const m1 = tiers[0];
+    const rec = tiers[recIdx] || m1;
+    const ritmo100 = m1?.diario;
+    const pctM1 = m1 ? m1.pct * 100 : 0;
+    const bonusPctLabel = (b) =>
+      (b * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "%";
+
+    const tierCards = tiers.map((c, i) => {
+      const isRec = i === recIdx;
+      const pctW = Math.max(0, Math.min(100, c.pct * 100));
+      return `
+        <article class="meta-tier meta-tier--${c.key}${isRec ? " is-recommended" : ""}">
+          ${isRec ? `<span class="meta-tier-ai"><i class="fa-solid fa-bolt"></i> Recomendado pela IA</span>` : ""}
+          <div class="meta-tier-top">
+            <div>
+              <div class="meta-tier-name">${escapeHtml(c.label)} <span>(${escapeHtml(c.sub)})</span></div>
+              <div class="meta-tier-alvo">Alvo do Mês: <b>${fmt(c.alvo)}</b></div>
+            </div>
+            <span class="meta-tier-bonus-badge">Bônus ${bonusPctLabel(c.bonus)}</span>
+          </div>
+          <div class="meta-tier-bonus-box">
+            <span>Bônus estimado</span>
+            <strong>${fmt(c.bonusVal)}</strong>
+          </div>
+          <div class="meta-tier-prog">
+            <div class="meta-tier-bar"><span style="width:${pctW.toFixed(1)}%"></span></div>
+            <span class="meta-tier-pct">${c.atingida ? "✓" : fmtPct1(pctW)}</span>
+          </div>
+          <div class="meta-tier-falta">Falta realizar: <b>${fmt(c.falta)}</b></div>
+        </article>`;
     }).join("");
+
+    const cmpHead = tiers.map((c) =>
+      `<th>${escapeHtml(c.label)} (${bonusPctLabel(c.bonus)})</th>`
+    ).join("");
+    const rowAlvo = tiers.map((c) => `<td>${fmt(c.alvo)}</td>`).join("");
+    const rowFalta = tiers.map((c) => `<td>${fmt(c.falta)}</td>`).join("");
+    const rowBonus = tiers.map((c, i) =>
+      `<td class="${i === recIdx ? "is-hl" : ""}">${fmt(c.bonusVal)}</td>`
+    ).join("");
+    const rowDiario = tiers.map((c) =>
+      `<td>${c.diario == null ? "—" : `${fmt(c.diario)}/dia`}</td>`
+    ).join("");
+
+    const pacingTxt = hasData && avg7 > 0
+      ? `Mantendo a média dos últimos 7 dias (<b>${fmt(avg7)}/dia</b>), a estimativa é atingir a <b>${escapeHtml(rec.label)}</b> com previsão de comissão extra de <b>${fmt(rec.bonusVal)}</b>.`
+      : "Sincronize Shopee para calcular o ritmo dos últimos 7 dias e a faixa recomendada.";
 
     el.innerHTML = `
       <section class="surface-card overflow-hidden meta-proj-panel ${expanded ? "is-open" : ""}" id="meta-proj-panel">
-        <button type="button" class="meta-proj-toggle panel-head" id="btn-meta-proj-toggle" aria-expanded="${expanded ? "true" : "false"}">
-          <div class="meta-proj-toggle-left">
-            <span class="meta-proj-caret" aria-hidden="true"></span>
-            <div class="min-w-0">
-              <h3 class="panel-title">Projeção de Metas e Bônus</h3>
-              <p class="dashboard-section-desc">${escapeHtml(monthLabel)} · ${diasRestantes} dia${diasRestantes === 1 ? "" : "s"} restantes</p>
+        <div class="meta-proj-head">
+          <div class="meta-proj-head-main">
+            <div class="meta-proj-title-row">
+              <span class="meta-proj-trophy" aria-hidden="true"><i class="fa-solid fa-bullseye"></i></span>
+              <h3 class="meta-proj-title">Projeção de Metas &amp; Bonificação de Volume</h3>
+              <span class="meta-proj-ciclo">${escapeHtml(cicloMetaLabel())}</span>
+            </div>
+            <p class="meta-proj-sub">
+              Faltam <b>${diasRestantes} dia${diasRestantes === 1 ? "" : "s"}</b> para o fechamento
+              ${ritmo100 != null ? ` • Ritmo Meta 100%: <b>${fmt(ritmo100)}/dia</b>` : ""}
+            </p>
+          </div>
+          <div class="meta-proj-head-stats">
+            <div class="meta-proj-stat">
+              <span class="meta-proj-stat-lab">Realizado</span>
+              <span class="meta-proj-stat-val">${hasData ? fmt(fat) : "—"}</span>
+            </div>
+            <div class="meta-proj-stat">
+              <span class="meta-proj-stat-lab">Atingimento M1</span>
+              <span class="meta-proj-stat-val meta-proj-stat-val--pct">${hasData ? fmtPct1(pctM1) : "—"}</span>
+            </div>
+            <button type="button" class="meta-proj-collapse" id="btn-meta-proj-toggle" aria-expanded="${expanded ? "true" : "false"}">
+              <span class="meta-proj-expand-lab">${expanded ? "Recolher" : "Expandir"}</span>
+              <i class="fa-solid fa-chevron-${expanded ? "up" : "down"}" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div class="meta-proj-body ${expanded ? "" : "hidden"}" id="meta-proj-body">
+          <div class="meta-tier-grid">${tierCards}</div>
+          <div class="meta-cmp">
+            <div class="meta-cmp-head">
+              <h4>Quadro Comparativo de Bônus por Faixa</h4>
+              <span>Fonte: regras de afiliado · metas da operação</span>
+            </div>
+            <div class="table-scroll">
+              <table class="meta-cmp-table">
+                <thead>
+                  <tr>
+                    <th class="l">Indicador</th>
+                    ${cmpHead}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="l">Faturamento alvo requerido</td>
+                    ${rowAlvo}
+                  </tr>
+                  <tr>
+                    <td class="l">Saldo restante a vender</td>
+                    ${rowFalta}
+                  </tr>
+                  <tr>
+                    <td class="l">Comissão de bônus estimada</td>
+                    ${rowBonus}
+                  </tr>
+                  <tr>
+                    <td class="l">Meta diária necessária (${diasRestantes} dias)</td>
+                    ${rowDiario}
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
-          <div class="meta-proj-toggle-right">
-            <span class="meta-proj-fat-pill">Até agora <b>${hasData ? fmt(fat) : "—"}</b></span>
-            <span class="meta-proj-pct-pill meta-proj-pct-pill--${barTone(bestPct)}">${(bestPct * 100).toLocaleString("pt-BR", { maximumFractionDigits: 0 })}% da meta</span>
-            <span class="meta-proj-expand-lab">${expanded ? "Recolher" : "Expandir"}</span>
-          </div>
-        </button>
-        <div class="meta-proj-body ${expanded ? "" : "hidden"}" id="meta-proj-body">
-          <div class="table-scroll table-scroll--dark meta-proj-scroll">
-            <table class="meta-proj-table data-table--ops">
-              <thead>
-                <tr>
-                  <th class="l">% Bônus sobre faturamento</th>
-                  ${head}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td class="l">Dias restantes no mês</td>
-                  <td class="num meta-proj-span" colspan="${tiers.length}">${diasRestantes} dias</td>
-                </tr>
-                <tr>
-                  <td class="l">Faturamento para atingir meta</td>
-                  ${tiers.map((c) => `<td class="num">${fmt(c.alvo)}</td>`).join("")}
-                </tr>
-                <tr class="meta-proj-bonus-row">
-                  <td class="l">Valor do bônus meta</td>
-                  ${tiers.map((c) => `<td class="num meta-proj-bonus">${fmt(c.bonusVal)}</td>`).join("")}
-                </tr>
-                <tr>
-                  <td class="l">Faturamento diário necessário</td>
-                  ${tiers.map((c) => `<td class="num">${c.diario == null ? "—" : fmt(c.diario)}</td>`).join("")}
-                </tr>
-                <tr>
-                  <td class="l">Progresso da meta</td>
-                  ${progressCells}
-                </tr>
-              </tbody>
-            </table>
-          </div>
           <div class="meta-proj-foot">
-            <button type="button" class="btn ghost sm" data-goto-cfg="1">Editar meta em Configurações</button>
+            <p class="meta-proj-pacing">
+              <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+              <span><b>Diagnóstico de Pacing:</b> ${pacingTxt}</span>
+            </p>
+            <button type="button" class="meta-proj-btn-params" data-goto-cfg="1">Ajustar Parâmetros</button>
           </div>
         </div>
       </section>`;
@@ -722,6 +815,8 @@
       btn.setAttribute("aria-expanded", open ? "true" : "false");
       const lab = btn.querySelector(".meta-proj-expand-lab");
       if (lab) lab.textContent = open ? "Recolher" : "Expandir";
+      const icon = btn.querySelector("i");
+      if (icon) icon.className = `fa-solid fa-chevron-${open ? "up" : "down"}`;
       try { localStorage.setItem("afilia:metaProjOpen", open ? "1" : "0"); } catch (_) { /* ignore */ }
     });
   }
