@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/gemini-app.css" />
+  <link rel="stylesheet" href="/backup.css" />
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen antialiased selection:bg-brand-500 selection:text-white font-sans transition-colors duration-200">
 
@@ -154,7 +155,7 @@
                 <span class="nav-badge" id="nav-count-org"></span>
               </button>
               <button type="button" class="nav-item" data-view="produtos">
-                <span class="nav-left"><img class="nav-logo is-square" src="/assets/produtos.png" alt="" /><span class="nav-label">Produtos</span></span>
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/produtos.png" alt="" /><span class="nav-label">Backup</span></span>
               </button>
             </div>
           </div>
@@ -400,7 +401,7 @@
                       Detalhamento por SubID
                       <span class="count-pill" id="subid-count-pill">0</span>
                     </h3>
-                    <p class="dashboard-section-desc" id="dash-subids-eyebrow">altere o status · clique para o histórico</p>
+                    <p class="dashboard-section-desc" id="dash-subids-eyebrow">altere o status</p>
                   </div>
                 </div>
                 <div class="flex flex-wrap items-center gap-2 justify-end">
@@ -413,7 +414,7 @@
                   <input type="search" id="subid-search" class="search max-w-xs" placeholder="Filtrar por SubID…" />
                 </div>
               </div>
-              <div class="table-scroll table-scroll--dark">
+              <div class="table-scroll table-scroll--dark table-scroll--infinite" id="subid-scroll">
                 <table class="data-table data-table--ops" id="subid-table">
                   <thead id="subid-thead">
                     <tr>
@@ -490,16 +491,10 @@
                 <p class="dashboard-section-desc">Alterações salvam automaticamente · clique para classificar canal e status</p>
               </div>
               <div class="flex flex-wrap items-center gap-2 justify-end w-full md:w-auto">
-                <select id="ops-page-size" class="search search--select">
-                  <option value="10">10 / pág</option>
-                  <option value="25" selected>25 / pág</option>
-                  <option value="50">50 / pág</option>
-                  <option value="100">100 / pág</option>
-                </select>
                 <input type="search" id="ops-search" class="search max-w-xs w-full sm:w-auto" placeholder="Buscar SubID…" />
               </div>
             </div>
-            <div class="table-scroll table-scroll--dark">
+            <div class="table-scroll table-scroll--dark table-scroll--infinite" id="ops-scroll">
               <table class="data-table data-table--ops" id="ops-table">
                 <thead>
                   <tr>
@@ -734,46 +729,154 @@
           </div>
         </section>
 
-        <!-- DATA -->
+        <!-- BACKUP & CONTINGÊNCIA PRO -->
         <section id="view-data" class="view hidden space-y-6">
           <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
             <div>
-              <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1">Base de dados</div>
-              <h1 class="text-2xl font-extrabold text-slate-900" id="data-title">—</h1>
-              <p class="text-xs text-slate-500 mt-1" id="data-sub">—</p>
+              <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1">Shopee</div>
+              <h1 class="text-2xl font-extrabold text-slate-900" id="data-title">Backup</h1>
+              <p class="text-xs text-slate-500 mt-1" id="data-sub">Backup & Contingência Pro — proteja links e monitore reservas.</p>
             </div>
             <button type="button" class="btn ghost sm" data-goto="dashboard">Voltar ao painel</button>
           </div>
-          <section class="light-card rounded-2xl shadow-sm overflow-hidden">
-            <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 class="font-bold text-base text-slate-900" id="data-panel-title">Dados</h3>
-                <p class="text-xs text-slate-500">período do painel</p>
+
+          <div id="backup-root" class="bk-pro space-y-4 max-w-6xl">
+            <div class="bk-hero">
+              <div class="bk-hero-text">
+                <h2 class="bk-hero-title"><i class="fa-solid fa-briefcase"></i> Backup & Contingência Pro</h2>
+                <p class="bk-hero-desc">Proteja links, garimpe por histórico real e radar de recompra. Preço e comissão atualizam automaticamente 3x/dia (6h, 14h e 22h BRT).</p>
               </div>
-              <div class="flex flex-wrap gap-2">
-                <select id="data-page-size" class="search--select">
-                  <option value="10">10 / pág</option>
-                  <option value="25">25 / pág</option>
-                  <option value="50">50 / pág</option>
-                  <option value="100">100 / pág</option>
-                </select>
-                <input type="search" id="data-search" class="search" placeholder="Buscar na tabela…" />
+              <button type="button" class="bk-hero-btn" id="btn-backup-varrer">
+                <i class="fa-solid fa-rotate"></i>
+                <span>Varrer todas as ofertas</span>
+              </button>
+            </div>
+
+            <div class="bk-kpi-grid" id="backup-kpi-grid">
+              <div class="bk-kpi" data-k="backups"><span class="bk-kpi-label">Backups</span><strong>—</strong><em>—</em></div>
+              <div class="bk-kpi" data-k="cobertura"><span class="bk-kpi-label">Cobertura API</span><strong>—</strong><em>—</em></div>
+              <div class="bk-kpi" data-k="fora"><span class="bk-kpi-label">Fora do afiliado</span><strong>—</strong><em>revisar link</em></div>
+              <div class="bk-kpi" data-k="sinais"><span class="bk-kpi-label">Sinais críticos</span><strong>—</strong><em>—</em></div>
+              <div class="bk-kpi" data-k="scan"><span class="bk-kpi-label">Scan mais antigo</span><strong>—</strong><em>—</em></div>
+              <div class="bk-kpi" data-k="comissao"><span class="bk-kpi-label">Comissão média</span><strong>—</strong><em>—</em></div>
+              <div class="bk-kpi bk-kpi--wide" data-k="trocar"><span class="bk-kpi-label">Trocar principal</span><strong>—</strong><em>—</em></div>
+              <div class="bk-kpi bk-kpi--wide" data-k="variantes"><span class="bk-kpi-label">Variantes com faixa</span><strong>—</strong><em>—</em></div>
+              <div class="bk-kpi bk-kpi--wide" data-k="loja"><span class="bk-kpi-label">Loja com mais backups</span><strong>—</strong><em>—</em></div>
+            </div>
+
+            <div class="bk-tabs" id="backup-tabs">
+              <button type="button" class="backup-tab is-active" data-backup-tab="grupos">Ninhos/Grupos</button>
+              <button type="button" class="backup-tab" data-backup-tab="cadastrar">+ Cadastrar link</button>
+              <button type="button" class="backup-tab" data-backup-tab="listagem">Meus Backups</button>
+              <button type="button" class="backup-tab" data-backup-tab="garimpo">Garimpo inteligente</button>
+              <button type="button" class="backup-tab" data-backup-tab="recompra">Radar de recompra</button>
+              <button type="button" class="backup-tab" data-backup-tab="similar">Rastrear similares</button>
+              <button type="button" class="backup-tab" data-backup-tab="config">Configurações</button>
+            </div>
+
+            <div id="backup-tab-grupos" class="space-y-4">
+              <div class="bk-toolbar">
+                <div class="bk-toolbar-search">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input type="search" id="backup-grupo-search" placeholder="Pesquisar por nicho, nome do grupo ou produto principal…" />
+                </div>
+                <div class="bk-toolbar-actions">
+                  <label class="bk-nicho-label">Nicho:</label>
+                  <select id="backup-grupo-nicho" class="bk-nicho-select">
+                    <option value="todas">Todos os nichos</option>
+                  </select>
+                  <button type="button" class="bk-btn-dark" id="btn-backup-criar-grupo"><i class="fa-solid fa-plus"></i> Criar grupo</button>
+                </div>
               </div>
+              <div id="backup-grupos-list" class="space-y-3"></div>
             </div>
-            <div class="overflow-x-auto">
-              <table class="data-table">
-                <thead id="data-thead"></thead>
-                <tbody id="data-tbody"></tbody>
-              </table>
+
+            <div id="backup-tab-cadastrar" class="hidden space-y-4">
+              <section class="light-card rounded-2xl p-5 shadow-sm">
+                <label class="block text-sm font-semibold text-slate-800 mb-2">Cole o link Shopee</label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <input type="url" id="backup-url" class="search flex-1" placeholder="https://shopee.com.br/product/SHOP_ID/ITEM_ID" />
+                  <button type="button" class="btn brand sm" id="btn-backup-lookup">Buscar</button>
+                </div>
+                <p class="text-xs text-slate-500 mt-2">Aceita link completo (/product/SHOP/ITEM ou -i.SHOP.ITEM) e tenta resolver links curtos (s.shopee.com.br).</p>
+                <p class="form-status mt-2" id="backup-lookup-status"></p>
+              </section>
+              <section class="light-card rounded-2xl p-5 shadow-sm">
+                <label class="block text-sm font-semibold text-slate-800 mb-2">Ou busque por nome na API Shopee</label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <input type="search" id="backup-keyword" class="search flex-1" placeholder="Ex: wide jeans, legging canelada…" />
+                  <button type="button" class="btn ghost sm" id="btn-backup-search">Buscar ofertas</button>
+                </div>
+                <div id="backup-search-results" class="mt-3 space-y-2"></div>
+              </section>
+              <div id="backup-lookup-result"></div>
             </div>
-            <div class="pager" id="data-pager"></div>
-          </section>
+
+            <div id="backup-tab-listagem" class="hidden space-y-4">
+              <section class="light-card rounded-2xl p-5 shadow-sm space-y-3">
+                <input type="search" id="backup-search" class="search w-full" placeholder="Buscar por nome ou apelido…" />
+                <div class="flex gap-2 flex-wrap" id="backup-filters">
+                  <button type="button" class="bk-chip is-active" data-backup-filter="todos">Todos</button>
+                  <button type="button" class="bk-chip" data-backup-filter="alertas">Com alertas</button>
+                  <button type="button" class="bk-chip" data-backup-filter="principais">Principais</button>
+                </div>
+                <p class="text-xs text-slate-500" id="backup-list-meta">—</p>
+              </section>
+              <div id="backup-list" class="space-y-3"></div>
+            </div>
+
+            <div id="backup-tab-garimpo" class="hidden space-y-4">
+              <div class="bk-subtabs" id="backup-garimpo-subtabs">
+                <button type="button" class="bk-chip is-active" data-garimpo-aba="portfolio">Já vendi</button>
+                <button type="button" class="bk-chip" data-garimpo-aba="descoberta">Descoberta</button>
+              </div>
+              <input type="search" id="backup-garimpo-search" class="search w-full" placeholder="Buscar por nome ou loja…" />
+              <p class="text-xs text-slate-500" id="backup-garimpo-meta">—</p>
+              <div id="backup-garimpo-list" class="space-y-2"></div>
+            </div>
+
+            <div id="backup-tab-recompra" class="hidden space-y-4">
+              <input type="search" id="backup-recompra-search" class="search w-full" placeholder="Buscar produto para recompra…" />
+              <p class="text-xs text-slate-500" id="backup-recompra-meta">—</p>
+              <div id="backup-recompra-list" class="space-y-2"></div>
+            </div>
+
+            <div id="backup-tab-similar" class="hidden space-y-4">
+              <section class="light-card rounded-2xl p-5 shadow-sm">
+                <label class="block text-sm font-semibold text-slate-800 mb-2">Escolha um produto principal</label>
+                <select id="backup-similar-select" class="search w-full"></select>
+              </section>
+              <div id="backup-similar-results"></div>
+            </div>
+
+            <div id="backup-tab-config" class="hidden space-y-4">
+              <section class="light-card rounded-2xl p-5 shadow-sm space-y-4">
+                <h3 class="text-sm font-extrabold text-slate-900">Configurações do Contingência Pro</h3>
+                <p class="text-xs text-slate-500">Preferências locais deste navegador. A varredura em lote usa a API Shopee.</p>
+                <label class="bk-cfg-row">
+                  <span>Auto-abrir Ninhos/Grupos ao entrar</span>
+                  <input type="checkbox" id="bk-cfg-default-grupos" checked />
+                </label>
+                <label class="bk-cfg-row">
+                  <span>Confirmar antes de varrer todas as ofertas</span>
+                  <input type="checkbox" id="bk-cfg-confirm-varrer" checked />
+                </label>
+                <label class="bk-cfg-row">
+                  <span>Mostrar KPIs no topo</span>
+                  <input type="checkbox" id="bk-cfg-show-kpi" checked />
+                </label>
+                <button type="button" class="btn brand sm" id="btn-backup-cfg-save">Salvar preferências</button>
+                <p class="form-status" id="backup-cfg-status"></p>
+              </section>
+            </div>
+          </div>
         </section>
 
       </div>
     </main>
   </div>
 
+  <script src="/backup.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

@@ -430,4 +430,5 @@ module.exports = {
   clearCredsCache,
   toUnixDayStart,
   toUnixDayEnd,
+  shopeeGraphql,
 };

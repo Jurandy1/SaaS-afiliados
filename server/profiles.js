@@ -220,7 +220,7 @@ async function deleteUserAccount(userId, actorId) {
 
   const sb = getSupabaseAdmin();
   const tables = [
-    "order_items", "orders", "products", "daily_metrics", "subid_metrics",
+    "order_items", "orders", "products", "product_backups", "daily_metrics", "subid_metrics",
     "sync_runs", "meta_ads_daily", "pinterest_ads_daily", "app_credentials",
     "meta_credentials", "app_settings", "user_profiles",
   ];

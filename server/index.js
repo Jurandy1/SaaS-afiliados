@@ -28,6 +28,28 @@ const {
   loadCampaigns,
 } = require("./meta");
 const { importPinterestCsv } = require("./pinterest");
+const {
+  lookupProduto,
+  salvarBackup,
+  listarBackups,
+  removerBackup,
+  editarBackupMeta,
+  atualizarBackup,
+  atualizarBackupsEmLote,
+  atualizarGrupoBackup,
+  buscarSimilaresDaLoja,
+  criarGrupo,
+  listarGruposCompletos,
+  adicionarBackupAoGrupo,
+  removerBackupDoGrupo,
+  trocarPrincipal,
+  removerGrupo,
+  getBackupDashboardStats,
+  getGarimpoLocal,
+  getRadarRecompra,
+  searchProdutosApi,
+  generateAffiliateShortLink,
+} = require("./backup");
 const { runAutoSync, cronAuthorized, startLocalAutoSync } = require("./autoSync");
 const {
   runWithUser,
@@ -492,6 +514,245 @@ async function requestHandler(req, res) {
               produto: body.produto,
             });
             sendJson(res, 200, { success: true, ...row });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/lookup" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const result = await lookupProduto(body.url || "");
+            sendJson(res, 200, result);
+          } catch (err) {
+            sendJson(res, err.code === "product_not_found" ? 404 : 400, {
+              success: false,
+              error: err.message,
+              code: err.code,
+            });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup" && req.method === "GET") {
+          try {
+            const items = await listarBackups();
+            sendJson(res, 200, { success: true, items });
+          } catch (err) {
+            sendJson(res, 500, { success: false, error: err.message, code: err.code });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const row = await salvarBackup(body.produto, {
+              apelido: body.apelido,
+              marcadoPrincipal: body.marcadoPrincipal,
+            });
+            sendJson(res, 200, { success: true, item: row });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/refresh" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const result = await atualizarBackup(body.itemId);
+            sendJson(res, 200, result);
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message, code: err.code });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/refresh-all" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            let ids = Array.isArray(body.itemIds) ? body.itemIds : null;
+            if (!ids || !ids.length) {
+              const items = await listarBackups();
+              ids = items.map((b) => b.itemId);
+            }
+            const results = await atualizarBackupsEmLote(ids);
+            const sucesso = results.filter((r) => r.ok).length;
+            sendJson(res, 200, { success: true, results, sucesso, total: results.length });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/stats" && req.method === "GET") {
+          try {
+            const stats = await getBackupDashboardStats();
+            sendJson(res, 200, { success: true, stats });
+          } catch (err) {
+            sendJson(res, 500, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/garimpo" && req.method === "GET") {
+          try {
+            const data = await getGarimpoLocal(80);
+            sendJson(res, 200, { success: true, ...data });
+          } catch (err) {
+            sendJson(res, 500, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/recompra" && req.method === "GET") {
+          try {
+            const data = await getRadarRecompra(40);
+            sendJson(res, 200, { success: true, ...data });
+          } catch (err) {
+            sendJson(res, 500, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/grupos/refresh" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const result = await atualizarGrupoBackup(body.grupoId);
+            sendJson(res, 200, { success: true, ...result });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/meta" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            await editarBackupMeta(body.itemId, {
+              apelido: body.apelido,
+              marcadoPrincipal: body.marcadoPrincipal,
+            });
+            sendJson(res, 200, { success: true });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/delete" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            await removerBackup(body.itemId);
+            sendJson(res, 200, { success: true });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/similares" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const items = await buscarSimilaresDaLoja(
+              body.loja,
+              body.excluirItemId || null,
+              undefined,
+              body.shopId || null,
+            );
+            sendJson(res, 200, { success: true, items });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/search" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const result = await searchProdutosApi(body.keyword || "", {
+              shopId: body.shopId || null,
+              limit: Number(body.limit) || 20,
+            });
+            sendJson(res, 200, { success: true, ...result });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/shortlink" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const link = await generateAffiliateShortLink(body.originUrl || "", body.subIds || []);
+            sendJson(res, 200, { success: true, ...link });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/grupos" && req.method === "GET") {
+          try {
+            const grupos = await listarGruposCompletos();
+            sendJson(res, 200, { success: true, grupos });
+          } catch (err) {
+            sendJson(res, 500, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/grupos" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const g = await criarGrupo(body.nome, body.principalItemId);
+            sendJson(res, 200, { success: true, grupo: g });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/grupos/add" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            await adicionarBackupAoGrupo(body.grupoId, body.itemId);
+            sendJson(res, 200, { success: true });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/grupos/remove-item" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            await removerBackupDoGrupo(body.grupoId, body.itemId);
+            sendJson(res, 200, { success: true });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/grupos/swap" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            await trocarPrincipal(body.grupoId, body.novoPrincipalItemId, body.motivo || "");
+            sendJson(res, 200, { success: true });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/backup/grupos/delete" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            await removerGrupo(body.grupoId);
+            sendJson(res, 200, { success: true });
           } catch (err) {
             sendJson(res, 400, { success: false, error: err.message });
           }

@@ -101,7 +101,7 @@
     "analise-ia": "Análise IA",
     canais: "Canais e status",
     config: "Configurações",
-    produtos: "Produtos",
+    produtos: "Backup",
     campanhas: "Campanhas",
     pedidos: "Pedidos",
   };
@@ -135,10 +135,12 @@
     periodPreset: "7d",
     cfgTab: "conexoes",
     subidPage: 1,
+    subidVisible: 40,
     opsPage: 1,
+    opsVisible: 40,
     opsPageSize: 25,
     expandedSubIds: {},
-    pageSize: 10,
+    pageSize: 40,
     dataRows: [],
     dataHeaders: [],
     dataKind: null,
@@ -359,6 +361,8 @@
     }
     return json;
   }
+  // Shared by BackupUI and other modules loaded before/after app.js
+  window.api = api;
 
   function setCfgTab(tab) {
     const allowed = ["conexoes", "impostos", "metas", "indefinidos"];
@@ -481,7 +485,6 @@
     const subs = hasData && subCount != null ? fmtNum(subCount) : "—";
     const fat = hasData ? Number(k.faturamento || 0) : null;
     const com = hasData ? Number(k.comissao || 0) : null;
-    const abat = hasData ? k.abatimento : null;
     const el = $("#kpi-grid");
     if (!el) return;
 
@@ -502,14 +505,10 @@
           </div>
           <p class="text-[11px] text-emerald-100/90 mt-1 font-medium">Lucro real após mídia e impostos</p>
         </div>
-        <div class="relative grid grid-cols-3 gap-1.5 sm:gap-2 pt-3 border-t border-white/20 text-center min-w-0">
+        <div class="relative grid grid-cols-2 gap-1.5 sm:gap-2 pt-3 border-t border-white/20 text-center min-w-0">
           <div class="bg-black/10 p-1.5 rounded-xl min-w-0">
             <p class="text-[10px] text-emerald-100">ROI</p>
             <p class="text-xs font-extrabold text-white break-words">${fmtPct(hasRoi ? roi : null)}</p>
-          </div>
-          <div class="bg-black/10 p-1.5 rounded-xl min-w-0">
-            <p class="text-[10px] text-emerald-100">Abatimento</p>
-            <p class="text-xs font-extrabold text-amber-200 break-words">${fmtPct(abat)}</p>
           </div>
           <div class="bg-black/10 p-1.5 rounded-xl min-w-0">
             <p class="text-[10px] text-emerald-100">SubIDs</p>
@@ -522,20 +521,20 @@
         <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
         <div class="relative flex items-center justify-between mb-3 gap-2 min-w-0">
           <span class="text-xs font-bold uppercase tracking-wider text-orange-100 flex items-center gap-1.5 min-w-0">
-            <img src="/assets/shopee.png" alt="" width="16" height="16" class="shrink-0" /> Faturamento Bruto
+            <img src="/assets/shopee.png" alt="" width="16" height="16" class="shrink-0" /> Comissão Shopee Total
           </span>
           <span class="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-md font-bold shrink-0">Shopee API</span>
         </div>
         <div class="relative mb-4 min-w-0">
           <div class="kpi-hero-value text-white">
             <span class="text-lg font-bold text-orange-200 shrink-0">R$</span>
-            <span>${money(fat)}</span>
+            <span>${money(com)}</span>
           </div>
-          <p class="text-[11px] text-orange-100/90 mt-1 font-medium">Volume total vendido gerado por SubIDs</p>
+          <p class="text-[11px] text-orange-100/90 mt-1 font-medium">Comissão gerada pelos SubIDs no período</p>
         </div>
         <div class="relative kpi-hero-foot bg-black/10 p-2.5 rounded-xl mt-auto">
-          <span class="text-xs text-orange-100 shrink-0">Comissão Shopee Total:</span>
-          <span class="text-xs font-black text-white">${fmt(com)}</span>
+          <span class="text-xs text-orange-100 shrink-0">Faturamento bruto:</span>
+          <span class="text-xs font-black text-white">${fmt(fat)}</span>
         </div>
       </div>
 
@@ -1687,7 +1686,7 @@
     $$(".channel-only").forEach((el) => el.classList.toggle("hidden", !isChannel));
     const label = CHANNEL_LABELS[ch] || "Geral";
     const eyebrow = $("#dash-subids-eyebrow");
-    if (eyebrow) eyebrow.textContent = `canal ${label} · altere o status · clique para o histórico`;
+    if (eyebrow) eyebrow.textContent = `canal ${label} · altere o status`;
     const subidsIcon = $("#dash-subids-icon");
     if (subidsIcon) {
       const iconSrc = ch === "meta"
@@ -1977,9 +1976,7 @@
       : (r.abatimento != null ? Number(r.abatimento) : null);
     switch (col.key) {
       case "subid":
-        return `<td class="subid" data-subid="${escapeHtml(String(r.subid || ""))}" title="Clique para ver o historico diario">
-          <span class="subid-caret"></span>${escapeHtml(String(r.subid || ""))}
-        </td>`;
+        return `<td class="subid" data-subid="${escapeHtml(String(r.subid || ""))}">${escapeHtml(String(r.subid || ""))}</td>`;
       case "faturamento": return `<td class="num cell-emerald">${fmt(r.faturamento)}</td>`;
       case "comissao": return `<td class="num cell-emerald">${fmt(r.comissao)}</td>`;
       case "inv_total": return `<td class="num cell-gasto">${fmt(inv)}</td>`;
@@ -2083,6 +2080,28 @@
     }
   }
 
+  function wireInfiniteScroll(scrollSel, onMore) {
+    const el = $(scrollSel);
+    if (!el || el.dataset.infiniteWired === "1") return;
+    el.dataset.infiniteWired = "1";
+    el.addEventListener("scroll", () => {
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) onMore();
+    });
+  }
+
+  function renderInfiniteHint(el, shown, total) {
+    if (!el) return;
+    if (!total) {
+      el.innerHTML = "";
+      return;
+    }
+    if (shown >= total) {
+      el.innerHTML = `<span class="infinite-hint">${fmtNum(total)} registro(s)</span>`;
+      return;
+    }
+    el.innerHTML = `<span class="infinite-hint">Mostrando ${fmtNum(shown)} de ${fmtNum(total)} · role para carregar mais</span>`;
+  }
+
   function renderOpsTable() {
     const tb = $("#ops-tbody");
     if (!tb) return;
@@ -2090,12 +2109,9 @@
     let list = sortRows(state.dash?.subIds || [], "subid", "asc", (r) => r.subid);
     if (q) list = list.filter((r) => String(r.subid || "").toLowerCase().includes(q));
 
-    const pageSize = Number(state.opsPageSize) || 25;
     const total = list.length;
-    const pages = Math.max(1, Math.ceil(total / pageSize));
-    if (state.opsPage > pages) state.opsPage = pages;
-    if (state.opsPage < 1) state.opsPage = 1;
-    const slice = list.slice((state.opsPage - 1) * pageSize, state.opsPage * pageSize);
+    if (!state.opsVisible || state.opsVisible < 40) state.opsVisible = 40;
+    const slice = list.slice(0, state.opsVisible);
 
     const countPill = $("#ops-count-pill");
     if (countPill) countPill.textContent = fmtNum(total);
@@ -2111,14 +2127,12 @@
       </tr>`;
     }).join("") || `<tr><td colspan="3" class="cell-muted">${state.dash ? "Nenhum SubID encontrado." : "Carregue o painel para listar SubIDs."}</td></tr>`;
     wireOpsSelects("#ops-tbody");
-
-    const pager = $("#ops-pager");
-    if (pager) {
-      renderPager(pager, state.opsPage, total, pageSize, (p) => {
-        state.opsPage = p;
-        renderOpsTable();
-      });
-    }
+    renderInfiniteHint($("#ops-pager"), slice.length, total);
+    wireInfiniteScroll("#ops-scroll", () => {
+      if (state.opsVisible >= total) return;
+      state.opsVisible += 40;
+      renderOpsTable();
+    });
   }
 
   function renderIndefinidos() {
@@ -2276,9 +2290,8 @@
     });
     paintSortHeaders("#subid-thead", state.subidSort);
     const total = all.length;
-    const pages = Math.max(1, Math.ceil(total / state.pageSize));
-    if (state.subidPage > pages) state.subidPage = pages;
-    const slice = all.slice((state.subidPage - 1) * state.pageSize, state.subidPage * state.pageSize);
+    if (!state.subidVisible || state.subidVisible < 40) state.subidVisible = 40;
+    const slice = all.slice(0, state.subidVisible);
     const pill = $("#subid-count-pill");
     if (pill) pill.textContent = fmtNum(total);
     const tbody = $("#subid-tbody");
@@ -2286,16 +2299,15 @@
     const span = cols.length;
     tbody.innerHTML = slice.map((r) => {
       const id = String(r.subid || "");
-      const open = Boolean(state.expandedSubIds[id]);
-      const main = `<tr class="subid-row ${open ? "is-open" : ""}" data-subid="${escapeHtml(id)}">
+      return `<tr class="subid-row" data-subid="${escapeHtml(id)}">
         ${cols.map((c) => cellForSubidCol(r, c, ch)).join("")}
       </tr>`;
-      return open ? main + subIdDailyHistoryHtml(r, span) : main;
     }).join("") || `<tr><td colspan="${span}">Nenhum SubID neste canal no período.</td></tr>`;
-    wireSubIdExpand("#subid-tbody", renderSubIdsDash);
     wireOpsSelects("#subid-tbody");
-    renderPager($("#subid-pager"), state.subidPage, total, state.pageSize, (p) => {
-      state.subidPage = p;
+    renderInfiniteHint($("#subid-pager"), slice.length, total);
+    wireInfiniteScroll("#subid-scroll", () => {
+      if (state.subidVisible >= total) return;
+      state.subidVisible += 40;
       renderSubIdsDash();
     });
   }
@@ -2365,11 +2377,30 @@
     });
   }
 
+  async function renderBackupPage() {
+    if (window.BackupUI) await window.BackupUI.mount();
+  }
+
   async function loadDataView(view) {
-    $("#data-title").textContent = VIEW_LABELS[view] || view;
-    $("#data-sub").textContent = "Dados reais da sua conta no período selecionado.";
-    $("#data-panel-title").textContent = VIEW_LABELS[view];
+    const titleEl = $("#data-title");
+    const subEl = $("#data-sub");
+    if (titleEl) titleEl.textContent = VIEW_LABELS[view] || view;
+    if (subEl) {
+      subEl.textContent = view === "produtos"
+        ? "Backup & Contingência Pro — proteja links, grupos e radar de recompra."
+        : "Dados reais da sua conta no período selecionado.";
+    }
+    const panelTitle = $("#data-panel-title");
+    if (panelTitle) panelTitle.textContent = VIEW_LABELS[view];
     state.dataKind = view;
+
+    if (view === "produtos") {
+      await renderBackupPage();
+      return;
+    }
+
+    if (!$("#data-thead")) return;
+
     const start = $("#start-date")?.value || daysAgoISO(6);
     const end = $("#end-date")?.value || todayISO();
 
@@ -2404,49 +2435,6 @@
           orders,
         );
         $("#data-sub").textContent = `${orders.length} pedidos no período ${start} a ${end}`;
-      } else if (view === "produtos") {
-        let products = [];
-        try {
-          const r = await api("/api/products");
-          products = r.products || [];
-        } catch (_) {}
-        if (!products.length && state.dash?.productsPreview) products = state.dash.productsPreview;
-        // Último recurso: agrupa pedidos recentes como linhas de produto
-        if (!products.length && (state.dash?.ordersPreview || []).length) {
-          const map = {};
-          for (const o of state.dash.ordersPreview) {
-            const id = o.order_id || o.subid || "—";
-            if (!map[id]) {
-              map[id] = {
-                item_name: `Pedido ${id}`,
-                shop_name: o.subid || "—",
-                pedidos: 0,
-                qty: 0,
-                faturamento: 0,
-                comissao: 0,
-              };
-            }
-            map[id].pedidos += 1;
-            map[id].qty += 1;
-            map[id].faturamento += Number(o.faturamento || 0);
-            map[id].comissao += Number(o.comissao || 0);
-          }
-          products = Object.values(map).sort((a, b) => b.comissao - a.comissao);
-        }
-        paintDataTable(
-          [
-            { label: "Item", key: "item_name" },
-            { label: "Loja", key: "shop_name" },
-            { label: "Pedidos", num: true, render: (x) => fmtNum(x.pedidos) },
-            { label: "Qtd", num: true, render: (x) => fmtNum(x.qty) },
-            { label: "Faturamento", num: true, render: (x) => fmt(x.faturamento) },
-            { label: "Comissão", num: true, render: (x) => fmt(x.comissao) },
-          ],
-          products,
-        );
-        $("#data-sub").textContent = products.length
-          ? `${products.length} produtos com venda`
-          : "Sem produtos — sincronize a Shopee no Painel.";
       } else if (view === "campanhas") {
         const r = await api(`/api/campaigns?start=${start}&end=${end}`);
         const campaigns = r.campaigns || [];
@@ -2581,6 +2569,8 @@
   function applyDash(dash, { cached } = {}) {
     state.dash = dash;
     state.subidPage = 1;
+    state.subidVisible = 40;
+    state.opsVisible = 40;
     const k = dash.kpis || {};
     applyChannelView();
     renderOpsTable();
@@ -3093,32 +3083,14 @@
       }
     });
 
-    $("#subid-search")?.addEventListener("input", () => { state.subidPage = 1; renderSubIdsDash(); });
-    $("#ops-search")?.addEventListener("input", () => { state.opsPage = 1; renderOpsTable(); });
-    $("#ops-page-size")?.addEventListener("change", () => {
-      state.opsPageSize = Number($("#ops-page-size").value) || 25;
-      state.opsPage = 1;
-      renderOpsTable();
-    });
+    $("#subid-search")?.addEventListener("input", () => { state.subidVisible = 40; renderSubIdsDash(); });
+    $("#ops-search")?.addEventListener("input", () => { state.opsVisible = 40; renderOpsTable(); });
     wireSortHeaders("#subid-thead", () => state.subidSort, () => {
-      state.subidPage = 1;
+      state.subidVisible = 40;
       renderSubIdsDash();
     });
     wireSortHeaders("#daily-table thead", () => state.dailySort, () => {
       renderDailyTable(state.dailyRows, state.dash?.kpis || {});
-    });
-    wireSortHeaders("#data-thead", () => state.dataSort, () => {
-      state.dataPage = 1;
-      renderDataBody();
-    });
-    $("#data-search")?.addEventListener("input", () => {
-      state.dataPage = 1;
-      renderDataBody();
-    });
-    $("#data-page-size")?.addEventListener("change", () => {
-      state.dataPageSize = Number($("#data-page-size").value) || 10;
-      state.dataPage = 1;
-      renderDataBody();
     });
 
     $("#cred-form").addEventListener("submit", async (e) => {
