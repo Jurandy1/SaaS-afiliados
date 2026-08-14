@@ -1242,6 +1242,16 @@
   }
 
   function iaWelcomeHtml() {
+    if (!state.claudeConfigured) {
+      return `<div class="ia-welcome" data-welcome="1">
+      <div class="ia-welcome-icon"><img src="/assets/ia.png?v=3" alt="" width="40" height="40" /></div>
+      <h2>Conecte sua API do Claude</h2>
+      <p>Cada conta usa a própria key da Anthropic (igual Shopee e Meta). Não há key global no servidor.</p>
+      <div class="ia-chat-suggestions" id="ia-chat-suggestions">
+        <button type="button" class="ia-chip" data-ia-goto-config="1">Abrir Configurações → Conexões</button>
+      </div>
+    </div>`;
+    }
     return `<div class="ia-welcome" data-welcome="1">
       <div class="ia-welcome-icon"><img src="/assets/ia.png?v=3" alt="" width="40" height="40" /></div>
       <h2>Pergunte sobre a operação</h2>
@@ -1259,7 +1269,13 @@
     (root || document).querySelectorAll("#ia-chat-suggestions .ia-chip").forEach((btn) => {
       if (btn.dataset.wired) return;
       btn.dataset.wired = "1";
-      btn.addEventListener("click", () => sendIaChat(btn.dataset.prompt || btn.textContent));
+      btn.addEventListener("click", () => {
+        if (btn.dataset.iaGotoConfig) {
+          openConfig("conexoes");
+          return;
+        }
+        sendIaChat(btn.dataset.prompt || btn.textContent);
+      });
     });
   }
 
@@ -1324,7 +1340,7 @@
       const st = $("#ia-chat-status");
       if (st) {
         st.className = "ia-chat-status is-err";
-        st.textContent = "Configure a API do Claude em Configurações → Conexões.";
+        st.textContent = "Salve a sua API key do Claude em Configurações → Conexões (cada usuário configura a própria).";
       }
       openConfig("conexoes");
       return;
@@ -2872,7 +2888,7 @@
       const c = await api("/api/ai/credentials");
       state.claudeConfigured = Boolean(c.configured);
       setStateChip("#cfg-claude-state", c.configured, "Conectada", "Pendente");
-      setStateChip("#ia-claude-state", c.configured, "Claude OK", "Sem API");
+      setStateChip("#ia-claude-state", c.configured, "Sua key OK", "Configurar");
       if (c.pricing?.label) state.iaUsage.pricingLabel = c.pricing.label;
       if ($("#claude-model")) {
         $("#claude-model").value = c.model || "claude-sonnet-4-6";
@@ -2881,16 +2897,17 @@
         $("#claude-api-key").value = "";
         $("#claude-api-key").placeholder = c.apiKeyMasked
           ? `Salvo: ${c.apiKeyMasked} (deixe vazio para manter)`
-          : "sk-ant-…";
+          : "sk-ant-… (sua key Anthropic)";
       }
       const navIa = $("#nav-count-ia");
-      if (navIa) navIa.textContent = c.configured ? "Chat" : "";
+      if (navIa) navIa.textContent = c.configured ? "Chat" : "Key";
       const pricingPill = $("#ia-pricing-pill");
       if (pricingPill && c.pricing) {
         pricingPill.textContent =
           `Cobrança: in US$${c.pricing.inputPerMTokUsd}/1M · out US$${c.pricing.outputPerMTokUsd}/1M tokens`;
       }
       updateIaTokenBoard();
+      if (!state.iaChat.length) mountIaChat();
     } catch (e) {
       console.warn(e);
       const st = $("#ia-chat-status");

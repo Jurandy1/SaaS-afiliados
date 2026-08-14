@@ -451,7 +451,7 @@
                 <img class="ia-topbar-logo" src="/assets/ia.png?v=3" alt="" width="28" height="28" />
                 <div class="ia-topbar-titles min-w-0">
                   <h1 class="ia-topbar-title">Análise IA</h1>
-                  <p class="ia-topbar-sub">Claude · dados do seu Supabase</p>
+                  <p class="ia-topbar-sub">Claude · key da sua conta</p>
                 </div>
               </div>
               <div class="ia-topbar-right">
@@ -480,14 +480,8 @@
               <div class="ia-chat-messages" id="ia-chat-messages" role="log" aria-live="polite">
                 <div class="ia-welcome" data-welcome="1">
                   <div class="ia-welcome-icon"><img src="/assets/ia.png?v=3" alt="" width="36" height="36" /></div>
-                  <h2>Pergunte sobre a operação</h2>
-                  <p>Ex.: “Qual campanha está com ROI ruim?”</p>
-                  <div class="ia-chat-suggestions" id="ia-chat-suggestions">
-                    <button type="button" class="ia-chip" data-prompt="Qual campanha ou SubID está com ROI ruim no período? Liste os piores com invest e ROI.">ROI ruim</button>
-                    <button type="button" class="ia-chip" data-prompt="Quais SubIDs Meta eu deveria pausar ou escalar agora? Justifique com números.">Pausar / escalar</button>
-                    <button type="button" class="ia-chip" data-prompt="Como está o progresso da meta de faturamento do mês e o que falta para 100%/125%/150%?">Meta do mês</button>
-                    <button type="button" class="ia-chip" data-prompt="Resuma top produtos, pedidos e onde está o maior lucro vs maior gasto.">Visão completa</button>
-                  </div>
+                  <h2>Conecte sua API do Claude</h2>
+                  <p>Cada conta usa a própria key da Anthropic. Vá em Configurações → Conexões.</p>
                 </div>
               </div>
 
@@ -671,7 +665,7 @@
                       <img class="rounded" src="/assets/ia.png?v=3" alt="" width="22" height="22" />
                       <div>
                         <div class="settings-card-title">Claude (Anthropic)</div>
-                        <div class="settings-card-sub">Análise IA com seus dados do painel</div>
+                        <div class="settings-card-sub">Key individual · Análise IA</div>
                       </div>
                     </div>
                     <span class="state-chip" id="cfg-claude-state">Pendente</span>
@@ -683,7 +677,7 @@
                     <label>Modelo
                       <input type="text" id="claude-model" autocomplete="off" placeholder="claude-sonnet-4-6" />
                     </label>
-                    <p class="hint">Mesma API Anthropic (Messages). A key fica no Supabase e alimenta o chat em Análise IA.</p>
+                    <p class="hint">Cada usuário cola a própria key da Anthropic (como Shopee/Meta). Fica só na conta dele no Supabase — não use key global no Vercel.</p>
                     <div class="form-actions">
                       <button type="submit" class="btn primary sm">Salvar</button>
                       <button type="button" class="btn ghost sm" id="btn-claude-test">Testar</button>
