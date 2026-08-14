@@ -22,12 +22,25 @@ create table if not exists meta_credentials (
   updated_at timestamptz not null default now()
 );
 
+-- Credenciais Pinterest Ads por usuário
+create table if not exists pinterest_credentials (
+  user_id uuid primary key,
+  app_id text not null default '',
+  access_token text not null default '',
+  ad_account_ids text not null default '',
+  last_sync_at timestamptz,
+  last_sync_meta jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists app_settings (
   user_id uuid primary key,
   meta_base numeric not null default 863959,
   tax_rate numeric not null default 0,
   team_name text not null default 'Minha conta',
   team_plan text not null default 'Shopee · Meta',
+  claude_api_key text not null default '',
+  claude_model text not null default 'claude-sonnet-4-20250514',
   updated_at timestamptz not null default now()
 );
 

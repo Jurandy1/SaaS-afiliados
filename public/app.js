@@ -121,6 +121,16 @@
     dash: null,
     configured: false,
     metaConfigured: false,
+    claudeConfigured: false,
+    iaChat: [],
+    iaBusy: false,
+    iaUsage: {
+      sessionIn: 0,
+      sessionOut: 0,
+      sessionCostUsd: 0,
+      last: null,
+      pricingLabel: "Sonnet",
+    },
     settings: {
       taxRate: 11.7,
       metaTaxRate: 12,
@@ -421,7 +431,12 @@
     setSidebarOpen(false);
 
     if (view === "dashboard") applyChannelView();
-    if (view === "analise-ia") renderSuggestions(state.dash);
+    if (view === "analise-ia") {
+      mountIaChat();
+      updateIaTokenBoard();
+      updateIaPeriodPill();
+      loadClaudeCreds();
+    }
     if (view === "canais") renderOpsTable();
     if (view === "config") {
       setCfgTab(navKey === "integracoes" ? "conexoes" : state.cfgTab || "conexoes");
@@ -1128,91 +1143,253 @@
     renderChart(state.chartDaily.length ? state.chartDaily : (state.dash?.daily || []));
   }
 
-  function renderSuggestions(dash) {
-    const el = $("#suggestions-body");
-    const countEl = $("#suggestions-count");
-    if (!el) return;
-    const subs = (dash?.subIds || []).filter((s) => (s.canal || "indefinido") === "meta");
-    const tips = [];
-    for (const s of subs) {
-      const days = [...(s.daily || [])].sort((a, b) => String(a.data).localeCompare(String(b.data)));
-      const last15 = days.slice(-15);
-      const inv15 = last15.reduce((a, d) => a + Number(d.inv_meta || 0), 0);
-      const lucro15 = last15.reduce((a, d) => a + Number(d.lucro || 0), 0);
-      const roi15 = inv15 > 0 ? (lucro15 / inv15) * 100 : Number(s.roi);
-      const inv = Number(s.inv_meta || s.inv_total || 0);
-      const lucro = Number(s.lucro || 0);
-      const st = normalizeStatus(s.status);
-      const roi = Number.isFinite(roi15) ? roi15 : Number(s.roi);
-      const vendas = Number(s.pedidos || 0);
+  function formatIaMarkdown(text) {
+    const esc = escapeHtml(String(text || ""));
+    return esc
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\n{2,}/g, "</p><p>")
+      .replace(/\n/g, "<br>");
+  }
 
-      if (st === "ativa" && Number.isFinite(roi) && roi < 40 && inv > 0) {
-        tips.push({
-          subid: s.subid,
-          tag: "PAUSAR",
-          tagKind: "pausar",
-          reason: `ROI 15d ${fmtPct(roi)} · invest ${fmtMoney(inv)} · ${fmtNum(vendas)} vendas · sem escala`,
-          action: "Pausar campanha",
-          actionKind: "pausar",
-        });
-      } else if (st === "ativa" && Number.isFinite(roi) && roi >= 40 && inv > 0) {
-        const recent = last15.filter((d) => Number(d.inv_meta || 0) > 0).slice(-4);
-        if (recent.length >= 4 && recent.every((d) => Number(d.roi || 0) >= 0)) {
-          tips.push({
-            subid: s.subid,
-            tag: "ESCALAR",
-            tagKind: "escalar",
-            reason: `ROI 15d ${fmtPct(roi)} · consistente · aumentar budget +20%`,
-            action: "Escalar +20%",
-            actionKind: "escalar",
-          });
-        }
-      } else if (st === "teste" && Number.isFinite(roi) && roi <= -70) {
-        tips.push({
-          subid: s.subid,
-          tag: "TESTAR",
-          tagKind: "testar",
-          reason: `Teste com ROI ${fmtPct(roi)} · reduzir budget −70%`,
-          action: "Reduzir −70%",
-          actionKind: "reduzir",
-        });
-      } else if (st === "teste" && lucro > 0 && Number.isFinite(roi) && roi > 0) {
-        tips.push({
-          subid: s.subid,
-          tag: "ESCALAR",
-          tagKind: "escalar",
-          reason: "Teste com ROI positivo · promover para Ativa",
-          action: "Escalar +20%",
-          actionKind: "escalar",
-        });
+  function fmtTok(n) {
+    const v = Number(n || 0);
+    return v.toLocaleString("pt-BR");
+  }
+
+  function fmtUsd(n) {
+    const v = Number(n || 0);
+    const digits = v > 0 && v < 0.01 ? 4 : 2;
+    return `US$ ${v.toLocaleString("pt-BR", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    })}`;
+  }
+
+  function resetIaUsage() {
+    state.iaUsage = {
+      sessionIn: 0,
+      sessionOut: 0,
+      sessionCostUsd: 0,
+      last: null,
+      pricingLabel: state.iaUsage?.pricingLabel || "Sonnet",
+    };
+    updateIaTokenBoard();
+  }
+
+  function updateIaPeriodPill() {
+    const el = $("#ia-period-pill");
+    if (!el) return;
+    const start = $("#start-date")?.value || "—";
+    const end = $("#end-date")?.value || "—";
+    el.textContent = `Período ${start} → ${end}`;
+  }
+
+  function updateIaTokenBoard(extra) {
+    const u = state.iaUsage;
+    const last = u.last;
+    const lastEl = $("#ia-tok-last");
+    const lastDet = $("#ia-tok-last-detail");
+    const sessEl = $("#ia-tok-session");
+    const sessDet = $("#ia-tok-session-detail");
+    const costEl = $("#ia-tok-cost");
+    const costDet = $("#ia-tok-cost-detail");
+    const dataEl = $("#ia-tok-data");
+    const dataDet = $("#ia-tok-data-detail");
+
+    if (lastEl) lastEl.textContent = last ? fmtTok(last.totalTokens) : "—";
+    if (lastDet) {
+      lastDet.textContent = last
+        ? `${fmtTok(last.inputTokens)} entrada · ${fmtTok(last.outputTokens)} saída`
+        : "Envie uma pergunta para ver tokens";
+    }
+    if (sessEl) sessEl.textContent = fmtTok(u.sessionIn + u.sessionOut);
+    if (sessDet) sessDet.textContent = `${fmtTok(u.sessionIn)} in · ${fmtTok(u.sessionOut)} out`;
+    if (costEl) costEl.textContent = fmtUsd(u.sessionCostUsd);
+    if (costDet) {
+      const rates = last?.rates;
+      costDet.textContent = rates
+        ? `${rates.label || u.pricingLabel} · in US$${rates.inputPerMTok}/1M · out US$${rates.outputPerMTok}/1M`
+        : `Tabela Anthropic · ${u.pricingLabel}`;
+    }
+
+    const meta = extra?.contextMeta || last?.contextMeta;
+    if (dataEl && dataDet) {
+      if (meta) {
+        dataEl.textContent = fmtTok(meta.contextApproxTokens || 0);
+        dataDet.textContent =
+          `${meta.totalSubIds || 0} SubIDs · ${meta.products || 0} produtos · ${meta.orders || 0} pedidos · ` +
+          `${meta.campaigns || 0} campanhas · ~${fmtTok(meta.contextApproxTokens || 0)} tok contexto`;
+      } else {
+        dataEl.textContent = "—";
+        dataDet.textContent = "Contexto do banco nesta pergunta";
       }
     }
-    const shown = tips.slice(0, 4);
-    if (countEl) {
-      countEl.textContent = shown.length
-        ? `${shown.length} ${shown.length > 1 ? "ações" : "ação"}`
-        : "—";
+
+    const pricingPill = $("#ia-pricing-pill");
+    if (pricingPill && last?.rates) {
+      pricingPill.textContent =
+        `Cobrança: in US$${last.rates.inputPerMTok}/1M · out US$${last.rates.outputPerMTok}/1M tokens`;
     }
-    const navIa = $("#nav-count-ia");
-    if (navIa) navIa.textContent = shown.length ? fmtNum(shown.length) : "";
-    if (!shown.length) {
-      el.innerHTML = `<div class="sec-empty">Nenhum sinal de corte ou escala no período — Meta está estável.</div>`;
+  }
+
+  function iaUsageMetaHtml(cost) {
+    if (!cost) return "";
+    return `<div class="ia-msg-meta">
+      <span class="ia-meta-chip ia-meta-chip--tok">${fmtTok(cost.totalTokens)} tokens</span>
+      <span class="ia-meta-chip">${fmtTok(cost.inputTokens)} in · ${fmtTok(cost.outputTokens)} out</span>
+      <span class="ia-meta-chip ia-meta-chip--cost">${fmtUsd(cost.totalUsd)}</span>
+    </div>`;
+  }
+
+  function iaWelcomeHtml() {
+    return `<div class="ia-welcome" data-welcome="1">
+      <div class="ia-welcome-icon"><img src="/assets/ia.png?v=3" alt="" width="40" height="40" /></div>
+      <h2>Pergunte sobre a operação</h2>
+      <p>Ex.: “Qual campanha está com ROI ruim?”</p>
+      <div class="ia-chat-suggestions" id="ia-chat-suggestions">
+        <button type="button" class="ia-chip" data-prompt="Qual campanha ou SubID está com ROI ruim no período? Liste os piores com invest e ROI.">ROI ruim</button>
+        <button type="button" class="ia-chip" data-prompt="Quais SubIDs Meta eu deveria pausar ou escalar agora? Justifique com números.">Pausar / escalar</button>
+        <button type="button" class="ia-chip" data-prompt="Como está o progresso da meta de faturamento do mês e o que falta para 100%/125%/150%?">Meta do mês</button>
+        <button type="button" class="ia-chip" data-prompt="Resuma top produtos, pedidos e onde está o maior lucro vs maior gasto.">Visão completa</button>
+      </div>
+    </div>`;
+  }
+
+  function wireIaSuggestionChips(root) {
+    (root || document).querySelectorAll("#ia-chat-suggestions .ia-chip").forEach((btn) => {
+      if (btn.dataset.wired) return;
+      btn.dataset.wired = "1";
+      btn.addEventListener("click", () => sendIaChat(btn.dataset.prompt || btn.textContent));
+    });
+  }
+
+  function appendIaMessage(role, content, { error = false, typing = false, cost = null } = {}) {
+    const box = $("#ia-chat-messages");
+    if (!box) return null;
+    box.querySelector('[data-welcome="1"]')?.remove();
+    const el = document.createElement("div");
+    el.className = `ia-msg ${role === "user" ? "ia-msg--user" : "ia-msg--bot"}${error ? " is-error" : ""}${typing ? " is-typing" : ""}`;
+    const avatar = role === "user"
+      ? `<div class="ia-msg-avatar">Você</div>`
+      : `<div class="ia-msg-avatar"><img src="/assets/ia.png?v=3" alt="" width="20" height="20" /></div>`;
+    const body = typing
+      ? `<p class="ia-typing-dots"><span></span><span></span><span></span> Lendo o banco e analisando…</p>`
+      : `<p>${formatIaMarkdown(content)}</p>`;
+    const meta = role === "assistant" && !typing && !error ? iaUsageMetaHtml(cost) : "";
+    el.innerHTML = `${avatar}<div class="ia-msg-col"><div class="ia-msg-bubble">${body}</div>${meta}</div>`;
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
+    return el;
+  }
+
+  function mountIaChat() {
+    const box = $("#ia-chat-messages");
+    if (!box) return;
+    if (!state.iaChat.length) {
+      box.innerHTML = iaWelcomeHtml();
+      wireIaSuggestionChips(box);
       return;
     }
-    el.innerHTML = shown.map((t) => `
-      <div class="sug-row">
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="sug-subid">${escapeHtml(t.subid)}</span>
-            <span class="sug-tag is-${t.tagKind}">${escapeHtml(t.tag)}</span>
-          </div>
-          <p class="sug-reason">${escapeHtml(t.reason)}</p>
-        </div>
-        <button type="button" class="sug-action-btn is-${t.actionKind}">
-          <i class="fa-solid fa-${t.actionKind === "pausar" ? "pause" : "bolt"}"></i>
-          ${escapeHtml(t.action.replace("Pausar campanha", "Pausar"))}
-        </button>
-      </div>`).join("");
+    box.innerHTML = "";
+    for (const m of state.iaChat) {
+      appendIaMessage(m.role, m.content, { error: Boolean(m.error), cost: m.cost || null });
+    }
+  }
+
+  function clearIaChat() {
+    state.iaChat = [];
+    resetIaUsage();
+    mountIaChat();
+    const st = $("#ia-chat-status");
+    if (st) {
+      st.className = "ia-chat-status";
+      st.textContent = "";
+    }
+  }
+
+  function applyIaUsage(cost, contextMeta) {
+    if (!cost) return;
+    state.iaUsage.sessionIn += Number(cost.inputTokens || 0);
+    state.iaUsage.sessionOut += Number(cost.outputTokens || 0);
+    state.iaUsage.sessionCostUsd += Number(cost.totalUsd || 0);
+    state.iaUsage.last = { ...cost, contextMeta };
+    if (cost.rates?.label) state.iaUsage.pricingLabel = cost.rates.label;
+    updateIaTokenBoard({ contextMeta });
+  }
+
+  async function sendIaChat(prompt) {
+    const text = String(prompt || "").trim();
+    if (!text || state.iaBusy) return;
+    if (!state.claudeConfigured) {
+      const st = $("#ia-chat-status");
+      if (st) {
+        st.className = "ia-chat-status is-err";
+        st.textContent = "Configure a API do Claude em Configurações → Conexões.";
+      }
+      openConfig("conexoes");
+      return;
+    }
+
+    const input = $("#ia-chat-input");
+    if (input) input.value = "";
+    state.iaBusy = true;
+    $("#btn-ia-send") && ($("#btn-ia-send").disabled = true);
+    updateIaPeriodPill();
+    appendIaMessage("user", text);
+    state.iaChat.push({ role: "user", content: text });
+    const typingEl = appendIaMessage("assistant", "", { typing: true });
+    const st = $("#ia-chat-status");
+    if (st) {
+      st.className = "ia-chat-status";
+      st.textContent = "Lendo tabelas do Supabase e enviando ao Claude…";
+    }
+
+    try {
+      const start = $("#start-date")?.value || null;
+      const end = $("#end-date")?.value || null;
+      const history = state.iaChat
+        .filter((m) => !m.error)
+        .slice(0, -1)
+        .slice(-10)
+        .map((m) => ({ role: m.role, content: m.content }));
+      const r = await api("/api/ai/chat", {
+        method: "POST",
+        body: JSON.stringify({ message: text, history, start, end }),
+      });
+      typingEl?.remove();
+      const reply = r.reply || "Sem resposta.";
+      const cost = r.cost || null;
+      appendIaMessage("assistant", reply, { cost });
+      state.iaChat.push({ role: "assistant", content: reply, cost });
+      applyIaUsage(cost, r.contextMeta);
+
+      if (st) {
+        st.className = "ia-chat-status";
+        const c = r.cost;
+        const meta = r.contextMeta;
+        st.textContent = c
+          ? `Última: ${fmtTok(c.totalTokens)} tokens (${fmtTok(c.inputTokens)} in / ${fmtTok(c.outputTokens)} out) · ${fmtUsd(c.totalUsd)}` +
+            (meta ? ` · contexto ~${fmtTok(meta.contextApproxTokens)} tok` : "")
+          : `Modelo ${r.model || "Claude"}`;
+      }
+    } catch (err) {
+      typingEl?.remove();
+      const msg = err.message || String(err);
+      appendIaMessage("assistant", msg, { error: true });
+      state.iaChat.push({ role: "assistant", content: msg, error: true });
+      if (st) {
+        st.className = "ia-chat-status is-err";
+        st.textContent = msg;
+      }
+    } finally {
+      state.iaBusy = false;
+      if ($("#btn-ia-send")) $("#btn-ia-send").disabled = false;
+      input?.focus();
+    }
+  }
+
+  function renderSuggestions() {
+    /* legado removido — Análise IA virou chat */
   }
 
   function parseSortable(v) {
@@ -2690,6 +2867,40 @@
     }
   }
 
+  async function loadClaudeCreds() {
+    try {
+      const c = await api("/api/ai/credentials");
+      state.claudeConfigured = Boolean(c.configured);
+      setStateChip("#cfg-claude-state", c.configured, "Conectada", "Pendente");
+      setStateChip("#ia-claude-state", c.configured, "Claude OK", "Sem API");
+      if (c.pricing?.label) state.iaUsage.pricingLabel = c.pricing.label;
+      if ($("#claude-model")) {
+        $("#claude-model").value = c.model || "claude-sonnet-4-6";
+      }
+      if ($("#claude-api-key")) {
+        $("#claude-api-key").value = "";
+        $("#claude-api-key").placeholder = c.apiKeyMasked
+          ? `Salvo: ${c.apiKeyMasked} (deixe vazio para manter)`
+          : "sk-ant-…";
+      }
+      const navIa = $("#nav-count-ia");
+      if (navIa) navIa.textContent = c.configured ? "Chat" : "";
+      const pricingPill = $("#ia-pricing-pill");
+      if (pricingPill && c.pricing) {
+        pricingPill.textContent =
+          `Cobrança: in US$${c.pricing.inputPerMTokUsd}/1M · out US$${c.pricing.outputPerMTokUsd}/1M tokens`;
+      }
+      updateIaTokenBoard();
+    } catch (e) {
+      console.warn(e);
+      const st = $("#ia-chat-status");
+      if (st && /not_found/i.test(e.message || "")) {
+        st.className = "ia-chat-status is-err";
+        st.textContent = "API /api/ai não encontrada — reinicie o servidor (npm start) e atualize a página.";
+      }
+    }
+  }
+
   function cacheMetaProjSettings(s) {
     try {
       localStorage.setItem("afilia:metaProj", JSON.stringify({
@@ -3172,6 +3383,84 @@
       }
     });
 
+    $("#claude-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const status = $("#claude-status");
+      if (status) {
+        status.className = "form-status";
+        status.textContent = "Salvando Claude…";
+      }
+      try {
+        const body = {
+          model: ($("#claude-model")?.value || "").trim() || "claude-sonnet-4-6",
+        };
+        const key = ($("#claude-api-key")?.value || "").trim();
+        if (key) body.apiKey = key;
+        else if (!state.claudeConfigured) {
+          throw new Error("Cole a API key do Claude");
+        } else {
+          body.apiKey = "••••";
+        }
+        const saved = await api("/api/ai/credentials", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        if (status) {
+          status.className = "form-status ok";
+          status.textContent = saved.configured
+            ? `Claude salvo (${saved.apiKeyMasked || "ok"}).`
+            : "Salvo.";
+        }
+        if ($("#claude-api-key")) $("#claude-api-key").value = "";
+        await loadClaudeCreds();
+      } catch (err) {
+        if (status) {
+          status.className = "form-status err";
+          status.textContent = err.message;
+        }
+      }
+    });
+
+    $("#btn-claude-test")?.addEventListener("click", async () => {
+      const status = $("#claude-status");
+      if (status) {
+        status.className = "form-status";
+        status.textContent = "Testando Claude…";
+      }
+      try {
+        const r = await api("/api/ai/test", { method: "POST", body: "{}" });
+        if (status) {
+          status.className = "form-status ok";
+          status.textContent = `Claude OK · ${r.model || "modelo"}${r.preview ? ` · ${r.preview}` : ""}`;
+        }
+        await loadClaudeCreds();
+      } catch (err) {
+        if (status) {
+          status.className = "form-status err";
+          status.textContent = err.message;
+        }
+      }
+    });
+
+    $("#ia-chat-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      sendIaChat($("#ia-chat-input")?.value || "");
+    });
+    $("#ia-chat-input")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendIaChat($("#ia-chat-input")?.value || "");
+      }
+    });
+    $("#btn-ia-clear")?.addEventListener("click", () => clearIaChat());
+    $("#btn-ia-open-config")?.addEventListener("click", () => openConfig("conexoes"));
+    document.addEventListener("click", (e) => {
+      const chip = e.target?.closest?.("#ia-chat-suggestions .ia-chip");
+      if (!chip || !chip.closest("#view-analise-ia")) return;
+      e.preventDefault();
+      sendIaChat(chip.dataset.prompt || chip.textContent);
+    });
+
     $("#btn-meta-sync").addEventListener("click", async () => {
       try {
         await syncMetaAds($("#meta-status"), $("#btn-meta-sync"));
@@ -3295,7 +3584,7 @@
   }
 
   async function bootApp() {
-    await Promise.all([loadCredentials(), loadMetaCreds(), loadSettingsUi()]);
+    await Promise.all([loadCredentials(), loadMetaCreds(), loadSettingsUi(), loadClaudeCreds()]);
     if (state.configured) await loadDashboard({ force: false });
     else {
       renderKpis({});

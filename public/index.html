@@ -163,7 +163,7 @@
             <div class="nav-sec-title">Inteligência</div>
             <div class="space-y-1">
               <button type="button" class="nav-item" data-view="analise-ia">
-                <span class="nav-left"><img class="nav-logo is-square nav-logo--ia" src="/assets/ia.png?v=2" alt="IA" /><span class="nav-label">Análise IA</span></span>
+                <span class="nav-left"><img class="nav-logo is-square nav-logo--ia" src="/assets/ia.png?v=3" alt="IA" /><span class="nav-label">Análise IA</span></span>
                 <span class="nav-badge" id="nav-count-ia"></span>
               </button>
             </div>
@@ -444,27 +444,64 @@
         </section>
 
         <!-- ANÁLISE IA -->
-        <section id="view-analise-ia" class="view hidden space-y-6">
-          <div>
-            <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1">Operação</div>
-            <h1 class="text-2xl font-extrabold text-slate-900">Análise IA</h1>
-            <p class="text-xs text-slate-500 mt-1">Sugestões automáticas de pausa, escala e teste com base no ROI.</p>
-          </div>
-          <section class="light-card rounded-2xl p-5 shadow-sm" id="dash-suggestions-panel">
-            <div class="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
-              <div>
-                <h3 class="font-bold text-base text-slate-900 flex items-center gap-2">
-                  <img class="rounded" src="/assets/ia.png?v=2" alt="IA" width="22" height="22" />
-                  Sugestões Meta Ads
-                </h3>
-                <p class="text-xs text-slate-500">Regra: ROI 15d &lt; 40% (pausa) / &gt; 200% (escala)</p>
+        <section id="view-analise-ia" class="view hidden">
+          <div class="ia-layout">
+            <header class="ia-topbar">
+              <div class="ia-topbar-left">
+                <img class="ia-topbar-logo" src="/assets/ia.png?v=3" alt="" width="28" height="28" />
+                <div class="ia-topbar-titles min-w-0">
+                  <h1 class="ia-topbar-title">Análise IA</h1>
+                  <p class="ia-topbar-sub">Claude · dados do seu Supabase</p>
+                </div>
               </div>
-              <span class="bg-indigo-50 text-indigo-600 text-xs font-bold px-2.5 py-1 rounded-lg border border-indigo-200" id="suggestions-count">—</span>
-            </div>
-            <div class="suggestions-body" id="suggestions-body">
-              <div class="sec-empty">Sincronize Shopee e Meta para gerar sugestões.</div>
-            </div>
-          </section>
+              <div class="ia-topbar-right">
+                <span class="state-chip" id="ia-claude-state">Claude</span>
+                <button type="button" class="btn ghost sm" id="btn-ia-clear">Limpar</button>
+                <button type="button" class="btn ghost sm" id="btn-ia-open-config">API</button>
+              </div>
+            </header>
+
+            <section class="ia-chat-shell" id="ia-chat-panel">
+              <div class="ia-chat-toolbar">
+                <span class="ia-pill" id="ia-period-pill">Período</span>
+                <span class="ia-pill ia-pill--muted" id="ia-pricing-pill">Tokens</span>
+                <div class="ia-token-inline" id="ia-token-board" aria-label="Consumo de tokens">
+                  <span><b id="ia-tok-last">—</b> última</span>
+                  <span><b id="ia-tok-session">0</b> sessão</span>
+                  <span><b id="ia-tok-cost">US$ 0</b></span>
+                  <span class="ia-token-inline-hide-sm"><b id="ia-tok-data">—</b> ctx</span>
+                </div>
+                <span class="hidden" id="ia-tok-last-detail"></span>
+                <span class="hidden" id="ia-tok-session-detail"></span>
+                <span class="hidden" id="ia-tok-cost-detail"></span>
+                <span class="hidden" id="ia-tok-data-detail"></span>
+              </div>
+
+              <div class="ia-chat-messages" id="ia-chat-messages" role="log" aria-live="polite">
+                <div class="ia-welcome" data-welcome="1">
+                  <div class="ia-welcome-icon"><img src="/assets/ia.png?v=3" alt="" width="36" height="36" /></div>
+                  <h2>Pergunte sobre a operação</h2>
+                  <p>Ex.: “Qual campanha está com ROI ruim?”</p>
+                  <div class="ia-chat-suggestions" id="ia-chat-suggestions">
+                    <button type="button" class="ia-chip" data-prompt="Qual campanha ou SubID está com ROI ruim no período? Liste os piores com invest e ROI.">ROI ruim</button>
+                    <button type="button" class="ia-chip" data-prompt="Quais SubIDs Meta eu deveria pausar ou escalar agora? Justifique com números.">Pausar / escalar</button>
+                    <button type="button" class="ia-chip" data-prompt="Como está o progresso da meta de faturamento do mês e o que falta para 100%/125%/150%?">Meta do mês</button>
+                    <button type="button" class="ia-chip" data-prompt="Resuma top produtos, pedidos e onde está o maior lucro vs maior gasto.">Visão completa</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="ia-chat-footer">
+                <form class="ia-chat-composer" id="ia-chat-form">
+                  <textarea id="ia-chat-input" rows="1" placeholder="Pergunte sobre ROI, campanhas, SubIDs…" maxlength="4000"></textarea>
+                  <button type="submit" class="ia-send-btn" id="btn-ia-send" aria-label="Enviar" title="Enviar">
+                    <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+                  </button>
+                </form>
+                <div class="ia-chat-status" id="ia-chat-status"></div>
+              </div>
+            </section>
+          </div>
         </section>
 
         <!-- CANAIS -->
@@ -626,6 +663,33 @@
                     </div>
                     <div id="pin-status" class="form-status"></div>
                   </div>
+                </article>
+
+                <article class="settings-card">
+                  <header class="settings-card-head">
+                    <div class="settings-card-brand">
+                      <img class="rounded" src="/assets/ia.png?v=3" alt="" width="22" height="22" />
+                      <div>
+                        <div class="settings-card-title">Claude (Anthropic)</div>
+                        <div class="settings-card-sub">Análise IA com seus dados do painel</div>
+                      </div>
+                    </div>
+                    <span class="state-chip" id="cfg-claude-state">Pendente</span>
+                  </header>
+                  <form id="claude-form" class="form">
+                    <label>API key
+                      <input type="password" id="claude-api-key" autocomplete="off" placeholder="sk-ant-…" />
+                    </label>
+                    <label>Modelo
+                      <input type="text" id="claude-model" autocomplete="off" placeholder="claude-sonnet-4-6" />
+                    </label>
+                    <p class="hint">Mesma API Anthropic (Messages). A key fica no Supabase e alimenta o chat em Análise IA.</p>
+                    <div class="form-actions">
+                      <button type="submit" class="btn primary sm">Salvar</button>
+                      <button type="button" class="btn ghost sm" id="btn-claude-test">Testar</button>
+                    </div>
+                    <div id="claude-status" class="form-status"></div>
+                  </form>
                 </article>
               </div>
             </div>

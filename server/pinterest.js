@@ -39,30 +39,7 @@ function findCol(headers, ...aliases) {
 function parseCsv(text) {
   const lines = String(text || "").replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim());
   if (!lines.length) return { headers: [], rows: [] };
-  const split = (line) => {
-    const out = [];
-    let cur = "";
-    let inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQ && line[i + 1] === '"') {
-          cur += '"';
-          i++;
-        } else inQ = !inQ;
-      } else if (ch === "," && !inQ) {
-        out.push(cur);
-        cur = "";
-      } else if ((ch === ";" || ch === "\t") && !inQ && out.length === 0 && !line.includes(",")) {
-        // allow ; delimiter if no commas in line — handled below
-        cur += ch;
-      } else cur += ch;
-    }
-    out.push(cur);
-    return out.map((c) => c.trim());
-  };
 
-  // detect delimiter
   const delim = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ";" : ",";
   const splitD = (line) => {
     const out = [];
@@ -105,7 +82,6 @@ function parsePinterestCsv(text) {
     const spend = iSpend >= 0 ? parseMoney(row[iSpend]) : 0;
     const dateRaw = iDate >= 0 ? String(row[iDate] || "").trim() : "";
     let data = dateRaw;
-    // normalize DD/MM/YYYY or YYYY-MM-DD
     if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateRaw)) {
       const [d, m, y] = dateRaw.split("/");
       data = `${y}-${m}-${d}`;

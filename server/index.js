@@ -29,6 +29,12 @@ const {
 } = require("./meta");
 const { importPinterestCsv } = require("./pinterest");
 const {
+  claudeCredentialsPublic,
+  saveClaudeCredentials,
+  testClaudeCredentials,
+  chatClaude,
+} = require("./claude");
+const {
   lookupProduto,
   salvarBackup,
   listarBackups,
@@ -494,6 +500,53 @@ async function requestHandler(req, res) {
             sendJson(res, 200, { success: true, ...s });
           } catch (err) {
             sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/ai/credentials" && req.method === "GET") {
+          sendJson(res, 200, { success: true, ...(await claudeCredentialsPublic()) });
+          return;
+        }
+
+        if (pathname === "/api/ai/credentials" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const saved = await saveClaudeCredentials({
+              apiKey: body.apiKey ?? body.claudeApiKey,
+              model: body.model ?? body.claudeModel,
+            });
+            sendJson(res, 200, { success: true, ...saved });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message || String(err) });
+          }
+          return;
+        }
+
+        if (pathname === "/api/ai/test" && req.method === "POST") {
+          try {
+            const r = await testClaudeCredentials();
+            sendJson(res, 200, { success: true, ...r });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message || String(err) });
+          }
+          return;
+        }
+
+        if (pathname === "/api/ai/chat" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            const startDate = body.start || body.startDate || url.searchParams.get("start");
+            const endDate = body.end || body.endDate || url.searchParams.get("end");
+            const r = await chatClaude({
+              message: body.message || body.prompt,
+              history: body.history || body.messages,
+              startDate,
+              endDate,
+            });
+            sendJson(res, 200, { success: true, ...r });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message || String(err) });
           }
           return;
         }
