@@ -122,14 +122,21 @@ async function importPinterestCsv(text, userId = requireUserId()) {
 
 async function loadPinSpendByDay(startDate, endDate, userId = requireUserId()) {
   const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from("pinterest_ads_daily")
-    .select("data, subid, gasto, ad_name, ad_id, cliques")
-    .eq("user_id", userId)
-    .gte("data", startDate)
-    .lte("data", endDate);
-  if (error) throw new Error(error.message);
-  return data || [];
+  const pageSize = 1000;
+  const all = [];
+  for (let from = 0; from < 5000; from += pageSize) {
+    const { data, error } = await supabase
+      .from("pinterest_ads_daily")
+      .select("data, subid, gasto, ad_name, ad_id, cliques")
+      .eq("user_id", userId)
+      .gte("data", startDate)
+      .lte("data", endDate)
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    all.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return all;
 }
 
 module.exports = {

@@ -7,9 +7,14 @@ const SHOPEE_API_URL = "https://open-api.affiliate.shopee.com.br/graphql";
 const SHOPEE_PAGE_LIMIT = 500;
 const SHOPEE_MAX_PAGES = 1000;
 const SHOPEE_PAGE_DELAY_MS = 200;
-const SHOPEE_NEW_QUERY_DELAY_MS = Math.max(30_000, Number(process.env.SHOPEE_NEW_QUERY_DELAY_MS || 31_000));
+const SHOPEE_NEW_QUERY_DELAY_MS = Math.max(
+  8_000,
+  Number(process.env.SHOPEE_NEW_QUERY_DELAY_MS || (process.env.VERCEL ? 15_000 : 31_000)),
+);
 const SHOPEE_MAX_SCROLL_RESTARTS = 3;
-const SHOPEE_CONNECT_TIMEOUT_MS = Number(process.env.SHOPEE_CONNECT_TIMEOUT_MS || 60_000);
+const SHOPEE_CONNECT_TIMEOUT_MS = Number(
+  process.env.SHOPEE_CONNECT_TIMEOUT_MS || (process.env.VERCEL ? 20_000 : 60_000),
+);
 const SHOPEE_FORCE_IPV4 = process.env.SHOPEE_FORCE_IPV4 !== "0";
 
 let _credsCache = new Map();
@@ -95,7 +100,8 @@ async function shopeeHttpPost(body, headers) {
   if (SHOPEE_FORCE_IPV4) {
     return shopeeHttpsPost(SHOPEE_API_URL, headers, body);
   }
-  const res = await fetch(SHOPEE_API_URL, { method: "POST", headers, body });
+  const { fetchWithTimeout } = require("./httpUtil");
+  const res = await fetchWithTimeout(SHOPEE_API_URL, { method: "POST", headers, body }, SHOPEE_CONNECT_TIMEOUT_MS);
   const text = await res.text();
   return {
     ok: res.ok,
@@ -113,7 +119,7 @@ async function shopeeHttpPost(body, headers) {
  * - Retry em rate limit 10030 (backoff 8s × tentativa)
  * - IPv4 forçado
  */
-async function shopeeGraphqlRaw(appId, secret, query, variables = null, { retries = 4 } = {}) {
+async function shopeeGraphqlRaw(appId, secret, query, variables = null, { retries = 2 } = {}) {
   const bodyObj = variables ? { query, variables } : { query };
   const body = JSON.stringify(bodyObj);
   let lastErr = null;

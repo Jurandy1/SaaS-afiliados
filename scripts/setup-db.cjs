@@ -22,9 +22,7 @@ function loadEnv() {
 loadEnv();
 
 async function main() {
-  const migrate = fs.readFileSync(path.join(__dirname, "..", "sql", "migrate-multiuser.sql"), "utf8");
   const sql = fs.readFileSync(path.join(__dirname, "..", "sql", "schema.sql"), "utf8");
-  const subidOps = fs.readFileSync(path.join(__dirname, "..", "sql", "subid-ops.sql"), "utf8");
   const password = process.env.SUPABASE_DB_PASSWORD || "";
   const ref = (process.env.SUPABASE_URL || "")
     .replace(/^https?:\/\//, "")
@@ -43,12 +41,8 @@ async function main() {
   async function run(cs, label) {
     const client = new Client({ connectionString: cs, ssl: { rejectUnauthorized: false } });
     await client.connect();
-    console.log(`Aplicando migrate (${label})…`);
-    await client.query(migrate);
-    console.log(`Aplicando schema (${label})…`);
+    console.log(`Aplicando schema.sql (${label})…`);
     await client.query(sql);
-    console.log(`Aplicando subid-ops (${label})…`);
-    await client.query(subidOps);
     await client.end();
   }
 
@@ -60,7 +54,7 @@ async function main() {
     console.log("Pooler falhou, tentando host direto…", err.message);
     await run(alt, "direto");
   }
-  console.log("Schema multi-user aplicado com sucesso.");
+  console.log("Schema aplicado.");
 }
 
 main().catch((e) => {

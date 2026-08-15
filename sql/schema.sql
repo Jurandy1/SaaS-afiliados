@@ -1,5 +1,6 @@
--- Metricly multi-tenant schema (SaaS SHOPPE)
--- Cada usuário tem Shopee + Meta + métricas isoladas.
+-- Schema único do SaaS Afiliados (idempotente).
+-- Uso: npm run setup:db
+-- Novos ambientes: CREATE IF NOT EXISTS. Bancos já existentes: ALTER no final.
 
 create extension if not exists "pgcrypto";
 
@@ -37,6 +38,11 @@ create table if not exists app_settings (
   user_id uuid primary key,
   meta_base numeric not null default 863959,
   tax_rate numeric not null default 0,
+  meta_tax_rate numeric default 12,
+  meta_dias numeric null,
+  meta_bonus_100 numeric null default 1,
+  meta_bonus_125 numeric null default 2,
+  meta_bonus_150 numeric null default 3,
   team_name text not null default 'Minha conta',
   team_plan text not null default 'Shopee · Meta',
   claude_api_key text not null default '',
@@ -200,6 +206,8 @@ create table if not exists product_backups (
   primary key (user_id, item_id)
 );
 create index if not exists idx_product_backups_user on product_backups (user_id, cadastrado_em desc);
+create index if not exists idx_product_backups_grupo on product_backups (user_id, grupo_id);
+create index if not exists idx_product_backups_loja on product_backups (user_id, loja);
 
 create table if not exists product_backup_grupos (
   id uuid primary key default gen_random_uuid(),
@@ -248,3 +256,33 @@ create table if not exists user_profiles (
 create index if not exists idx_user_profiles_status on user_profiles (status);
 create index if not exists idx_user_profiles_email on user_profiles (email);
 create index if not exists idx_user_profiles_role on user_profiles (role);
+
+-- Canal / status por SubID
+create table if not exists subid_ops (
+  user_id uuid not null,
+  subid text not null,
+  canal text check (canal in ('meta', 'pinterest', 'organico')),
+  status text check (status is null or status in ('ativa', 'teste', 'desativada', 'pausada')),
+  produto text,
+  updated_at timestamptz default now(),
+  primary key (user_id, subid)
+);
+create index if not exists subid_ops_user_idx on subid_ops (user_id);
+
+-- Upgrades idempotentes para bancos criados antes deste schema
+alter table if exists app_settings
+  add column if not exists claude_api_key text not null default '',
+  add column if not exists claude_model text not null default 'claude-sonnet-4-20250514',
+  add column if not exists meta_tax_rate numeric default 12,
+  add column if not exists meta_dias numeric null,
+  add column if not exists meta_bonus_100 numeric null default 1,
+  add column if not exists meta_bonus_125 numeric null default 2,
+  add column if not exists meta_bonus_150 numeric null default 3;
+
+alter table if exists subid_metrics
+  add column if not exists cliques_shopee integer not null default 0;
+
+alter table if exists subid_ops drop constraint if exists subid_ops_status_check;
+alter table if exists subid_ops
+  add constraint subid_ops_status_check
+  check (status is null or status in ('ativa', 'teste', 'desativada', 'pausada'));

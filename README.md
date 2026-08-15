@@ -1,6 +1,16 @@
-# SaaS Afiliados (Metricly) — Shopee + Supabase
+# SaaS Afiliados — Shopee + Meta + Supabase
 
-Painel SaaS de afiliados Shopee (sem Meta/Pinterest), com dados reais via Open API e persistência no Supabase.
+Painel de afiliados com dados reais (Open API Shopee, Meta Ads) e persistência no Supabase.
+
+```
+api/          entrada Vercel
+gcp/          sync no Cloud Run
+public/       frontend
+scripts/      setup do banco e seed demo
+server/       backend Node
+sql/          schema.sql (único arquivo SQL)
+styles/       fonte do Tailwind
+```
 
 ## Setup rápido
 
@@ -15,21 +25,17 @@ Painel SaaS de afiliados Shopee (sem Meta/Pinterest), com dados reais via Open A
    ```bash
    npm install
    npm run setup:db
-   npm run seed
+   npm run seed:demo
    npm start
    ```
 4. Abra http://localhost:3790
 
-## Comportamento da API Shopee
-
-- Credenciais ficam no Supabase (`app_credentials`).
-- Se o **APP_ID** mudar na tela Configuração, o sistema **reseta** métricas/sync e puxa do novo afiliado.
-- Sync grava `daily_metrics`, `subid_metrics` e `sync_runs`.
+`setup:db` aplica só `sql/schema.sql` (idempotente — não apaga dados). `seed:demo` cria a conta `teste@gmail.com`.
 
 ## Segurança
 
 - **Nunca** commite o `.env` (já está no `.gitignore`).
-- Use `service_role` só no backend; no browser use no máximo a anon key se precisar.
+- Use `service_role` só no backend.
 
 ## Repo
 

@@ -15,6 +15,8 @@ const {
   loadSettings,
   saveSettings,
   attachMenuPreviews,
+  slimDashForClient,
+  loadSubidDaily,
   attachMtdKpis,
 } = require("./store");
 const { testCredentials, clearCredsCache } = require("./shopee");
@@ -57,6 +59,7 @@ const {
   generateAffiliateShortLink,
 } = require("./backup");
 const { runAutoSync, cronAuthorized, startLocalAutoSync } = require("./autoSync");
+const { latestJob, runUserDashboardSync } = require("./syncJobs");
 const {
   runWithUser,
   verifyAccessToken,
@@ -103,8 +106,8 @@ function sendJson(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-function sendText(res, status, text, type = "text/plain; charset=utf-8") {
-  res.writeHead(status, { "Content-Type": type });
+function sendText(res, status, text, type = "text/plain; charset=utf-8", extraHeaders = {}) {
+  res.writeHead(status, { "Content-Type": type, ...extraHeaders });
   res.end(text);
 }
 
@@ -114,7 +117,19 @@ function contentType(filePath) {
   if (filePath.endsWith(".css")) return "text/css; charset=utf-8";
   if (filePath.endsWith(".png")) return "image/png";
   if (filePath.endsWith(".svg")) return "image/svg+xml";
+  if (filePath.endsWith(".woff2")) return "font/woff2";
   return "application/octet-stream";
+}
+
+function cacheHeadersFor(filePath) {
+  if (filePath.endsWith(".html")) return { "Cache-Control": "no-cache" };
+  if (/\.(js|css)$/.test(filePath)) {
+    return { "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400" };
+  }
+  if (/\.(png|svg|jpg|jpeg|webp|woff2|ico)$/.test(filePath)) {
+    return { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" };
+  }
+  return { "Cache-Control": "public, max-age=300" };
 }
 
 function serveStatic(req, res, pathname) {
@@ -126,13 +141,35 @@ function serveStatic(req, res, pathname) {
     sendText(res, 404, "Not found");
     return;
   }
-  res.writeHead(200, { "Content-Type": contentType(filePath) });
+  const stat = fs.statSync(filePath);
+  const etag = `W/"${stat.size}-${stat.mtimeMs}"`;
+  if (req.headers["if-none-match"] === etag) {
+    res.writeHead(304, { ETag: etag, ...cacheHeadersFor(filePath) });
+    res.end();
+    return;
+  }
+  res.writeHead(200, {
+    "Content-Type": contentType(filePath),
+    ETag: etag,
+    ...cacheHeadersFor(filePath),
+  });
   fs.createReadStream(filePath).pipe(res);
 }
 
+const MAX_BODY_BYTES = 8 * 1024 * 1024;
+
 async function readBody(req) {
   const chunks = [];
-  for await (const c of req) chunks.push(c);
+  let size = 0;
+  for await (const c of req) {
+    size += c.length;
+    if (size > MAX_BODY_BYTES) {
+      const err = new Error("Payload grande demais (máx. 8 MB)");
+      err.code = "PAYLOAD_TOO_LARGE";
+      throw err;
+    }
+    chunks.push(c);
+  }
   const raw = Buffer.concat(chunks).toString("utf8");
   if (!raw) return {};
   const ct = String(req.headers["content-type"] || "");
@@ -551,6 +588,60 @@ async function requestHandler(req, res) {
           return;
         }
 
+        if (pathname === "/api/subid-daily" && req.method === "GET") {
+          const subid = url.searchParams.get("subid") || "";
+          const startDate = url.searchParams.get("start") || defaultRange().startDate;
+          const endDate = url.searchParams.get("end") || defaultRange().endDate;
+          try {
+            const daily = await loadSubidDaily(subid, startDate, endDate);
+            sendJson(res, 200, { success: true, subid, daily });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/sync" && req.method === "POST") {
+          const body = await readBody(req);
+          const startDate = body.start || body.startDate || defaultRange().startDate;
+          const endDate = body.end || body.endDate || defaultRange().endDate;
+          try {
+            const current = await latestJob();
+            if (current.status === "running") {
+              sendJson(res, 202, { success: true, status: "running", already: true });
+              return;
+            }
+            const { markJob } = require("./syncJobs");
+            await markJob(require("./auth").requireUserId(), startDate, endDate, "running");
+            sendJson(res, 202, { success: true, status: "running" });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/sync/status" && req.method === "GET") {
+          try {
+            sendJson(res, 200, { success: true, ...(await latestJob()) });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/sync/worker" && req.method === "POST") {
+          const body = await readBody(req);
+          const startDate = body.start || body.startDate || defaultRange().startDate;
+          const endDate = body.end || body.endDate || defaultRange().endDate;
+          try {
+            const result = await runUserDashboardSync({ startDate, endDate });
+            sendJson(res, 200, result);
+          } catch (err) {
+            sendJson(res, 500, { success: false, error: err.message || String(err) });
+          }
+          return;
+        }
+
         if (pathname === "/api/subid-ops" && req.method === "GET") {
           const { loadSubidOps } = require("./subidOps");
           sendJson(res, 200, { success: true, ops: await loadSubidOps() });
@@ -860,52 +951,40 @@ async function requestHandler(req, res) {
             return;
           }
           try {
-            if (!force) {
-              let fromDb = await loadDashboardFromDb(startDate, endDate);
-              if (fromDb) {
-                fromDb = await attachMenuPreviews(fromDb, startDate, endDate);
-                fromDb = await enrichDashboardWithAds(fromDb);
-                fromDb = await attachMtdKpis(fromDb);
-                sendJson(res, 200, { success: true, cached: true, ...fromDb });
-                return;
-              }
+            if (force) {
+              sendJson(res, 202, {
+                success: true,
+                status: "running",
+                error: "Use POST /api/sync + worker; GET force não puxa Shopee neste caminho.",
+                code: "USE_ASYNC_SYNC",
+              });
+              return;
             }
 
-            // No force: puxa Meta em paralelo (mesmo fluxo do Afiliadoteste ao atualizar período)
-            let metaSync = null;
-            const metaTask = (async () => {
-              try {
-                const metaCred = await metaCredentialsPublic();
-                if (!metaCred.configured) return null;
-                return await syncMetaDaily({ since: startDate, until: endDate });
-              } catch (e) {
-                console.warn("[dashboard] meta sync:", e.message || e);
-                return { error: e.message || String(e) };
-              }
-            })();
-
-            const [dash, metaResult] = await Promise.all([
-              buildDashboard({ startDate, endDate, persist: true }),
-              force ? metaTask : Promise.resolve(null),
-            ]);
-            metaSync = metaResult;
-
-            // Re-enriquece após Meta gravar (buildDashboard já enriqueceu; se Meta rodou, atualiza)
-            let out = dash;
-            if (metaSync && !metaSync.error) {
-              try {
-                out = await enrichDashboardWithAds(dash);
-              } catch (_) { /* keep dash */ }
+            let fromDb = await loadDashboardFromDb(startDate, endDate);
+            if (fromDb) {
+              fromDb = await attachMenuPreviews(fromDb, startDate, endDate);
+              fromDb = await enrichDashboardWithAds(fromDb, undefined, {
+                persistSubIds: false,
+                persistDaily: false,
+              });
+              fromDb = slimDashForClient(fromDb);
+              sendJson(res, 200, { success: true, cached: true, ...fromDb });
+              return;
             }
-            out = await attachMtdKpis(out);
+
             sendJson(res, 200, {
               success: true,
-              cached: false,
-              ...out,
-              metaSync: metaSync || undefined,
+              cached: true,
+              empty: true,
+              range: { startDate, endDate },
+              kpis: {},
+              daily: [],
+              subIds: [],
+              dailyByChannel: { meta: [], pinterest: [], organico: [] },
             });
           } catch (err) {
-            sendJson(res, 500, { success: false, error: err.message || String(err) });
+            sendJson(res, 500, { success: false, error: err.message || String(err), partial: true });
           }
           return;
         }
@@ -922,6 +1001,10 @@ async function requestHandler(req, res) {
 
     serveStatic(req, res, pathname);
   } catch (err) {
+    if (err?.code === "PAYLOAD_TOO_LARGE") {
+      sendJson(res, 413, { success: false, error: err.message, code: "PAYLOAD_TOO_LARGE" });
+      return;
+    }
     sendJson(res, 500, { error: err.message || String(err) });
   }
 }
@@ -931,6 +1014,12 @@ module.exports = requestHandler;
 // Local / Railway / Render: sobe HTTP server
 // Vercel: usa o export serverless (api/index.js)
 if (!process.env.VERCEL) {
+  process.on("unhandledRejection", (err) => {
+    console.error("[unhandledRejection]", err);
+  });
+  process.on("uncaughtException", (err) => {
+    console.error("[uncaughtException]", err);
+  });
   const server = http.createServer((req, res) => {
     Promise.resolve(requestHandler(req, res)).catch((err) => {
       try {

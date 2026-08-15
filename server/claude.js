@@ -13,6 +13,7 @@ const {
 const { enrichDashboardWithAds } = require("./finance");
 const { loadCampaigns } = require("./meta");
 const { loadSubidOps } = require("./subidOps");
+const { fetchWithTimeout } = require("./httpUtil");
 
 const DEFAULT_MODEL = process.env.CLAUDE_MODEL?.trim() || "claude-sonnet-4-6";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
@@ -136,7 +137,7 @@ async function saveClaudeCredentials({ apiKey, model }, userId = requireUserId()
 
   if (error && /claude_api_key|claude_model/i.test(error.message || "")) {
     throw new Error(
-      "Coluna Claude ainda não existe no Supabase. Rode sql/migrate-claude.sql e tente de novo."
+      "Coluna Claude ainda não existe no Supabase. Rode npm run setup:db e tente de novo."
     );
   }
   if (error) throw new Error(error.message);
@@ -326,13 +327,13 @@ async function buildAnalyticsContext(startDate, endDate, userId = requireUserId(
     syncRuns,
     counts,
   ] = await Promise.all([
-    loadProducts({ limit: 300 }, userId).catch(() => []),
-    loadOrders({ startDate, endDate, limit: 5000 }, userId).catch(() => []),
+    loadProducts({ limit: 80 }, userId).catch(() => []),
+    loadOrders({ startDate, endDate, limit: 400, columns: "subid, data, status, faturamento, comissao" }, userId).catch(() => []),
     safeSelect("meta_ads_daily", (q) =>
-      q.eq("user_id", userId).gte("data", startDate).lte("data", endDate)
+      q.eq("user_id", userId).gte("data", startDate).lte("data", endDate).limit(400)
     ),
     safeSelect("pinterest_ads_daily", (q) =>
-      q.eq("user_id", userId).gte("data", startDate).lte("data", endDate)
+      q.eq("user_id", userId).gte("data", startDate).lte("data", endDate).limit(400)
     ),
     safeSelect("product_backups", (q) => q.eq("user_id", userId).limit(150)),
     safeSelect("product_backup_grupos", (q) => q.eq("user_id", userId).limit(80)),
@@ -428,13 +429,17 @@ async function buildAnalyticsContext(startDate, endDate, userId = requireUserId(
     kpisPeriodo: dash?.kpis || null,
     tendenciaDiaria: daily,
     // TODOS os SubIDs do snapshot (banco do usuário)
-    todosSubIds: subs,
+    todosSubIds: subs.length > 80
+      ? [...worstRoi, ...bestRoi, ...zeroRoiSpend]
+        .filter((s, i, arr) => arr.findIndex((x) => x.subid === s.subid) === i)
+        .slice(0, 80)
+      : subs,
     destaques: {
       piorRoi: worstRoi,
       melhorRoi: bestRoi,
       gastoSemRetorno: zeroRoiSpend,
     },
-    campanhasMetaPorGasto: (campaigns || []).slice(0, 80),
+    campanhasMetaPorGasto: (campaigns || []).slice(0, 40),
     metaAdsAgregado: metaAgg,
     pinterestAgregado: pinAgg,
     pedidosResumo: ordersAgg,
@@ -447,7 +452,7 @@ async function buildAnalyticsContext(startDate, endDate, userId = requireUserId(
       pedidos: Number(p.pedidos || 0),
       qty: Number(p.qty || 0),
     })),
-    classificacaoSubIds: opsList,
+    classificacaoSubIds: opsList.slice(0, 80),
     backups: {
       produtos: (backups || []).map((b) => ({
         itemId: b.item_id,
@@ -513,7 +518,7 @@ ${JSON.stringify(payload)}`;
 }
 
 async function callAnthropic({ apiKey, model, system, messages }) {
-  const res = await fetch(ANTHROPIC_URL, {
+  const res = await fetchWithTimeout(ANTHROPIC_URL, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -526,7 +531,7 @@ async function callAnthropic({ apiKey, model, system, messages }) {
       system,
       messages,
     }),
-  });
+  }, 20000);
   const raw = await res.text();
   let data;
   try {

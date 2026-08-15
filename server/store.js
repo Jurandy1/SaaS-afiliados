@@ -143,7 +143,7 @@ async function saveDashboardSnapshot(dash, userId = requireUserId(), { persistSu
           const stripped = chunk.map(({ cliques_shopee, ...rest }) => rest);
           ({ error } = await supabase.from("subid_metrics").upsert(stripped));
           if (!error) {
-            console.warn("[store] coluna cliques_shopee ausente — rode sql/migrate-cliques-shopee.sql");
+            console.warn("[store] coluna cliques_shopee ausente — rode npm run setup:db");
           }
         }
         if (error) throw new Error(`subid_metrics: ${error.message}`);
@@ -204,23 +204,57 @@ async function persistOrdersAndProducts({ orders, orderItems, products }, userId
   }
 }
 
+async function pagedSelect(makeQuery, { pageSize = 1000, max = 5000 } = {}) {
+  const all = [];
+  for (let from = 0; from < max; from += pageSize) {
+    const { data, error } = await makeQuery(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    all.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return all;
+}
+
+const SUBID_METRIC_COLS = [
+  "subid", "faturamento", "comissao", "pedidos", "concluidos", "pendentes", "cancelados",
+  "unpaid", "itens", "abatimento", "cliques_shopee", "inv_meta", "inv_pin", "inv_total",
+  "lucro", "roi", "cliques_meta", "cliques_pin", "impressoes", "alcance", "ctr_meta",
+  "cpc_meta", "abatimento_cliques", "canal", "status",
+].join(",");
+
 async function loadDashboardFromDb(startDate, endDate, userId = requireUserId()) {
   const supabase = getSupabase();
   const { data: daily, error: dErr } = await supabase
     .from("daily_metrics")
-    .select("*")
+    .select("data, faturamento, comissao, pedidos, concluidos, pendentes, cancelados, unpaid, inv_meta, inv_pin, inv_total, lucro, roi")
     .eq("user_id", userId)
     .gte("data", startDate)
     .lte("data", endDate)
     .order("data", { ascending: true });
   if (dErr) throw new Error(dErr.message);
 
-  const { data: subIds, error: sErr } = await supabase
-    .from("subid_metrics")
-    .select("*")
-    .eq("user_id", userId)
-    .order("comissao", { ascending: false });
-  if (sErr) throw new Error(sErr.message);
+  let subIds = [];
+  try {
+    subIds = await pagedSelect(
+      (from, to) => supabase
+        .from("subid_metrics")
+        .select(SUBID_METRIC_COLS)
+        .eq("user_id", userId)
+        .order("comissao", { ascending: false })
+        .range(from, to),
+    );
+  } catch (e) {
+    const fallback = await pagedSelect(
+      (from, to) => supabase
+        .from("subid_metrics")
+        .select("*")
+        .eq("user_id", userId)
+        .order("comissao", { ascending: false })
+        .range(from, to),
+    );
+    subIds = fallback;
+    if (!String(e.message || "").includes("column")) console.warn("[store] subid cols:", e.message);
+  }
 
   const { data: lastRun } = await supabase
     .from("sync_runs")
@@ -336,17 +370,18 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
   };
 }
 
-async function attachMenuPreviews(dash, startDate, endDate, userId = requireUserId()) {
+async function attachMenuPreviews(dash, startDate, endDate, userId = requireUserId(), { includePreviews = false } = {}) {
   if (!dash) return dash;
   try {
     const [orders, products] = await Promise.all([
-      loadOrders({ startDate, endDate, limit: 5000 }, userId),
-      loadProducts({ limit: 100 }, userId),
+      loadOrders({ startDate, endDate, limit: 3000, columns: "subid, data, status, faturamento, comissao" }, userId),
+      includePreviews ? loadProducts({ limit: 100 }, userId) : Promise.resolve([]),
     ]);
-    dash.ordersPreview = (orders || []).slice(0, 200);
-    dash.productsPreview = products;
+    if (includePreviews) {
+      dash.ordersPreview = (orders || []).slice(0, 200);
+      dash.productsPreview = products;
+    }
 
-    // Histórico diário por SubID (para expandir na tabela)
     const bySubDay = {};
     for (const o of orders || []) {
       const sub = String(o.subid || "organico");
@@ -362,10 +397,12 @@ async function attachMenuPreviews(dash, startDate, endDate, userId = requireUser
           concluidos: 0,
           pendentes: 0,
           cancelados: 0,
+          cliques_shopee: 0,
         };
       }
       const row = bySubDay[sub][day];
       row.pedidos += 1;
+      row.cliques_shopee += 1;
       const st = String(o.status || "");
       if (st === "cancelada") {
         row.cancelados += 1;
@@ -390,10 +427,139 @@ async function attachMenuPreviews(dash, startDate, endDate, userId = requireUser
       return { ...r, daily };
     });
   } catch (_) {
-    dash.ordersPreview = dash.ordersPreview || [];
-    dash.productsPreview = dash.productsPreview || [];
+    if (includePreviews) {
+      dash.ordersPreview = dash.ordersPreview || [];
+      dash.productsPreview = dash.productsPreview || [];
+    }
   }
   return dash;
+}
+
+function channelDailyFromSubs(subIds, taxRate = 0, metaTaxRate = 12) {
+  const gov = Number(taxRate || 0) / 100;
+  const metaTax = Number(metaTaxRate != null ? metaTaxRate : 12) / 100;
+  const buckets = { meta: new Map(), pinterest: new Map(), organico: new Map() };
+  for (const s of subIds || []) {
+    const ch = s.canal === "meta" || s.canal === "pinterest" || s.canal === "organico" ? s.canal : null;
+    if (!ch) continue;
+    const map = buckets[ch];
+    for (const d of s.daily || []) {
+      const key = String(d.data || "");
+      if (!key) continue;
+      let row = map.get(key);
+      if (!row) {
+        row = { data: key, faturamento: 0, comissao: 0, pedidos: 0, inv_meta: 0, inv_pin: 0 };
+        map.set(key, row);
+      }
+      row.faturamento += Number(d.faturamento || 0);
+      row.comissao += Number(d.comissao || 0);
+      row.pedidos += Number(d.pedidos || 0);
+      row.inv_meta += Number(d.inv_meta || 0);
+      row.inv_pin += Number(d.inv_pin || 0);
+    }
+  }
+  const finish = (map) => [...map.values()]
+    .sort((a, b) => a.data.localeCompare(b.data))
+    .map((r) => {
+      const invTotal = r.inv_meta * (1 + metaTax) + r.inv_pin;
+      const lucro = Math.round((r.comissao * (1 - gov) - invTotal) * 100) / 100;
+      return {
+        ...r,
+        faturamento: Math.round(r.faturamento * 100) / 100,
+        comissao: Math.round(r.comissao * 100) / 100,
+        inv_meta: Math.round(r.inv_meta * 100) / 100,
+        inv_pin: Math.round(r.inv_pin * 100) / 100,
+        inv_total: Math.round(invTotal * 100) / 100,
+        lucro,
+        roi: invTotal > 0 ? Math.round((lucro / invTotal) * 10000) / 100 : null,
+      };
+    });
+  return {
+    meta: finish(buckets.meta),
+    pinterest: finish(buckets.pinterest),
+    organico: finish(buckets.organico),
+  };
+}
+
+function slimDashForClient(dash) {
+  if (!dash) return dash;
+  const taxRate = dash.tax?.taxRate ?? dash.kpis?.taxRate ?? 0;
+  const metaTaxRate = dash.tax?.metaTaxRate ?? dash.kpis?.metaTaxRate ?? 12;
+  const dailyByChannel = dash.dailyByChannel || channelDailyFromSubs(dash.subIds, taxRate, metaTaxRate);
+  const subIds = (dash.subIds || []).map((r) => {
+    const { daily, ...rest } = r;
+    return rest;
+  });
+  const out = { ...dash, subIds, dailyByChannel };
+  delete out.ordersPreview;
+  delete out.productsPreview;
+  return out;
+}
+
+async function loadSubidDaily(subid, startDate, endDate, userId = requireUserId()) {
+  const key = String(subid || "").trim();
+  if (!key) return [];
+  const orders = await loadOrders({
+    startDate,
+    endDate,
+    limit: 2000,
+    columns: "subid, data, status, faturamento, comissao",
+    subid: key,
+  }, userId);
+  const byDay = {};
+  for (const o of orders || []) {
+    if (String(o.subid || "") !== key && String(o.subid || "").toLowerCase() !== key.toLowerCase()) continue;
+    const day = o.data;
+    if (!day) continue;
+    if (!byDay[day]) {
+      byDay[day] = { data: day, faturamento: 0, comissao: 0, pedidos: 0, concluidos: 0, pendentes: 0, cancelados: 0, cliques_shopee: 0 };
+    }
+    const row = byDay[day];
+    row.pedidos += 1;
+    row.cliques_shopee += 1;
+    const st = String(o.status || "");
+    if (st === "cancelada") { row.cancelados += 1; continue; }
+    if (st === "unpaid") continue;
+    row.faturamento += Number(o.faturamento || 0);
+    row.comissao += Number(o.comissao || 0);
+    if (st === "concluida") row.concluidos += 1;
+    else row.pendentes += 1;
+  }
+  let metaRows = [];
+  let pinRows = [];
+  try {
+    const { loadMetaSpendByDay } = require("./meta");
+    metaRows = await loadMetaSpendByDay(startDate, endDate, userId);
+  } catch (_) { /* keep */ }
+  try {
+    const { loadPinSpendByDay } = require("./pinterest");
+    pinRows = await loadPinSpendByDay(startDate, endDate, userId);
+  } catch (_) { /* keep */ }
+  const lk = key.toLowerCase();
+  const metaByDay = {};
+  const pinByDay = {};
+  for (const r of metaRows) {
+    if (String(r.subid || "").toLowerCase() !== lk) continue;
+    metaByDay[r.data] = (metaByDay[r.data] || 0) + Number(r.gasto || 0);
+  }
+  for (const r of pinRows) {
+    if (String(r.subid || "").toLowerCase() !== lk) continue;
+    pinByDay[r.data] = (pinByDay[r.data] || 0) + Number(r.gasto || 0);
+  }
+  let tax = { taxRate: 11.7, metaTaxRate: 12 };
+  try { tax = await loadSettings(userId); } catch (_) { /* keep */ }
+  const { calcLucroRoi } = require("./finance");
+  return Object.values(byDay)
+    .sort((a, b) => String(a.data).localeCompare(String(b.data)))
+    .map((d) => {
+      const fin = calcLucroRoi(d.comissao, metaByDay[d.data] || 0, pinByDay[d.data] || 0, tax);
+      return {
+        ...d,
+        faturamento: Math.round(d.faturamento * 100) / 100,
+        comissao: Math.round(d.comissao * 100) / 100,
+        ...fin,
+      };
+    });
 }
 
 function monthStartISO(d = new Date()) {
@@ -454,6 +620,7 @@ async function loadFaturamentoAvgDays(n = 7, userId = requireUserId()) {
 
 async function attachMtdKpis(dash, userId = requireUserId()) {
   if (!dash?.kpis) return dash;
+  if (dash.kpis.faturamentoMtd != null && dash.kpis.faturamentoAvg7 != null) return dash;
   try {
     const [mtd, avg7] = await Promise.all([
       loadFaturamentoMtd(userId),
@@ -467,11 +634,12 @@ async function attachMtdKpis(dash, userId = requireUserId()) {
   return dash;
 }
 
-async function loadOrders({ startDate, endDate, limit = 200 } = {}, userId = requireUserId()) {
+async function loadOrders({ startDate, endDate, limit = 200, columns = "*", subid = null } = {}, userId = requireUserId()) {
   const supabase = getSupabase();
-  let q = supabase.from("orders").select("*").eq("user_id", userId).order("data", { ascending: false }).limit(limit);
+  let q = supabase.from("orders").select(columns).eq("user_id", userId).order("data", { ascending: false }).limit(limit);
   if (startDate) q = q.gte("data", startDate);
   if (endDate) q = q.lte("data", endDate);
+  if (subid) q = q.eq("subid", subid);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
   return data || [];
@@ -596,6 +764,8 @@ module.exports = {
   persistOrdersAndProducts,
   loadDashboardFromDb,
   attachMenuPreviews,
+  slimDashForClient,
+  loadSubidDaily,
   loadOrders,
   loadProducts,
   loadSettings,

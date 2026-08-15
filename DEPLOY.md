@@ -64,6 +64,5 @@ http://localhost:3790
 
 ```bash
 npm run setup:db
-npm run setup:profiles
 npm run seed:demo
 ```

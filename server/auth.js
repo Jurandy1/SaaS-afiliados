@@ -1,26 +1,40 @@
 "use strict";
 
+const crypto = require("crypto");
 const { AsyncLocalStorage } = require("async_hooks");
 const { createClient } = require("@supabase/supabase-js");
 
 const als = new AsyncLocalStorage();
+const TOKEN_CACHE_TTL_MS = 45_000;
+const tokenCache = new Map();
+
+let _adminClient = null;
+let _anonClient = null;
 
 function getSupabaseAdmin() {
+  if (_adminClient) return _adminClient;
   const url = (process.env.SUPABASE_URL || "").trim().replace(/\/rest\/v1\/?$/, "");
   const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   if (!url || !key) throw new Error("Configure SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY");
-  return createClient(url, key, {
+  _adminClient = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  return _adminClient;
 }
 
 function getSupabaseAnon() {
+  if (_anonClient) return _anonClient;
   const url = (process.env.SUPABASE_URL || "").trim().replace(/\/rest\/v1\/?$/, "");
   const key = (process.env.SUPABASE_ANON_KEY || "").trim();
   if (!url || !key) throw new Error("Configure SUPABASE_ANON_KEY");
-  return createClient(url, key, {
+  _anonClient = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  return _anonClient;
+}
+
+function tokenCacheKey(accessToken) {
+  return crypto.createHash("sha256").update(String(accessToken)).digest("hex").slice(0, 32);
 }
 
 function runWithUser(user, fn) {
@@ -43,6 +57,10 @@ function requireUserId() {
 
 async function verifyAccessToken(accessToken) {
   if (!accessToken) return null;
+  const key = tokenCacheKey(accessToken);
+  const hit = tokenCache.get(key);
+  if (hit && Date.now() - hit.at < TOKEN_CACHE_TTL_MS) return hit.user;
+
   const admin = getSupabaseAdmin();
   const { data, error } = await admin.auth.getUser(accessToken);
   if (error || !data?.user) return null;
@@ -52,13 +70,22 @@ async function verifyAccessToken(accessToken) {
     email: data.user.email || "",
   };
 
+  let user = base;
   try {
     const { ensureProfile, profilePublic } = require("./profiles");
     const profile = await ensureProfile(base);
-    return { ...base, profile: profilePublic(profile), role: profile.role, status: profile.status };
+    user = { ...base, profile: profilePublic(profile), role: profile.role, status: profile.status };
   } catch (_) {
-    return base;
+    user = base;
   }
+  tokenCache.set(key, { at: Date.now(), user });
+  if (tokenCache.size > 500) {
+    const now = Date.now();
+    for (const [k, v] of tokenCache) {
+      if (now - v.at > TOKEN_CACHE_TTL_MS) tokenCache.delete(k);
+    }
+  }
+  return user;
 }
 
 async function rollbackAuthUser(userId) {

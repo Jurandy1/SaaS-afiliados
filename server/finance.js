@@ -117,6 +117,7 @@ function reconcileSubIdsToPeriod(subIds, start, end, tax) {
         lucro: 0,
         roi: null,
         abatimento: null,
+        cliques_shopee: 0,
       };
     }
 
@@ -148,9 +149,6 @@ function reconcileSubIdsToPeriod(subIds, start, end, tax) {
     }
 
     let cliquesShopee = agg.cliques_shopee;
-    if (!cliquesShopee && sub.cliques_shopee != null && days.length === allDaily.length) {
-      cliquesShopee = Number(sub.cliques_shopee);
-    }
 
     const fin = calcLucroRoi(agg.comissao, agg.inv_meta, agg.inv_pin, tax);
     const fat = round2(agg.faturamento);
@@ -189,7 +187,7 @@ function reconcileSubIdsToPeriod(subIds, start, end, tax) {
  * Cruza comissão Shopee (daily/subid já no dash) com gasto Meta+Pin.
  * Atualiza colunas inv_* / lucro / roi no Supabase e devolve kpis enriquecidos.
  */
-async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistSubIds = true } = {}) {
+async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistSubIds = true, persistDaily = true } = {}) {
   const start = dash.range?.startDate;
   const end = dash.range?.endDate;
   if (!start || !end) return dash;
@@ -388,11 +386,19 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     end,
     tax,
   );
+  kpis.cliques_shopee = subIdsAll.reduce((a, r) => a + Number(r.cliques_shopee || 0), 0);
+  if (kpis.cliques_shopee > 0 && Number(kpis.cliques_ads || 0) > 0) {
+    kpis.abatimento_cliques = round2((kpis.cliques_shopee / Number(kpis.cliques_ads)) * 100);
+  } else if (kpis.cliques_shopee > 0 && Number(kpis.cliques_meta || 0) > 0) {
+    kpis.abatimento_cliques = round2((kpis.cliques_shopee / Number(kpis.cliques_meta)) * 100);
+  } else {
+    kpis.abatimento_cliques = null;
+  }
 
   try {
     const supabase = getSupabase();
     const now = new Date().toISOString();
-    if (daily.length) {
+    if (persistDaily && daily.length) {
       await supabase.from("daily_metrics").upsert(
         daily.map((d) => ({
           user_id: userId,
@@ -415,27 +421,30 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
       );
     }
     if (persistSubIds && subIdsAll.length) {
-      await supabase.from("subid_metrics").upsert(
-        subIdsAll.map((r) => ({
-          user_id: userId,
-          subid: r.subid,
-          faturamento: r.faturamento || 0,
-          comissao: r.comissao || 0,
-          pedidos: r.pedidos || 0,
-          concluidos: r.concluidos || 0,
-          pendentes: r.pendentes || 0,
-          cancelados: r.cancelados || 0,
-          unpaid: r.unpaid || 0,
-          cliques_shopee: r.cliques_shopee != null ? Number(r.cliques_shopee) : 0,
-          inv_meta: r.inv_meta,
-          inv_pin: r.inv_pin,
-          inv_total: r.inv_total,
-          lucro: r.lucro,
-          roi: r.roi != null ? r.roi : 0,
-          updated_at: now,
-        })),
-        { onConflict: "user_id,subid" }
-      );
+      const rows = subIdsAll.map((r) => ({
+        user_id: userId,
+        subid: r.subid,
+        faturamento: r.faturamento || 0,
+        comissao: r.comissao || 0,
+        pedidos: r.pedidos || 0,
+        concluidos: r.concluidos || 0,
+        pendentes: r.pendentes || 0,
+        cancelados: r.cancelados || 0,
+        unpaid: r.unpaid || 0,
+        cliques_shopee: r.cliques_shopee != null ? Number(r.cliques_shopee) : 0,
+        inv_meta: r.inv_meta,
+        inv_pin: r.inv_pin,
+        inv_total: r.inv_total,
+        lucro: r.lucro,
+        roi: r.roi != null ? r.roi : 0,
+        updated_at: now,
+      }));
+      for (let i = 0; i < rows.length; i += 200) {
+        const { error } = await supabase.from("subid_metrics").upsert(rows.slice(i, i + 200), {
+          onConflict: "user_id,subid",
+        });
+        if (error) throw error;
+      }
     }
   } catch (e) {
     console.warn("[finance] persist:", e.message);

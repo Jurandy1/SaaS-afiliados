@@ -101,6 +101,14 @@ async function main() {
       metaBase: 863959,
       taxRate: 0,
     }, userId);
+
+    const claudeKey = (process.env.CLAUDE_API_KEY || process.env.ANTHROPIC_API_KEY || "").trim();
+    const claudeModel = (process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514").trim();
+    if (claudeKey) {
+      const { saveClaudeCredentials } = require("../server/claude");
+      await saveClaudeCredentials({ apiKey: claudeKey, model: claudeModel }, userId);
+      console.log("Claude demo gravada.");
+    }
   });
 
   console.log("\n=== CONTA ADMIN / DEMONSTRAÇÃO ===");

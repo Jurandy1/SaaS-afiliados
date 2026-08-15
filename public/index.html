@@ -5,32 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#f8fafc" />
-  <title>Shoplotics</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: "class",
-      theme: {
-        extend: {
-          colors: {
-            sidebar: "#0B1220",
-            brand: { 50: "#f0fdfa", 100: "#ccfbf1", 400: "#2dd4bf", 500: "#14b8a6", 600: "#0d9488", 700: "#0f766e", 900: "#134e4a" },
-            shopee: { 500: "#ee4d2d", 600: "#d73211" },
-            meta: { 500: "#0081fb", 600: "#0066c8" },
-            pinterest: { 500: "#e60023", 600: "#ad001a" },
-          },
-          fontFamily: { sans: ["Inter", "system-ui", "sans-serif"] },
-        },
-      },
-    };
-  </script>
+  <title>Sistema de Afiliados</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/tailwind.css" />
   <link rel="stylesheet" href="/gemini-app.css" />
-  <link rel="stylesheet" href="/backup.css" />
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen antialiased selection:bg-brand-500 selection:text-white font-sans transition-colors duration-200">
 
@@ -39,9 +20,9 @@
     <div class="auth-shell">
       <div class="auth-card" id="auth-card">
         <div class="brand auth-brand">
-          <img class="auth-brand-logo" src="/assets/SHOPLUTICS.png" alt="Shoplotics" width="44" height="44" />
+          <img class="auth-brand-logo" src="/assets/SHOPLUTICS.png" alt="Sistema de Afiliados" width="44" height="44" fetchpriority="high" />
           <div class="brand-text">
-            <div class="brand-name">Shoplotics</div>
+            <div class="brand-name">Sistema de Afiliados</div>
             <div class="brand-sub">painel · v.1</div>
           </div>
         </div>
@@ -109,13 +90,15 @@
             <img
               class="w-10 h-10 rounded-xl object-cover shrink-0 shadow-lg shadow-brand-900/30"
               src="/assets/SHOPLUTICS.png"
-              alt="Shoplotics"
+              alt="Sistema de Afiliados"
               width="40"
               height="40"
+              loading="lazy"
+              decoding="async"
             />
             <div class="min-w-0">
               <h1 class="text-white font-semibold text-[15px] leading-tight truncate flex items-center gap-1.5">
-                Shoplotics
+                Sistema de Afiliados
                 <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-brand-400 border border-white/10">v.1</span>
               </h1>
               <p class="text-[10px] text-slate-500 font-medium mt-0.5">Painel Executivo</p>
@@ -144,7 +127,7 @@
             <div class="nav-sec-title">Operação</div>
             <div class="space-y-1">
               <button type="button" class="nav-item active" data-view="dashboard">
-                <span class="nav-left"><img class="nav-logo is-square" src="/assets/dashboard.png" alt="" /><span class="nav-label">Dashboard</span></span>
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/dashboard.png" alt="" loading="lazy" decoding="async" /><span class="nav-label">Dashboard</span></span>
                 <span class="nav-badge" id="nav-subid-count"></span>
               </button>
               <button type="button" class="nav-item" data-view="campanhas-meta">
@@ -321,7 +304,12 @@
 
           <!-- KPIs + Progresso Meta -->
           <div class="dash-only space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 min-w-0 w-full" id="kpi-grid"></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 min-w-0 w-full" id="kpi-grid">
+              <div class="skel-card" aria-hidden="true"></div>
+              <div class="skel-card" aria-hidden="true"></div>
+              <div class="skel-card" aria-hidden="true"></div>
+              <div class="skel-card" aria-hidden="true"></div>
+            </div>
             <div id="meta-progress-card" class="min-w-0 w-full"></div>
           </div>
 
@@ -444,7 +432,7 @@
           </div>
 
           <footer class="mt-4 border-t border-slate-200 pt-4 text-center text-xs text-slate-500">
-            Shoplotics · v.1 · <span id="footer-sync">Última sincronização —</span>
+            Sistema de Afiliados · v.1 · <span id="footer-sync">Última sincronização —</span>
           </footer>
         </section>
 
@@ -939,7 +927,6 @@
     </main>
   </div>
 
-  <script src="/backup.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

@@ -342,11 +342,33 @@
     }
   }
 
+  const inflight = new Map();
+
   async function api(path, opts = {}) {
     const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
-    const res = await fetch(path, { ...opts, headers });
+    const dedupeKey = opts.dedupeKey;
+    if (dedupeKey && inflight.has(dedupeKey)) {
+      try { inflight.get(dedupeKey).abort(); } catch (_) { /* ignore */ }
+    }
+    const ctrl = opts.signal ? null : new AbortController();
+    const signal = opts.signal || ctrl.signal;
+    if (dedupeKey && ctrl) inflight.set(dedupeKey, ctrl);
+    const { dedupeKey: _dk, ...fetchOpts } = opts;
+    let res;
+    try {
+      res = await fetch(path, { ...fetchOpts, headers, signal });
+    } catch (e) {
+      if (e?.name === "AbortError") {
+        const err = new Error("aborted");
+        err.code = "ABORTED";
+        throw err;
+      }
+      throw e;
+    } finally {
+      if (dedupeKey && inflight.get(dedupeKey) === ctrl) inflight.delete(dedupeKey);
+    }
     let json = {};
     try {
       json = await readJsonResponse(res);
@@ -440,7 +462,7 @@
     if (view === "canais") renderOpsTable();
     if (view === "config") {
       setCfgTab(navKey === "integracoes" ? "conexoes" : state.cfgTab || "conexoes");
-      renderIndefinidos();
+      if (state.cfgTab === "indefinidos") renderIndefinidos();
     }
     if (isData) loadDataView(view);
   }
@@ -998,6 +1020,56 @@
     }
   }
 
+  function ensureChartJs() {
+    if (typeof Chart !== "undefined") return Promise.resolve(true);
+    if (window._chartJsLoading) return window._chartJsLoading;
+    window._chartJsLoading = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js";
+      s.async = true;
+      s.onload = () => resolve(true);
+      s.onerror = () => reject(new Error("Chart.js"));
+      document.head.appendChild(s);
+    });
+    return window._chartJsLoading;
+  }
+
+  async function ensureBackupUi() {
+    if (window.BackupUI) return window.BackupUI;
+    if (!document.querySelector("link[data-backup-css]")) {
+      const l = document.createElement("link");
+      l.rel = "stylesheet";
+      l.href = "/backup.css";
+      l.dataset.backupCss = "1";
+      document.head.appendChild(l);
+    }
+    await new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "/backup.js";
+      s.async = true;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error("backup.js"));
+      document.body.appendChild(s);
+    });
+    return window.BackupUI;
+  }
+
+  function debounce(fn, ms) {
+    let t = 0;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn(...args), ms);
+    };
+  }
+
+  function isMobileLayout() {
+    return window.matchMedia("(max-width: 640px)").matches;
+  }
+
+  function setDashLoading(on) {
+    $("#view-dashboard")?.classList.toggle("is-loading", !!on);
+  }
+
   function renderChart(daily) {
     const host = $("#daily-chart");
     if (!host) return;
@@ -1015,6 +1087,18 @@
       return;
     }
 
+    const paint = () => paintProfitChart(host, rows);
+    if (typeof Chart === "undefined") {
+      host.innerHTML = `<div class="chart-empty">Carregando gráfico…</div>`;
+      ensureChartJs().then(paint).catch(() => {
+        host.innerHTML = `<div class="chart-empty">Chart.js não carregou. Recarregue a página.</div>`;
+      });
+      return;
+    }
+    paint();
+  }
+
+  function paintProfitChart(host, rows) {
     if (!host.querySelector("#profit-chart-canvas")) {
       host.innerHTML = `<canvas id="profit-chart-canvas"></canvas>`;
     }
@@ -1684,9 +1768,6 @@
       agg.cliques_pin += Number(d.cliques_pin || 0);
       agg.cliques_shopee += Number(d.cliques_shopee || 0);
     }
-    if (!agg.cliques_shopee && r?.cliques_shopee != null && days.length === allDaily.length) {
-      agg.cliques_shopee = Number(r.cliques_shopee);
-    }
     return agg;
   }
 
@@ -1770,10 +1851,10 @@
         if (partial.produto != null) r.produto = partial.produto;
       }
     }
-    applyChannelView();
-    renderOpsTable();
-    renderIndefinidos();
-    if (state.view === "analise-ia") renderSuggestions(state.dash);
+    paintChannelCounts();
+    if (state.view === "canais") renderOpsTable();
+    else if (state.view === "config" && state.cfgTab === "indefinidos") renderIndefinidos();
+    else if (state.view === "dashboard" && state.channel !== "geral") renderSubIdsDash();
   }
 
   function wireOpsSelects(root) {
@@ -2012,6 +2093,10 @@
 
   function visibleSubidColumns(ch) {
     const prefs = state.subidColPrefs?.[ch] || readSubidColPrefs(ch);
+    if (isMobileLayout()) {
+      const keep = new Set(["subid", "lucro", "roi", "status"]);
+      return allSubidColumnDefs(ch).filter((c) => keep.has(c.key));
+    }
     return allSubidColumnDefs(ch).filter((c) => c.locked || prefs[c.key]);
   }
 
@@ -2245,7 +2330,9 @@
       k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_pin)) * 10000) / 100;
     }
     const { start, end } = periodRange();
-    const daily = isChannel ? dailyFromSubIds(channelSubs, start, end) : (dash.daily || []);
+    const daily = isChannel
+      ? (dash.dailyByChannel?.[ch] || dailyFromSubIds(channelSubs, start, end))
+      : (dash.daily || []);
     if (!isChannel) {
       renderKpis(k, (dash.subIds || []).length);
       renderMetaProgressCard(k);
@@ -2274,9 +2361,13 @@
     const el = $(scrollSel);
     if (!el || el.dataset.infiniteWired === "1") return;
     el.dataset.infiniteWired = "1";
+    let last = 0;
     el.addEventListener("scroll", () => {
+      const now = Date.now();
+      if (now - last < 160) return;
+      last = now;
       if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) onMore();
-    });
+    }, { passive: true });
   }
 
   function renderInfiniteHint(el, shown, total) {
@@ -2444,14 +2535,28 @@
     const tb = $(tbodySel);
     if (!tb || tb.dataset.expandWired) return;
     tb.dataset.expandWired = "1";
-    tb.addEventListener("click", (e) => {
+    tb.addEventListener("click", async (e) => {
       if (e.target.closest("select, button, input, a, label, .op-select")) return;
       const cell = e.target.closest("td.subid[data-subid]");
       if (!cell) return;
       e.preventDefault();
       const id = cell.dataset.subid;
       if (!id) return;
-      state.expandedSubIds[id] = !state.expandedSubIds[id];
+      const opening = !state.expandedSubIds[id];
+      state.expandedSubIds[id] = opening;
+      const row = (state.dash?.subIds || []).find((r) => String(r.subid || "") === id);
+      if (opening && row && !Array.isArray(row.daily)) {
+        row.daily = [];
+        renderFn();
+        try {
+          const start = $("#start-date")?.value || "";
+          const end = $("#end-date")?.value || "";
+          const r = await api(`/api/subid-daily?subid=${encodeURIComponent(id)}&start=${start}&end=${end}`);
+          row.daily = r.daily || [];
+        } catch (_) {
+          row.daily = [];
+        }
+      }
       renderFn();
     });
   }
@@ -2576,7 +2681,12 @@
   }
 
   async function renderBackupPage() {
-    if (window.BackupUI) await window.BackupUI.mount();
+    try {
+      const ui = await ensureBackupUi();
+      if (ui) await ui.mount();
+    } catch (e) {
+      console.warn(e);
+    }
   }
 
   async function loadDataView(view) {
@@ -2769,10 +2879,9 @@
     state.subidPage = 1;
     state.subidVisible = 40;
     state.opsVisible = 40;
-    const k = dash.kpis || {};
     applyChannelView();
-    renderOpsTable();
-    renderIndefinidos();
+    if (state.view === "canais") renderOpsTable();
+    if (state.view === "config" && state.cfgTab === "indefinidos") renderIndefinidos();
     const when = dash.syncedAt ? new Date(dash.syncedAt).toLocaleString("pt-BR") : "—";
     $("#sync-meta").textContent = `${cached ? "cache · " : ""}${dash.nodes || 0} nodes · ${when}`;
     $("#footer-sync").textContent = `Última sincronização ${when}`;
@@ -3033,6 +3142,18 @@
     }
   }
 
+  async function pollSyncStatus(maxMs = 90000) {
+    const started = Date.now();
+    while (Date.now() - started < maxMs) {
+      try {
+        const st = await api("/api/sync/status");
+        if (st.status !== "running") return st;
+      } catch (_) { /* keep polling */ }
+      await new Promise((r) => setTimeout(r, 2000));
+    }
+    return { status: "idle", timeout: true };
+  }
+
   async function loadDashboard({ force = false } = {}) {
     const start = $("#start-date").value;
     const end = $("#end-date").value;
@@ -3042,35 +3163,53 @@
       btn.disabled = true;
       btn.textContent = force ? "Sincronizando…" : "Carregando…";
     }
+    setDashLoading(true);
     try {
+      if (force) {
+        await api("/api/sync", {
+          method: "POST",
+          body: JSON.stringify({ start, end, startDate: start, endDate: end }),
+        }).then((started) => {
+          if (started.already) return;
+          const token = getToken();
+          fetch("/api/sync/worker", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ start, end, startDate: start, endDate: end }),
+          }).catch(() => {});
+        });
+        const banner = $("#sync-banner");
+        if (banner) {
+          banner.className = "banner keep";
+          banner.textContent = "Sincronizando Shopee + Meta em segundo plano…";
+        }
+        await pollSyncStatus();
+      }
       const q = new URLSearchParams({ start, end });
-      if (force) q.set("force", "1");
-      const dash = await api(`/api/dashboard?${q}`);
+      const dash = await api(`/api/dashboard?${q}`, { dedupeKey: "dashboard" });
       applyDash(dash, { cached: dash.cached });
       const banner = $("#sync-banner");
-      if (force && dash.metaSync && !dash.metaSync.error) {
-        const m = dash.metaSync;
+      if (force) {
         banner.className = "banner ok keep";
-        banner.textContent = `Shopee + Meta OK · Meta ${m.gravados || 0} linhas · gasto R$ ${Number(m.totais?.gasto || 0).toLocaleString("pt-BR")}`;
+        banner.textContent = `Sincronização concluída · ${dash.nodes || 0} nodes`;
         setTimeout(() => {
           if (banner.classList.contains("keep")) banner.className = "banner hidden";
         }, 8000);
-      } else if (force && dash.metaSync?.error) {
-        banner.className = "banner keep";
-        banner.textContent = `Shopee OK · Meta: ${dash.metaSync.error}`;
-        setTimeout(() => {
-          if (banner.classList.contains("keep")) banner.className = "banner hidden";
-        }, 10000);
       } else if (!banner.classList.contains("keep")) {
         banner.className = "banner hidden";
         banner.textContent = "";
       }
     } catch (err) {
+      if (err.code === "ABORTED") return;
       const banner = $("#sync-banner");
       banner.className = "banner err";
       banner.textContent = err.message || String(err);
       if (err.code === "CREDS_MISSING") setView("config");
     } finally {
+      setDashLoading(false);
       if (btn) {
         btn.disabled = false;
         btn.textContent = prev;
@@ -3265,7 +3404,7 @@
       if (e.key === "Escape") setSidebarOpen(false);
     });
     window.addEventListener("resize", () => {
-      if (window.innerWidth > 900) setSidebarOpen(false);
+      if (window.innerWidth > 1023) setSidebarOpen(false);
     });
 
     $$(".nav-item").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
@@ -3316,8 +3455,8 @@
       }
     });
 
-    $("#subid-search")?.addEventListener("input", () => { state.subidVisible = 40; renderSubIdsDash(); });
-    $("#ops-search")?.addEventListener("input", () => { state.opsVisible = 40; renderOpsTable(); });
+    $("#subid-search")?.addEventListener("input", debounce(() => { state.subidVisible = 40; renderSubIdsDash(); }, 200));
+    $("#ops-search")?.addEventListener("input", debounce(() => { state.opsVisible = 40; renderOpsTable(); }, 200));
     wireSortHeaders("#subid-thead", () => state.subidSort, () => {
       state.subidVisible = 40;
       renderSubIdsDash();
@@ -3601,14 +3740,13 @@
   }
 
   async function bootApp() {
-    await Promise.all([loadCredentials(), loadMetaCreds(), loadSettingsUi(), loadClaudeCreds()]);
-    if (state.configured) await loadDashboard({ force: false });
-    else {
-      renderKpis({});
-      renderMetaProgressCard({});
-      renderSuggestions(null);
-      renderChart([]);
-    }
+    setDashLoading(true);
+    await Promise.all([
+      loadCredentials(),
+      loadMetaCreds(),
+      loadSettingsUi(),
+      loadDashboard({ force: false }),
+    ]);
   }
 
   async function boot() {

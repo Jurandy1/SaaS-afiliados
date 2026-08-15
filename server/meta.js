@@ -3,6 +3,7 @@
 const { normalizeSubId } = require("./normalizeSubId");
 const { getSupabase } = require("./supabase");
 const { requireUserId } = require("./auth");
+const { fetchWithTimeout } = require("./httpUtil");
 
 function maskToken(token) {
   const s = String(token || "");
@@ -114,7 +115,7 @@ async function listAccessibleAdAccounts(token, apiVersion = "v19.0") {
   let pages = 0;
   while (url && pages < 10) {
     pages += 1;
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url, {}, 15000);
     const json = await res.json().catch(() => ({}));
     if (!res.ok || json.error) {
       throw new Error(json.error?.message || "Falha ao listar ad accounts do token");
@@ -170,7 +171,7 @@ async function metaFetchAll(url) {
     let res;
     let json = {};
     try {
-      res = await fetch(next);
+      res = await fetchWithTimeout(next, {}, 15000);
       json = await res.json().catch(() => ({}));
     } catch (e) {
       throw new Error(`Meta fetch falhou: ${e.message || e}`);
@@ -219,7 +220,7 @@ async function testMetaCredentialsPair({ accessToken, adAccountIds, apiVersion }
   if (!/^v\d+\.\d+$/.test(ver)) throw new Error("META_API_VERSION inválida (ex: v19.0)");
 
   const url = `https://graph.facebook.com/${ver}/me?fields=id,name&access_token=${encodeURIComponent(token)}`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url, {}, 15000);
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.error) {
     throw new Error(`Meta: ${json.error?.message || "token inválido ou sem permissão"}`);
@@ -423,14 +424,21 @@ async function syncMetaDaily({ daysBack = 30, since, until } = {}, userId = requ
 
 async function loadMetaSpendByDay(startDate, endDate, userId = requireUserId()) {
   const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from("meta_ads_daily")
-    .select("data, subid, gasto, campaign_name, ad_name, ad_id, cliques, impressoes, alcance")
-    .eq("user_id", userId)
-    .gte("data", startDate)
-    .lte("data", endDate);
-  if (error) throw new Error(error.message);
-  return data || [];
+  const pageSize = 1000;
+  const all = [];
+  for (let from = 0; from < 8000; from += pageSize) {
+    const { data, error } = await supabase
+      .from("meta_ads_daily")
+      .select("data, subid, gasto, campaign_name, ad_name, ad_id, cliques, impressoes, alcance")
+      .eq("user_id", userId)
+      .gte("data", startDate)
+      .lte("data", endDate)
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    all.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return all;
 }
 
 async function loadCampaigns(startDate, endDate, userId = requireUserId()) {
