@@ -6,7 +6,7 @@ create table if not exists subid_ops (
   user_id uuid not null,
   subid text not null,
   canal text check (canal in ('meta', 'pinterest', 'organico')),
-  status text check (status in ('ativa', 'teste', 'pausada')),
+  status text check (status is null or status in ('ativa', 'teste', 'desativada', 'pausada')),
   produto text,
   updated_at timestamptz default now(),
   primary key (user_id, subid)

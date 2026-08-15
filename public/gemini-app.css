@@ -796,7 +796,15 @@ html.dark .light-card {
   padding: 1.5rem;
   box-shadow: 0 1px 3px rgba(0,0,0,.06);
 }
-.auth-brand { margin-bottom: 1.25rem; }
+.auth-brand { margin-bottom: 1.25rem; display: flex; align-items: center; gap: 12px; }
+.auth-brand-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
+}
 .auth-brand .brand-name { font-weight: 800; font-size: 1.125rem; color: #0f172a; }
 .auth-brand .brand-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
 .auth-tabs { display: flex; gap: 6px; margin-bottom: 1rem; background: #f1f5f9; padding: 4px; border-radius: 12px; }

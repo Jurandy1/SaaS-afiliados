@@ -10,9 +10,10 @@ async function loadSubidOps(userId = requireUserId()) {
     if (error) throw error;
     const map = {};
     for (const r of data || []) {
+      const rawStatus = r.status || null;
       map[String(r.subid || "").toLowerCase()] = {
         canal: r.canal || null,
-        status: r.status || null,
+        status: rawStatus === "pausada" ? "desativada" : rawStatus,
         produto: r.produto || null,
       };
     }
@@ -23,17 +24,28 @@ async function loadSubidOps(userId = requireUserId()) {
   }
 }
 
+function normalizeStatus(status) {
+  if (status == null || status === "") return null;
+  const s = String(status).trim().toLowerCase();
+  if (s === "pausada" || s === "desativada") return "desativada";
+  if (s === "teste") return "teste";
+  if (s === "ativa") return "ativa";
+  return s;
+}
+
 async function upsertSubidOps(subid, partial, userId = requireUserId()) {
   const key = String(subid || "").trim();
   if (!key) throw new Error("SubID obrigatório");
   const supabase = getSupabase();
   const prevMap = await loadSubidOps(userId);
   const prev = prevMap[key.toLowerCase()] || {};
+  const nextStatus =
+    partial.status != null ? normalizeStatus(partial.status) : normalizeStatus(prev.status);
   const row = {
     user_id: userId,
     subid: key,
     canal: partial.canal != null ? partial.canal : prev.canal,
-    status: partial.status != null ? partial.status : prev.status,
+    status: nextStatus,
     produto: partial.produto != null ? partial.produto : prev.produto,
     updated_at: new Date().toISOString(),
   };
