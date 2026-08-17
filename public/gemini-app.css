@@ -99,8 +99,10 @@ html.light { color-scheme: light; }
   letter-spacing: -0.02em;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .channel-hero .kpi-hero-value {
   font-size: clamp(1.05rem, 2vw, 1.45rem);
@@ -225,9 +227,11 @@ html.light { color-scheme: light; }
   color: #0f172a;
   letter-spacing: -0.01em;
   line-height: 1.25;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
+  min-width: 0;
 }
 
 /* Card Progresso Meta ÃÂ¢ÃÂÃÂ legado */
@@ -630,6 +634,9 @@ html.light { color-scheme: light; }
   text-transform: none;
   letter-spacing: 0;
 }
+@media (min-width: 900px) {
+  .cfg-meta-grid { grid-template-columns: repeat(3, 1fr); }
+}
 
 /* PainÃÂÃÂ©is ÃÂ¢ÃÂÃÂ cabeÃÂÃÂ§alho claro + corpo escuro (Afiliadoteste) */
 .panel-head { background: #fff; }
@@ -1010,6 +1017,35 @@ html.dark .light-card {
 .data-table--ops td {
   padding: 10px 8px;
   white-space: nowrap;
+}
+.data-table--ops thead th[data-sort] {
+  white-space: normal;
+  vertical-align: bottom;
+  min-width: 140px;
+}
+.data-table--ops .th-label {
+  display: block;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 6px;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+.data-table--ops .th-filter-ctrl {
+  display: block;
+  width: 100%;
+  margin: 0;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 11px;
+  padding: 6px 8px;
+}
+.data-table--ops tbody tr.is-desativada {
+  opacity: 0.55;
 }
 .data-table--ops th:first-child,
 .data-table--ops td.subid {
@@ -1597,6 +1633,27 @@ html.dark .light-card {
   .ia-token-inline-hide-sm { display: none; }
   .ia-msg-avatar { display: none; }
   .ia-msg { max-width: 100%; width: 100%; }
+  .ia-msg-bubble { font-size: 14px; line-height: 1.55; }
+  .ia-chat-composer textarea { font-size: 16px !important; min-height: 44px; }
+  .ia-send-btn { width: 44px !important; height: 44px !important; min-width: 44px !important; max-width: 44px !important; }
+  .ia-chat-toolbar { padding: 0.4rem 0.55rem; gap: 4px 6px; }
+  .ia-pill { font-size: 10.5px; max-width: 55%; }
+  .ia-token-inline { gap: 4px 8px; font-size: 10.5px; }
+  .ia-chat-status { white-space: normal; padding: 0 0.65rem 0.5rem; }
+  .ia-chat-suggestions { justify-content: flex-start; }
+  .ia-chip { font-size: 12px; padding: 7px 12px; min-height: 36px; }
+  .ia-welcome { padding: 0.5rem 0.25rem; }
+  .ia-welcome h2 { font-size: 1.05rem; }
+  .ia-welcome > p { font-size: 12.5px; }
+  .ia-topbar { padding: 0.4rem 0.55rem; }
+  .ia-topbar-title { font-size: 0.9rem; }
+  .ia-topbar-right { gap: 3px; }
+  .ia-topbar-right .btn.ghost { padding: 0.3rem 0.55rem; font-size: 10.5px; min-height: 32px; }
+  .ia-topbar-right .state-chip { font-size: 9.5px; padding: 2px 6px; }
+}
+@media (max-width: 380px) {
+  .ia-topbar-right #ia-claude-state { display: none; }
+  .ia-pill { max-width: 60%; }
 }
 
 html.dark .ia-chat-shell { background: #0f172a; border-color: #1e293b; }
@@ -1629,8 +1686,10 @@ html.dark .ia-msg-meta .ia-meta-chip { background: #1e293b; border-color: #33415
 .form label { display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 10px; }
 .form input, .form select, .search, .op-select, .search--select {
   display: block; width: 100%; margin-top: 4px; border: 1px solid #e2e8f0; border-radius: 12px;
-  padding: 8px 12px; font-size: 12px; background: #f8fafc; color: #0f172a;
+  padding: 8px 12px; font-size: 12px; background: #fff; color: #0f172a;
+  pointer-events: auto; cursor: text;
 }
+.form select, .op-select, .search--select { cursor: pointer; }
 .op-select { margin-top: 0; min-width: 120px; width: auto; display: inline-block; }
 .form-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .state-chip {
@@ -2070,16 +2129,22 @@ html, body {
   gap: 0.25rem;
   min-width: 0;
   max-width: 100%;
-  font-size: clamp(1.35rem, 2.4vw, 2.25rem);
+  font-size: clamp(1.15rem, 2.4vw, 2.25rem);
   font-weight: 900;
   letter-spacing: -0.02em;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
 }
 .kpi-hero-value > span:last-child {
   min-width: 0;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kpi-hero-value > span:first-child {
+  flex: 0 0 auto;
 }
 .kpi-hero-foot {
   display: flex;
@@ -2161,7 +2226,10 @@ html, body {
     font-size: 10px;
   }
   .kpi-hero-value {
-    font-size: clamp(1.25rem, 7vw, 1.75rem);
+    font-size: clamp(1.05rem, 5.8vw, 1.6rem);
+  }
+  .kpi-hero-value > span:first-child {
+    font-size: 0.78em;
   }
   .channel-metric {
     padding: 12px;
@@ -2191,9 +2259,74 @@ html, body {
     padding-left: 0.75rem;
     padding-right: 0.75rem;
   }
+  #period-bar {
+    overflow: visible;
+  }
+  #period-bar .lg\:w-\[220px\],
+  #period-bar .xl\:w-\[240px\] {
+    width: auto !important;
+  }
+  #period-preset-subtitle {
+    font-size: 9px;
+  }
+  #period-range-display {
+    font-size: 12.5px;
+  }
   .period-preset-strip {
     width: 100%;
     max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    padding: 0.25rem 0.35rem;
+  }
+  .period-preset-strip::-webkit-scrollbar { height: 4px; }
+  .period-preset-strip::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  #period-bar .period-preset {
+    scroll-snap-align: start;
+    padding: 0.45rem 0.7rem;
+    font-size: 12px;
+    min-height: 34px;
+  }
+  .period-bar-actions {
+    width: 100%;
+    gap: 0.4rem;
+  }
+  .period-btn-custom,
+  .period-btn-refresh {
+    flex: 1;
+    justify-content: center;
+    padding: 0.55rem 0.75rem;
+    min-height: 38px;
+    font-size: 12.5px;
+  }
+  .period-custom-panel {
+    padding-top: 0.6rem;
+  }
+  .period-custom-panel > .flex {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+  .period-date-field {
+    width: 100%;
+  }
+  .period-date-field input[type="date"] {
+    width: 100%;
+    padding: 0.6rem 0.7rem;
+    font-size: 15px;
+    min-height: 42px;
+  }
+  .period-btn-apply,
+  .period-btn-clear {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    font-size: 13px;
+    min-height: 42px;
+  }
+  #period-data-hint {
+    text-align: center;
+    margin-left: 0 !important;
   }
   .topbar-actions .hidden.md\:block {
     display: none !important;
@@ -2338,10 +2471,21 @@ html.dark .skel-card {
 }
 
 @media (max-width: 640px) {
-  .data-table:not(#ops-table),
-  #ops-table.data-table--ops,
-  #indef-table {
+  .data-table:not(#ops-table):not(#indef-table),
+  #ops-table.data-table--ops {
     min-width: 0 !important;
+  }
+  /* #indef-table mantém min-width para os selects e valores caberem — rola horizontalmente */
+  #indef-table { min-width: 560px; }
+  #cfg-indefinidos-section .overflow-x-auto {
+    background-image:
+      linear-gradient(90deg, rgba(15,23,42,0.08), transparent 35%) 0 0/16px 100% no-repeat,
+      linear-gradient(90deg, transparent 65%, rgba(15,23,42,0.08)) 100% 0/16px 100% no-repeat;
+    background-attachment: local, local;
+  }
+  #indef-table .op-select {
+    min-width: 110px;
+    font-size: 15px !important;
   }
   .op-select {
     min-width: 96px;
@@ -2354,3 +2498,426 @@ html.dark .skel-card {
 .bk-modal-head button { border: none; background: transparent; cursor: pointer; color: #94a3b8; font-size: 1rem; }
 .bk-label { display: block; font-size: 0.75rem; font-weight: 700; color: #334155; margin-bottom: 0.35rem; }
 .bk-modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem; }
+
+/* =====================================================================
+   MOBILE HARDENING — global, aplica-se a Dashboard, Campanhas, Backup,
+   Config, IA e Canais. Evita overflow horizontal, ajusta tipografia,
+   compacta topbar e melhora ergonomia toque.
+   ===================================================================== */
+html, body { max-width: 100%; overflow-x: hidden; }
+@media (max-width: 640px) {
+  #app-shell { min-width: 0; }
+  main.page-main > div { padding-left: 0.85rem; padding-right: 0.85rem; }
+
+  /* Header — evitar apertar demais e permitir wrap sem overflow */
+  header.sticky {
+    padding-top: 0.6rem !important;
+    padding-bottom: 0.6rem !important;
+    row-gap: 0.5rem;
+  }
+  header.sticky > div:first-child { min-width: 0; flex: 1; }
+  header.sticky #crumb-label,
+  header.sticky #dash-live-text { font-size: 10px; }
+  .topbar-actions {
+    gap: 6px;
+    justify-content: flex-end;
+  }
+  .topbar-actions button,
+  .topbar-actions #btn-export {
+    padding: 0.4rem 0.55rem;
+    font-size: 11px;
+  }
+  .topbar-actions .icon-btn-img { width: 14px; height: 14px; }
+  #btn-export .fa-file-csv { font-size: 13px; }
+  #btn-meta-sync-top,
+  #btn-sync,
+  #btn-export,
+  #theme-toggle { min-width: 36px; min-height: 36px; }
+
+  /* Título e sub */
+  #dash-title { font-size: 1.15rem !important; }
+  .page-sub { font-size: 11px; }
+
+  /* Chart um pouco mais baixo para caber no viewport */
+  #daily-chart { height: 220px !important; min-height: 200px; }
+
+  /* Tabelas — deixa scroll horizontal indicado com sombra fade nas bordas */
+  .table-scroll,
+  .table-scroll--dark,
+  .bk-tabs,
+  .period-preset-strip {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    overscroll-behavior-x: contain;
+    background-image:
+      linear-gradient(90deg, rgba(15, 23, 42, 0.08), transparent 35%) 0 0 / 20px 100% no-repeat,
+      linear-gradient(90deg, transparent 65%, rgba(15, 23, 42, 0.08)) 100% 0 / 20px 100% no-repeat;
+    background-attachment: local, local;
+  }
+  .table-scroll--dark {
+    background-image:
+      linear-gradient(90deg, rgba(0, 0, 0, 0.35), transparent 35%) 0 0 / 20px 100% no-repeat,
+      linear-gradient(90deg, transparent 65%, rgba(0, 0, 0, 0.35)) 100% 0 / 20px 100% no-repeat;
+    background-attachment: local, local;
+  }
+  /* Densidade menor nas células */
+  .data-table th,
+  .data-table td {
+    padding: 0.5rem 0.55rem !important;
+    font-size: 12px !important;
+  }
+  .data-table--daily-dark th,
+  .data-table--daily-dark td { font-size: 11.5px !important; }
+
+  /* Painéis com padding reduzido */
+  .panel-head {
+    padding-left: 0.85rem !important;
+    padding-right: 0.85rem !important;
+    padding-top: 0.8rem !important;
+    padding-bottom: 0.8rem !important;
+  }
+  .panel-title { font-size: 0.8rem; }
+  .surface-card { border-radius: 0.85rem; }
+
+  /* Progressão de metas — deixar empilhado */
+  .meta-tier-grid { grid-template-columns: 1fr !important; gap: 0.6rem; }
+
+  /* KPI hero — footer/label bem apertados */
+  .kpi-hero { padding: 0.85rem !important; }
+  .kpi-hero-foot { padding: 0.5rem 0.6rem !important; }
+  .kpi-hero-foot span { font-size: 10.5px; }
+
+  /* Contagens de canais */
+  .chan-counts { row-gap: 6px; }
+
+  /* Config — subnav */
+  .cfg-section { margin-bottom: 20px; }
+  .cfg-section-title { font-size: 15px; }
+
+  /* Backup */
+  .bk-hero { padding: 0.95rem 1rem; border-radius: 1rem; }
+  .bk-hero-title { font-size: 1.05rem; }
+  .bk-hero-desc { font-size: 11.5px; }
+  .bk-hero-btn { width: 100%; padding: 0.65rem 0.9rem; font-size: 12px; }
+  .bk-kpi { padding: 0.6rem 0.65rem; }
+  .bk-kpi strong { font-size: 1rem; }
+  .bk-tabs { padding-bottom: 0.25rem; }
+  .backup-tab { padding: 0.55rem 0.75rem; font-size: 11.5px; }
+
+  /* Backup — grupos: thumb menor e cabeçalho compacto */
+  .bk-gcard-row { padding: 0.85rem 0.9rem; }
+  .bk-gthumb img,
+  .bk-gthumb-ph { width: 3.75rem; height: 3.75rem; }
+  .bk-gname { font-size: 0.85rem; }
+  .bk-glink { font-size: 11px; }
+
+  /* Backup — modal ocupa quase toda a tela */
+  .bk-modal-backdrop { padding: 0.5rem; }
+  .bk-modal { max-height: 94vh; padding: 0.9rem 0.95rem; }
+
+  /* Análise IA — composer mais confortável */
+  .ia-chat-composer { padding: 0.5rem 0.6rem; gap: 0.4rem; }
+  .ia-chat-composer textarea { font-size: 14px; }
+
+  /* Auth */
+  .auth-gate {
+    padding: 12px;
+    align-items: flex-start;
+    padding-top: 24px;
+  }
+  .auth-shell { max-width: 100%; }
+  .auth-card {
+    padding: 1.15rem;
+    border-radius: 14px;
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .auth-card .form input { font-size: 16px !important; min-height: 44px; }
+  .auth-brand-logo { width: 40px; height: 40px; }
+  .auth-submit { min-height: 46px; font-size: 14px; }
+  .auth-section-title { margin: 12px 0 4px; }
+
+  /* Botões e inputs — alvo de toque mínimo (iOS zoom evita input <16px) */
+  input, select, textarea,
+  .form input,
+  .form select,
+  .search,
+  .op-select,
+  .search--select,
+  .bk-toolbar-search input,
+  .bk-nicho-select,
+  #ia-chat-input,
+  .ia-chat-composer textarea { font-size: 16px !important; }
+  .op-select { min-height: 40px; }
+  button, .btn, .bk-chip, .bk-act { touch-action: manipulation; }
+
+  /* SubIDs — trocar tabela por cards empilhados */
+  #subid-table.is-mobile-hidden { display: none; }
+  #btn-subid-cols { display: none; }
+  #subid-scroll {
+    background: #0f172a;
+    max-height: none;
+    overflow: visible;
+    padding: 0.75rem;
+  }
+  .subid-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .subid-card {
+    background: #0b1220;
+    border: 1px solid #1e293b;
+    border-radius: 0.8rem;
+    padding: 0.7rem 0.75rem;
+    color: #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+  .subid-card.is-open {
+    border-color: #334155;
+    box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.18);
+  }
+  .subid-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  .subid-card-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: transparent;
+    border: 0;
+    color: #f8fafc;
+    font-weight: 700;
+    font-size: 13.5px;
+    letter-spacing: -0.01em;
+    padding: 0;
+    cursor: pointer;
+    min-width: 0;
+    flex: 1;
+    text-align: left;
+  }
+  .subid-card-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .subid-card-caret {
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #64748b;
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+  }
+  .subid-card.is-open .subid-card-caret { transform: rotate(180deg); border-top-color: #34d399; }
+  .subid-card-status { flex-shrink: 0; }
+  .subid-card-status .op-select {
+    min-width: 118px;
+    font-size: 12.5px !important;
+    padding: 0.35rem 0.55rem;
+    min-height: 34px;
+  }
+  .subid-card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px 8px;
+  }
+  .subid-card-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    padding: 4px 6px;
+    background: rgba(30, 41, 59, 0.55);
+    border-radius: 0.5rem;
+  }
+  .subid-card-cell .lab {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+  .subid-card-cell .val {
+    font-size: 12.5px;
+    font-weight: 800;
+    color: #f1f5f9;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .subid-card-cell .val.cell-emerald { color: #34d399; }
+  .subid-card-cell .val.cell-gasto { color: #fb923c; }
+  .subid-card-cell .val.cell-red,
+  .subid-card-cell .val.cell-danger { color: #f87171; }
+  .subid-card-cell .val.roi-elite { color: #34d399; }
+  .subid-card-cell .val.roi-good { color: #4ade80; }
+  .subid-card-cell .val.roi-mid { color: #facc15; }
+  .subid-card-cell .val.roi-bad { color: #f87171; }
+  .subid-card-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .subid-card-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #94a3b8;
+    background: rgba(148, 163, 184, 0.1);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 999px;
+    padding: 3px 8px;
+  }
+  .subid-card-chip b { color: #f1f5f9; font-weight: 800; }
+  .subid-card-chip.trend-up { color: #34d399; background: rgba(16, 185, 129, 0.12); border-color: rgba(52, 211, 153, 0.28); }
+  .subid-card-chip.trend-down { color: #f87171; background: rgba(239, 68, 68, 0.12); border-color: rgba(248, 113, 113, 0.28); }
+  .subid-card-chip.trend-flat { color: #94a3b8; }
+  .subid-card-history {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 0.5rem;
+    margin-top: 0.15rem;
+    border-top: 1px dashed #1e293b;
+  }
+  .subid-card-history--empty {
+    color: #64748b;
+    font-size: 11.5px;
+    padding: 0.4rem 0;
+    text-align: center;
+    font-style: italic;
+  }
+  .subid-card-history-row {
+    display: grid;
+    grid-template-columns: 62px repeat(4, minmax(0, 1fr));
+    gap: 4px 6px;
+    padding: 5px 6px;
+    border-radius: 0.45rem;
+    background: rgba(15, 23, 42, 0.5);
+    align-items: center;
+  }
+  .subid-card-history-row.is-total {
+    background: rgba(52, 211, 153, 0.12);
+    border: 1px solid rgba(52, 211, 153, 0.28);
+  }
+  .subid-card-history-row .hday {
+    font-size: 10px;
+    font-weight: 800;
+    color: #cbd5e1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .subid-card-history-row .hcell {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+  .subid-card-history-row .hcell .lab {
+    font-size: 8.5px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .subid-card-history-row .hcell .val {
+    font-size: 11px;
+    font-weight: 700;
+    color: #f1f5f9;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .subid-card-history-row .hcell .val.cell-emerald { color: #34d399; }
+  .subid-card-history-row .hcell .val.cell-gasto { color: #fb923c; }
+  .subid-card-history-row .hcell .val.roi-elite,
+  .subid-card-history-row .hcell .val.roi-good { color: #34d399; }
+  .subid-card-history-row .hcell .val.roi-mid { color: #facc15; }
+  .subid-card-history-row .hcell .val.roi-bad { color: #f87171; }
+  .subid-card-empty {
+    padding: 1.5rem 1rem;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 12.5px;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px dashed #1e293b;
+    border-radius: 0.65rem;
+  }
+}
+
+@media (max-width: 400px) {
+  header.sticky {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  main.page-main > div { padding-left: 0.65rem; padding-right: 0.65rem; }
+  /* Esconde o breadcrumb “Painel > …” em telas muito pequenas para dar espaço aos botões */
+  header.sticky > div:first-child > div > div.flex.items-center.gap-2.text-xs { display: none; }
+  #dash-title { font-size: 1.05rem !important; }
+  .kpi-hero { padding: 0.75rem !important; }
+  .kpi-hero-value { font-size: clamp(1rem, 5.4vw, 1.4rem); }
+  .surface-card { border-radius: 0.75rem; }
+  .bk-kpi strong { font-size: 0.95rem; }
+}
+
+@media (max-width: 360px) {
+  /* Esconde "AO VIVO" texto, mantém só o pontinho verde */
+  #dash-live-text { display: none; }
+  header.sticky > div:first-child > div > div.flex.items-center.gap-2.mt-0\.5 span.w-2.h-2 {
+    width: 8px !important;
+    height: 8px !important;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+  }
+  #dash-title { font-size: 1rem !important; }
+  .subid-card-status .op-select { min-width: 108px; font-size: 12px !important; }
+  .subid-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi-hero-value { font-size: clamp(0.95rem, 5vw, 1.3rem); }
+  .kpi-hero { padding: 0.65rem !important; }
+  .topbar-actions button,
+  .topbar-actions #btn-export { padding: 0.35rem 0.45rem; }
+}
+
+/* Landscape em smartphone — recupera espaço vertical e mantém header compacto */
+@media (max-height: 500px) and (orientation: landscape) {
+  #daily-chart { height: 180px !important; min-height: 160px; }
+  .page-main:has(#view-analise-ia:not(.hidden)) { height: 100dvh; }
+  header.sticky {
+    padding-top: 0.45rem !important;
+    padding-bottom: 0.45rem !important;
+  }
+  #btn-meta-sync-top span,
+  #btn-sync span { display: none; }
+  .topbar-actions { flex-wrap: nowrap; }
+  #dash-title { font-size: 1rem !important; }
+  .kpi-hero { padding: 0.7rem !important; }
+  .kpi-hero-value { font-size: clamp(0.95rem, 3.5vw, 1.35rem); }
+  /* Sidebar overlay em landscape mobile: garante que rola internamente */
+  body.sidebar-open { overflow: hidden; }
+  #sidebar { overflow-y: auto; }
+}
+
+/* Fallback para browsers sem :has() (Firefox <121 etc.) */
+@supports not selector(:has(*)) {
+  .page-main { height: 100dvh; overflow: hidden; }
+  #view-analise-ia:not(.hidden) { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+}
+
+/* Bloqueia scroll do body quando sidebar mobile aberta (todas as resoluções mobile) */
+@media (max-width: 1023px) {
+  body.sidebar-open { overflow: hidden; }
+}

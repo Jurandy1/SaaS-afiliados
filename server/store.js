@@ -743,16 +743,28 @@ async function saveSettings(partial, userId = requireUserId()) {
 
   const supabase = getSupabase();
   let { error } = await supabase.from("app_settings").upsert(next);
-  // Colunas opcionais podem não existir ainda — tenta sem elas
   if (error && /(meta_tax_rate|meta_dias|meta_bonus_)/i.test(error.message || "")) {
-    delete next.meta_tax_rate;
-    delete next.meta_dias;
-    delete next.meta_bonus_100;
-    delete next.meta_bonus_125;
-    delete next.meta_bonus_150;
+    const extraKeys = ["meta_tax_rate", "meta_dias", "meta_bonus_100", "meta_bonus_125", "meta_bonus_150"];
+    const extras = {};
+    for (const k of extraKeys) {
+      if (k in next) {
+        extras[k] = next[k];
+        delete next[k];
+      }
+    }
     ({ error } = await supabase.from("app_settings").upsert(next));
+    if (error) throw new Error(error.message);
+    const extraErrs = [];
+    for (const [k, v] of Object.entries(extras)) {
+      const { error: e2 } = await supabase.from("app_settings").update({ [k]: v }).eq("user_id", userId);
+      if (e2) extraErrs.push(`${k}: ${e2.message}`);
+    }
+    if (extraErrs.length) {
+      throw new Error(`Salvo parcialmente. Rode npm run setup:db para gravar metas/bônus (${extraErrs[0]})`);
+    }
+  } else if (error) {
+    throw new Error(error.message);
   }
-  if (error) throw new Error(error.message);
   return loadSettings(userId);
 }
 

@@ -704,3 +704,160 @@
 }
 .bk-subtabs { display: flex; gap: 0.35rem; flex-wrap: wrap; }
 .bk-hist-block { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e2e8f0; }
+
+/* ======================================================================
+   BACKUP — Refinamentos mobile (≤640px). Não altera nada de desktop.
+   ====================================================================== */
+@media (max-width: 640px) {
+  .bk-hero {
+    padding: 0.9rem 1rem;
+    gap: 0.75rem;
+  }
+  .bk-hero-title { font-size: 1rem; }
+  .bk-hero-desc { font-size: 11.5px; line-height: 1.4; }
+  .bk-hero-btn {
+    width: 100%;
+    font-size: 12px;
+    padding: 0.7rem 0.9rem;
+    min-height: 44px;
+  }
+
+  .bk-kpi { padding: 0.6rem 0.7rem; }
+  .bk-kpi-label { font-size: 9px; }
+  .bk-kpi strong { font-size: 0.98rem; }
+  .bk-kpi em { font-size: 10px; }
+
+  .bk-tabs {
+    gap: 0;
+    padding-bottom: 2px;
+  }
+  .backup-tab {
+    padding: 0.55rem 0.75rem;
+    font-size: 11.5px;
+    min-height: 40px;
+  }
+
+  .bk-toolbar {
+    padding: 0.75rem;
+    gap: 0.55rem;
+  }
+  .bk-toolbar-search input {
+    font-size: 16px !important;
+    padding: 0.65rem 0.9rem 0.65rem 2.3rem;
+    min-height: 42px;
+  }
+  .bk-nicho-select {
+    font-size: 15px !important;
+    padding: 0.6rem 0.7rem;
+    min-height: 42px;
+  }
+  .bk-btn-dark {
+    padding: 0.6rem 0.85rem;
+    min-height: 42px;
+    font-size: 12px;
+  }
+
+  /* Cards de grupo: ações em linha própria abaixo do nome */
+  .bk-gcard-row {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0.85rem 0.9rem;
+    gap: 0.75rem;
+  }
+  .bk-gcard-main { gap: 0.75rem; }
+  .bk-gthumb img,
+  .bk-gthumb-ph { width: 3.5rem; height: 3.5rem; }
+  .bk-gname { font-size: 0.9rem; }
+  .bk-glink { font-size: 11px; row-gap: 4px; }
+  .bk-glink strong { overflow-wrap: anywhere; word-break: break-word; }
+  .bk-reservas { font-size: 10px; }
+  .bk-gfin { font-size: 10px; row-gap: 3px; }
+  .bk-gfin b { font-size: 12px; }
+
+  .bk-gactions {
+    justify-content: flex-start;
+    gap: 0.5rem;
+    padding-top: 0.35rem;
+    border-top: 1px dashed #f1f5f9;
+  }
+  .bk-icon-btn {
+    padding: 0.55rem;
+    min-width: 44px;
+    min-height: 44px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+  }
+  .bk-alert-pill { font-size: 10.5px; padding: 0.3rem 0.55rem; }
+  .bk-btn-vinc {
+    flex: 1;
+    text-align: center;
+    padding: 0.55rem 0.75rem;
+    min-height: 44px;
+  }
+
+  /* Corpo expandido do grupo */
+  .bk-gbody { padding: 0.85rem 0.9rem; }
+  .bk-advisor { padding: 0.75rem; margin-bottom: 0.7rem; }
+  .bk-advisor-title { font-size: 11px; }
+  .bk-insight { padding: 0.55rem; gap: 0.4rem; }
+  .bk-insight button { padding: 0.45rem 0.7rem; font-size: 10.5px; min-height: 38px; }
+
+  /* Sort row */
+  .bk-sort-row { font-size: 11px; row-gap: 4px; }
+
+  /* Tiles — 1 col em telas muito estreitas */
+  .bk-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+
+  /* Cards individuais (Meus Backups, etc) */
+  .bk-mine-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+  .bk-mine-card .bk-title { font-size: 0.85rem; overflow: visible; text-overflow: clip; white-space: normal; }
+
+  .bk-card { padding: 0.85rem; }
+  .bk-card--compact { padding: 0.7rem; }
+  .bk-card-top { flex-direction: column; gap: 0.65rem; }
+  .bk-thumb { width: 100%; height: auto; aspect-ratio: 4/3; }
+  .bk-thumb.sm { width: 3.5rem; height: 3.5rem; aspect-ratio: 1; align-self: flex-start; }
+  .bk-stats { gap: 0.75rem; flex-wrap: wrap; }
+  .bk-title { font-size: 0.9rem; }
+
+  /* Alertas e chips */
+  .bk-chip { min-height: 34px; padding: 0.4rem 0.75rem; }
+  .bk-act { min-height: 36px; padding: 0.4rem 0.65rem; font-size: 11.5px; }
+
+  /* Modal — sheet slide-up */
+  .bk-modal-backdrop { padding: 0; align-items: flex-end; }
+  .bk-modal {
+    border-radius: 1rem 1rem 0 0;
+    max-height: 92dvh;
+    padding: 1rem 1rem 1.5rem;
+  }
+  .bk-modal-actions {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+  .bk-modal-actions .btn,
+  .bk-modal-actions button {
+    flex: 1;
+    min-width: 40%;
+    min-height: 44px;
+  }
+  .bk-label { font-size: 13px; }
+
+  /* Configurações do backup */
+  .bk-cfg-row {
+    padding: 0.65rem 0;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 380px) {
+  .bk-tiles { grid-template-columns: 1fr; }
+  .bk-kpi-grid { grid-template-columns: 1fr; }
+  .bk-hero-title { font-size: 0.95rem; }
+  .backup-tab { padding: 0.5rem 0.6rem; font-size: 11px; }
+  .bk-mine-card { padding: 0.75rem; }
+}

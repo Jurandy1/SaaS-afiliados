@@ -159,6 +159,8 @@
     dataColFilters: {},
     dataSort: { key: null, dir: "asc" },
     subidSort: { key: null, dir: "asc" },
+    opsSort: { key: "status", dir: "asc" },
+    opsFilters: { subid: "", canal: "", status: "" },
     dailySort: { key: null, dir: "asc" },
     dailyRows: [],
     chartMode: "profit",
@@ -1527,11 +1529,11 @@
     return [...rows].sort((a, b) => compareSortValues(get(a), get(b), dir || "asc"));
   }
 
-  function toggleSortState(sortState, key) {
+  function toggleSortState(sortState, key, defaultDir = "desc") {
     if (sortState.key === key) sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
     else {
       sortState.key = key;
-      sortState.dir = "asc";
+      sortState.dir = defaultDir;
     }
   }
 
@@ -1555,10 +1557,11 @@
     if (!root || root.dataset.sortWired === "1") return;
     root.dataset.sortWired = "1";
     root.addEventListener("click", (e) => {
+      if (e.target.closest("input, select, textarea, .th-filter-ctrl")) return;
       const th = e.target.closest("th[data-sort]");
       if (!th || !root.contains(th)) return;
       e.preventDefault();
-      toggleSortState(getSortState(), th.dataset.sort);
+      toggleSortState(getSortState(), th.dataset.sort, "desc");
       onChange();
     });
   }
@@ -2386,22 +2389,51 @@
   function renderOpsTable() {
     const tb = $("#ops-tbody");
     if (!tb) return;
-    const q = ($("#ops-search")?.value || "").trim().toLowerCase();
-    let list = sortRows(state.dash?.subIds || [], "subid", "asc", (r) => r.subid);
-    if (q) list = list.filter((r) => String(r.subid || "").toLowerCase().includes(q));
+    const qTop = ($("#ops-search")?.value || "").trim().toLowerCase();
+    const f = state.opsFilters || { subid: "", canal: "", status: "" };
+    const qHead = String(f.subid || "").trim().toLowerCase();
+    const canalF = String(f.canal || "").trim();
+    const statusF = String(f.status || "").trim();
+    const statusRank = { ativa: 0, teste: 1, desativada: 2 };
+    const sortKey = state.opsSort?.key || "status";
+    const sortDir = state.opsSort?.dir || "asc";
+
+    let list = (state.dash?.subIds || []).filter((r) => {
+      const id = String(r.subid || "").toLowerCase();
+      if (qTop && !id.includes(qTop)) return false;
+      if (qHead && !id.includes(qHead)) return false;
+      if (canalF && (r.canal || "indefinido") !== canalF) return false;
+      if (statusF && normalizeStatus(r.status) !== statusF) return false;
+      return true;
+    });
+
+    list = sortRows(list, sortKey, sortDir, (r) => {
+      if (sortKey === "subid") return r.subid;
+      if (sortKey === "canal") return canalLabel(r.canal || "indefinido");
+      if (sortKey === "status") return statusRank[normalizeStatus(r.status)] ?? 9;
+      return r[sortKey];
+    });
+    list.sort((a, b) => {
+      const da = normalizeStatus(a.status) === "desativada" ? 1 : 0;
+      const db = normalizeStatus(b.status) === "desativada" ? 1 : 0;
+      return da - db;
+    });
 
     const total = list.length;
+    state.opsTotal = total;
     if (!state.opsVisible || state.opsVisible < 40) state.opsVisible = 40;
     const slice = list.slice(0, state.opsVisible);
 
     const countPill = $("#ops-count-pill");
     if (countPill) countPill.textContent = fmtNum(total);
+    paintSortHeaders("#ops-thead", state.opsSort);
 
     tb.innerHTML = slice.map((r) => {
       const id = String(r.subid || "");
       const canal = r.canal || "indefinido";
       const status = normalizeStatus(r.status);
-      return `<tr class="subid-row">
+      const off = status === "desativada" ? " is-desativada" : "";
+      return `<tr class="subid-row${off}">
         <td class="subid">${escapeHtml(id)}</td>
         <td>${canalSelectHtml(id, canal)}</td>
         <td>${statusSelectHtml(id, status)}</td>
@@ -2410,7 +2442,8 @@
     wireOpsSelects("#ops-tbody");
     renderInfiniteHint($("#ops-pager"), slice.length, total);
     wireInfiniteScroll("#ops-scroll", () => {
-      if (state.opsVisible >= total) return;
+      const cur = state.opsTotal ?? total;
+      if (state.opsVisible >= cur) return;
       state.opsVisible += 40;
       renderOpsTable();
     });
@@ -2563,6 +2596,7 @@
 
   function renderSubIdsDash() {
     const ch = state.channel || "geral";
+    const mobile = isMobileLayout();
     const cols = paintSubidThead(ch);
     let all = filteredSubIds(state.dash?.subIds || [], $("#subid-search")?.value, ch);
     const statusRank = { ativa: 0, teste: 1, desativada: 2, pausada: 2 };
@@ -2583,35 +2617,170 @@
     });
     paintSortHeaders("#subid-thead", state.subidSort);
     const total = all.length;
+    state.subidTotal = total;
     if (!state.subidVisible || state.subidVisible < 40) state.subidVisible = 40;
     const slice = all.slice(0, state.subidVisible);
     const pill = $("#subid-count-pill");
     if (pill) pill.textContent = fmtNum(total);
+
     const tbody = $("#subid-tbody");
-    if (!tbody) return;
-    const span = cols.length;
-    tbody.innerHTML = slice.map((r) => {
-      const id = String(r.subid || "");
-      const open = Boolean(state.expandedSubIds[id]);
-      const cells = cols.map((c) => {
-        if (c.key === "subid") {
-          return `<td class="subid is-clickable" data-subid="${escapeHtml(id)}" title="Ver histórico diário">
-            <span class="subid-caret" aria-hidden="true"></span>${escapeHtml(id)}
-          </td>`;
-        }
-        return cellForSubidCol(r, c, ch);
-      }).join("");
-      return `<tr class="subid-row${open ? " is-open" : ""}" data-subid="${escapeHtml(id)}">${cells}</tr>${
-        open ? subIdDailyHistoryHtml(r, span) : ""
-      }`;
-    }).join("") || `<tr><td colspan="${span}">Nenhum SubID neste canal no período.</td></tr>`;
-    wireOpsSelects("#subid-tbody");
-    wireSubIdExpand("#subid-tbody", renderSubIdsDash);
+    const cardList = $("#subid-card-list");
+    const table = $("#subid-table");
+    if (mobile) {
+      if (table) table.classList.add("is-mobile-hidden");
+      if (cardList) {
+        cardList.classList.remove("hidden");
+        cardList.innerHTML = slice.map((r) => renderSubIdCard(r, ch)).join("")
+          || `<div class="subid-card-empty">Nenhum SubID neste canal no período.</div>`;
+        wireOpsSelects("#subid-card-list");
+        wireSubIdCardExpand(cardList, renderSubIdsDash);
+      }
+      if (tbody) tbody.innerHTML = "";
+    } else {
+      if (cardList) {
+        cardList.classList.add("hidden");
+        cardList.innerHTML = "";
+      }
+      if (table) table.classList.remove("is-mobile-hidden");
+      if (!tbody) return;
+      const span = cols.length;
+      tbody.innerHTML = slice.map((r) => {
+        const id = String(r.subid || "");
+        const open = Boolean(state.expandedSubIds[id]);
+        const cells = cols.map((c) => {
+          if (c.key === "subid") {
+            return `<td class="subid is-clickable" data-subid="${escapeHtml(id)}" title="Ver histórico diário">
+              <span class="subid-caret" aria-hidden="true"></span>${escapeHtml(id)}
+            </td>`;
+          }
+          return cellForSubidCol(r, c, ch);
+        }).join("");
+        return `<tr class="subid-row${open ? " is-open" : ""}" data-subid="${escapeHtml(id)}">${cells}</tr>${
+          open ? subIdDailyHistoryHtml(r, span) : ""
+        }`;
+      }).join("") || `<tr><td colspan="${span}">Nenhum SubID neste canal no período.</td></tr>`;
+      wireOpsSelects("#subid-tbody");
+      wireSubIdExpand("#subid-tbody", renderSubIdsDash);
+    }
+
     renderInfiniteHint($("#subid-pager"), slice.length, total);
     wireInfiniteScroll("#subid-scroll", () => {
-      if (state.subidVisible >= total) return;
+      const cur = state.subidTotal ?? total;
+      if (state.subidVisible >= cur) return;
       state.subidVisible += 40;
       renderSubIdsDash();
+    });
+  }
+
+  function renderSubIdCard(r, ch) {
+    const id = String(r.subid || "");
+    const open = Boolean(state.expandedSubIds[id]);
+    const fat = Number(r.faturamento || 0);
+    const com = Number(r.comissao || 0);
+    const inv = investForRoi(r);
+    const lucro = r.lucro != null ? Number(r.lucro) : com - inv;
+    const roi = displayRoi(r);
+    const pedidos = Number(r.pedidos ?? r.concluidos ?? 0);
+    const cliquesShopee = Number(r.cliques_shopee ?? r.cliques ?? 0);
+    const cliquesAds = adsClicksFor(r, ch);
+    const abatFat = fat > 0 ? (com / fat) * 100 : Number(r.abatimento || 0);
+    const abatCli = clickAbatPct(r, ch);
+    const trend = subidTrendScore(r);
+    const trendChip = trend === 1
+      ? `<span class="subid-card-chip trend-up" title="Comissão subindo">▲ subindo</span>`
+      : trend === -1
+        ? `<span class="subid-card-chip trend-down" title="Comissão caindo">▼ caindo</span>`
+        : trend === 0
+          ? `<span class="subid-card-chip trend-flat" title="Comissão estável">→ estável</span>`
+          : "";
+    const showInvest = ch !== "organico";
+    const showAds = ch === "meta" || ch === "pinterest";
+
+    return `<article class="subid-card${open ? " is-open" : ""}" data-subid="${escapeHtml(id)}" role="listitem">
+      <header class="subid-card-head">
+        <button type="button" class="subid-card-toggle" data-subid-toggle="${escapeHtml(id)}" aria-expanded="${open ? "true" : "false"}" title="Ver histórico diário">
+          <span class="subid-card-caret" aria-hidden="true"></span>
+          <span class="subid-card-name">${escapeHtml(id)}</span>
+        </button>
+        <div class="subid-card-status">${statusSelectHtml(id, r.status)}</div>
+      </header>
+      <div class="subid-card-grid">
+        <div class="subid-card-cell"><span class="lab">Faturamento</span><span class="val">${fmt(fat)}</span></div>
+        <div class="subid-card-cell"><span class="lab">Comissão</span><span class="val cell-emerald">${fmt(com)}</span></div>
+        ${showInvest ? `<div class="subid-card-cell"><span class="lab">Investim.</span><span class="val cell-gasto">${fmt(inv)}</span></div>` : ""}
+        <div class="subid-card-cell"><span class="lab">Lucro</span><span class="val ${lucroCellClass(lucro)}">${fmt(lucro)}</span></div>
+        <div class="subid-card-cell"><span class="lab">ROI</span><span class="val ${roiTierClass(roi)}">${fmtPct(roi)}</span></div>
+        <div class="subid-card-cell"><span class="lab">Pedidos</span><span class="val">${fmtNum(pedidos)}</span></div>
+      </div>
+      <div class="subid-card-foot">
+        <span class="subid-card-chip">🖱 Shopee <b>${fmtNum(cliquesShopee)}</b></span>
+        ${showAds ? `<span class="subid-card-chip">🖱 Ads <b>${fmtNum(cliquesAds)}</b></span>` : ""}
+        <span class="subid-card-chip">Abat. <b>${fmtPct(showAds ? abatCli : abatFat)}</b></span>
+        ${trendChip}
+      </div>
+      ${open ? subIdDailyHistoryCards(r) : ""}
+    </article>`;
+  }
+
+  function subIdDailyHistoryCards(r) {
+    const days = Array.isArray(r.daily) ? r.daily : [];
+    if (!days.length) {
+      return `<div class="subid-card-history subid-card-history--empty">Sem histórico diário para este SubID no período.</div>`;
+    }
+    const rows = days.map((d) => {
+      const inv = investForRoi(d);
+      const lucro = d.lucro != null ? Number(d.lucro) : Number(d.comissao || 0) - inv;
+      const roi = displayRoi(d);
+      return `<div class="subid-card-history-row">
+        <span class="hday">${escapeHtml(shortDayLabel(d.data))}</span>
+        <span class="hcell"><span class="lab">Com.</span><span class="val cell-emerald">${fmt(d.comissao)}</span></span>
+        <span class="hcell"><span class="lab">Inv.</span><span class="val cell-gasto">${fmt(inv)}</span></span>
+        <span class="hcell"><span class="lab">Lucro</span><span class="val ${lucroCellClass(lucro)}">${fmt(lucro)}</span></span>
+        <span class="hcell"><span class="lab">ROI</span><span class="val ${roiTierClass(roi)}">${fmtPct(roi)}</span></span>
+      </div>`;
+    }).join("");
+    const totCom = days.reduce((a, d) => a + Number(d.comissao || 0), 0);
+    const totInv = days.reduce((a, d) => a + investForRoi(d), 0);
+    const totLucro = days.reduce((a, d) => a + (d.lucro != null ? Number(d.lucro) : Number(d.comissao || 0) - investForRoi(d)), 0);
+    const totRoi = totInv > 0 ? (totLucro / totInv) * 100 : null;
+    return `<div class="subid-card-history">
+      ${rows}
+      <div class="subid-card-history-row is-total">
+        <span class="hday">Total ${days.length}d</span>
+        <span class="hcell"><span class="lab">Com.</span><span class="val cell-emerald">${fmt(totCom)}</span></span>
+        <span class="hcell"><span class="lab">Inv.</span><span class="val cell-gasto">${fmt(totInv)}</span></span>
+        <span class="hcell"><span class="lab">Lucro</span><span class="val ${lucroCellClass(totLucro)}">${fmt(totLucro)}</span></span>
+        <span class="hcell"><span class="lab">ROI</span><span class="val ${roiTierClass(totRoi)}">${fmtPct(totRoi)}</span></span>
+      </div>
+    </div>`;
+  }
+
+  function wireSubIdCardExpand(root, renderFn) {
+    if (!root || root.dataset.expandWired === "1") return;
+    root.dataset.expandWired = "1";
+    root.addEventListener("click", async (e) => {
+      if (e.target.closest("select, .op-select")) return;
+      const btn = e.target.closest("[data-subid-toggle]");
+      if (!btn) return;
+      e.preventDefault();
+      const id = btn.dataset.subidToggle;
+      if (!id) return;
+      const opening = !state.expandedSubIds[id];
+      state.expandedSubIds[id] = opening;
+      const row = (state.dash?.subIds || []).find((r) => String(r.subid || "") === id);
+      if (opening && row && !Array.isArray(row.daily)) {
+        row.daily = [];
+        renderFn();
+        try {
+          const start = $("#start-date")?.value || "";
+          const end = $("#end-date")?.value || "";
+          const dRes = await api(`/api/subid-daily?subid=${encodeURIComponent(id)}&start=${start}&end=${end}`);
+          row.daily = dRes.daily || [];
+        } catch (_) {
+          row.daily = [];
+        }
+      }
+      renderFn();
     });
   }
 
@@ -3070,17 +3239,7 @@
         if (local.metaBonus150 != null) state.settings.metaBonus150 = local.metaBonus150;
       }
       cacheMetaProjSettings(state.settings);
-      $("#set-tax").value = formatBrPctInput(s.taxRate);
-      if ($("#set-meta-tax")) $("#set-meta-tax").value = formatBrPctInput(state.settings.metaTaxRate);
-      if ($("#set-meta-base")) $("#set-meta-base").value = formatBrMoneyInput(state.settings.metaBase);
-      if ($("#set-meta-dias")) $("#set-meta-dias").value = state.settings.metaDias != null ? String(state.settings.metaDias) : "";
-      if ($("#set-bonus-100")) $("#set-bonus-100").value = formatBrPctInput(state.settings.metaBonus100);
-      if ($("#set-bonus-125")) $("#set-bonus-125").value = formatBrPctInput(state.settings.metaBonus125);
-      if ($("#set-bonus-150")) $("#set-bonus-150").value = formatBrPctInput(state.settings.metaBonus150);
-      $("#set-team-name").value = s.teamName;
-      $("#set-team-plan").value = s.teamPlan;
-      $("#team-name").textContent = s.teamName;
-      $("#team-plan").textContent = s.teamPlan;
+      paintSettingsForms(state.settings);
     } catch (e) {
       console.warn(e);
     }
@@ -3158,7 +3317,7 @@
     const start = $("#start-date").value;
     const end = $("#end-date").value;
     const btn = force ? $("#btn-sync") : ($("#btn-load") || $("#btn-sync"));
-    const prev = btn ? btn.textContent : "";
+    const prev = btn ? btn.innerHTML : "";
     if (btn) {
       btn.disabled = true;
       btn.textContent = force ? "Sincronizando…" : "Carregando…";
@@ -3212,7 +3371,7 @@
       setDashLoading(false);
       if (btn) {
         btn.disabled = false;
-        btn.textContent = prev;
+        btn.innerHTML = prev;
       }
     }
   }
@@ -3407,6 +3566,13 @@
       if (window.innerWidth > 1023) setSidebarOpen(false);
     });
 
+    const mqMobile = window.matchMedia("(max-width: 640px)");
+    const onMobileChange = () => {
+      if (state.view === "dashboard" && state.channel !== "geral") renderSubIdsDash();
+    };
+    if (mqMobile.addEventListener) mqMobile.addEventListener("change", onMobileChange);
+    else if (mqMobile.addListener) mqMobile.addListener(onMobileChange);
+
     $$(".nav-item").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
     document.body.addEventListener("click", (e) => {
       const t = e.target.closest("[data-goto]");
@@ -3422,13 +3588,14 @@
     $("#btn-export").addEventListener("click", exportCsv);
     $("#btn-meta-sync-top")?.addEventListener("click", async () => {
       const btn = $("#btn-meta-sync-top");
-      const prev = btn.textContent;
+      const prev = btn.innerHTML;
+      btn.textContent = "Sincronizando…";
       try {
         await syncMetaAds($("#sync-banner"), btn);
       } catch {
         /* status already set */
       } finally {
-        btn.textContent = prev;
+        btn.innerHTML = prev;
         btn.disabled = false;
       }
     });
@@ -3457,6 +3624,26 @@
 
     $("#subid-search")?.addEventListener("input", debounce(() => { state.subidVisible = 40; renderSubIdsDash(); }, 200));
     $("#ops-search")?.addEventListener("input", debounce(() => { state.opsVisible = 40; renderOpsTable(); }, 200));
+    const bindOpsFilter = (sel, key) => {
+      const el = $(sel);
+      if (!el || el.dataset.opsFilterWired === "1") return;
+      el.dataset.opsFilterWired = "1";
+      const handler = () => {
+        if (!state.opsFilters) state.opsFilters = { subid: "", canal: "", status: "" };
+        state.opsFilters[key] = el.value || "";
+        state.opsVisible = 40;
+        renderOpsTable();
+      };
+      el.addEventListener("input", debounce(handler, 180));
+      el.addEventListener("change", handler);
+    };
+    bindOpsFilter("#ops-filter-subid", "subid");
+    bindOpsFilter("#ops-filter-canal", "canal");
+    bindOpsFilter("#ops-filter-status", "status");
+    wireSortHeaders("#ops-thead", () => state.opsSort, () => {
+      state.opsVisible = 40;
+      renderOpsTable();
+    });
     wireSortHeaders("#subid-thead", () => state.subidSort, () => {
       state.subidVisible = 40;
       renderSubIdsDash();
@@ -3652,6 +3839,19 @@
 
     $("#settings-form-taxes")?.addEventListener("submit", (e) => saveSettingsFromForms(e, "taxes"));
     $("#settings-form-metas")?.addEventListener("submit", (e) => saveSettingsFromForms(e, "metas"));
+    [
+      "set-tax", "set-meta-tax", "set-team-name", "set-team-plan",
+      "set-meta-base", "set-meta-dias", "set-bonus-100", "set-bonus-125", "set-bonus-150",
+    ].forEach((id) => {
+      const inp = $(`#${id}`);
+      if (!inp) return;
+      inp.readOnly = false;
+      inp.disabled = false;
+      inp.addEventListener("change", () => {
+        const part = id.startsWith("set-bonus") || id === "set-meta-base" || id === "set-meta-dias" ? "metas" : "taxes";
+        saveSettingsFromForms(null, part);
+      });
+    });
 
     $$("#cfg-subnav .cfg-subnav-btn").forEach((b) => {
       b.addEventListener("click", () => setCfgTab(b.dataset.cfgTab));
@@ -3677,65 +3877,71 @@
     });
   }
 
+  function readSettingsFromForms() {
+    const metaDiasRaw = ($("#set-meta-dias")?.value || "").trim();
+    return {
+      taxRate: parseBrNumber($("#set-tax")?.value || String(state.settings.taxRate || 11.7)),
+      metaTaxRate: parseBrNumber($("#set-meta-tax")?.value || String(state.settings.metaTaxRate || 12)),
+      metaBase: parseBrNumber($("#set-meta-base")?.value || String(state.settings.metaBase || 0)),
+      metaDias: metaDiasRaw === "" ? null : Math.max(1, Math.min(31, parseInt(metaDiasRaw, 10) || 0)) || null,
+      metaBonus100: parseBrNumber($("#set-bonus-100")?.value || String(state.settings.metaBonus100 ?? 1)),
+      metaBonus125: parseBrNumber($("#set-bonus-125")?.value || String(state.settings.metaBonus125 ?? 2)),
+      metaBonus150: parseBrNumber($("#set-bonus-150")?.value || String(state.settings.metaBonus150 ?? 3)),
+      teamName: ($("#set-team-name")?.value || state.settings.teamName || "").trim(),
+      teamPlan: ($("#set-team-plan")?.value || state.settings.teamPlan || "").trim(),
+    };
+  }
+
+  function paintSettingsForms(s) {
+    if ($("#set-tax")) $("#set-tax").value = formatBrPctInput(s.taxRate);
+    if ($("#set-meta-tax")) $("#set-meta-tax").value = formatBrPctInput(s.metaTaxRate);
+    if ($("#set-meta-base")) $("#set-meta-base").value = formatBrMoneyInput(s.metaBase);
+    if ($("#set-meta-dias")) $("#set-meta-dias").value = s.metaDias != null ? String(s.metaDias) : "";
+    if ($("#set-bonus-100")) $("#set-bonus-100").value = formatBrPctInput(s.metaBonus100);
+    if ($("#set-bonus-125")) $("#set-bonus-125").value = formatBrPctInput(s.metaBonus125);
+    if ($("#set-bonus-150")) $("#set-bonus-150").value = formatBrPctInput(s.metaBonus150);
+    if ($("#set-team-name")) $("#set-team-name").value = s.teamName || "";
+    if ($("#set-team-plan")) $("#set-team-plan").value = s.teamPlan || "";
+    if ($("#team-name")) $("#team-name").textContent = s.teamName || "";
+    if ($("#team-plan")) $("#team-plan").textContent = s.teamPlan || "";
+  }
+
   async function saveSettingsFromForms(e, part) {
-    e.preventDefault();
+    e?.preventDefault?.();
     const status = $(part === "metas" ? "#settings-status-metas" : "#settings-status-taxes");
+    if (state.settingsSaving) return;
+    state.settingsSaving = true;
     try {
-      const taxRate = parseBrNumber($("#set-tax")?.value || String(state.settings.taxRate || 11.7));
-      const metaTaxRate = parseBrNumber($("#set-meta-tax")?.value || String(state.settings.metaTaxRate || 12));
-      const metaBase = parseBrNumber($("#set-meta-base")?.value || String(state.settings.metaBase || 0));
-      const metaDiasRaw = ($("#set-meta-dias")?.value || "").trim();
-      const metaDias = metaDiasRaw === "" ? null : Math.max(1, Math.min(31, parseInt(metaDiasRaw, 10) || 0)) || null;
-      const metaBonus100 = parseBrNumber($("#set-bonus-100")?.value || String(state.settings.metaBonus100 ?? 1));
-      const metaBonus125 = parseBrNumber($("#set-bonus-125")?.value || String(state.settings.metaBonus125 ?? 2));
-      const metaBonus150 = parseBrNumber($("#set-bonus-150")?.value || String(state.settings.metaBonus150 ?? 3));
+      const payload = readSettingsFromForms();
       const s = await api("/api/settings", {
         method: "POST",
-        body: JSON.stringify({
-          taxRate,
-          metaTaxRate,
-          metaBase,
-          metaDias,
-          metaBonus100,
-          metaBonus125,
-          metaBonus150,
-          teamName: ($("#set-team-name")?.value || state.settings.teamName || "").trim(),
-          teamPlan: ($("#set-team-plan")?.value || state.settings.teamPlan || "").trim(),
-        }),
+        body: JSON.stringify(payload),
       });
       state.settings = {
-        taxRate: s.taxRate,
-        metaTaxRate: s.metaTaxRate != null ? s.metaTaxRate : metaTaxRate,
-        metaBase: s.metaBase != null ? Number(s.metaBase) : metaBase,
-        metaDias: s.metaDias != null ? Number(s.metaDias) : metaDias,
-        metaBonus100: s.metaBonus100 != null ? Number(s.metaBonus100) : metaBonus100,
-        metaBonus125: s.metaBonus125 != null ? Number(s.metaBonus125) : metaBonus125,
-        metaBonus150: s.metaBonus150 != null ? Number(s.metaBonus150) : metaBonus150,
-        teamName: s.teamName,
-        teamPlan: s.teamPlan,
+        taxRate: s.taxRate != null ? Number(s.taxRate) : payload.taxRate,
+        metaTaxRate: s.metaTaxRate != null ? Number(s.metaTaxRate) : payload.metaTaxRate,
+        metaBase: s.metaBase != null ? Number(s.metaBase) : payload.metaBase,
+        metaDias: s.metaDias != null ? Number(s.metaDias) : payload.metaDias,
+        metaBonus100: s.metaBonus100 != null ? Number(s.metaBonus100) : payload.metaBonus100,
+        metaBonus125: s.metaBonus125 != null ? Number(s.metaBonus125) : payload.metaBonus125,
+        metaBonus150: s.metaBonus150 != null ? Number(s.metaBonus150) : payload.metaBonus150,
+        teamName: s.teamName != null ? s.teamName : payload.teamName,
+        teamPlan: s.teamPlan != null ? s.teamPlan : payload.teamPlan,
       };
-      if ($("#set-tax")) $("#set-tax").value = formatBrPctInput(s.taxRate);
-      if ($("#set-meta-tax")) $("#set-meta-tax").value = formatBrPctInput(state.settings.metaTaxRate);
-      if ($("#set-meta-base")) $("#set-meta-base").value = formatBrMoneyInput(state.settings.metaBase);
-      if ($("#set-meta-dias")) $("#set-meta-dias").value = state.settings.metaDias != null ? String(state.settings.metaDias) : "";
-      if ($("#set-bonus-100")) $("#set-bonus-100").value = formatBrPctInput(state.settings.metaBonus100);
-      if ($("#set-bonus-125")) $("#set-bonus-125").value = formatBrPctInput(state.settings.metaBonus125);
-      if ($("#set-bonus-150")) $("#set-bonus-150").value = formatBrPctInput(state.settings.metaBonus150);
-      if ($("#set-team-name")) $("#set-team-name").value = s.teamName;
-      if ($("#set-team-plan")) $("#set-team-plan").value = s.teamPlan;
-      $("#team-name").textContent = s.teamName;
-      $("#team-plan").textContent = s.teamPlan;
+      paintSettingsForms(state.settings);
       cacheMetaProjSettings(state.settings);
-      await loadDashboard({ force: false });
       if (status) {
         status.className = "form-status ok";
-        status.textContent = part === "metas" ? "Metas e bônus salvos." : "Impostos e equipe salvos.";
+        status.textContent = part === "metas" ? "Metas e bônus salvos no banco." : "Impostos e equipe salvos no banco.";
       }
+      loadDashboard({ force: false }).catch(() => {});
     } catch (err) {
       if (status) {
         status.className = "form-status err";
         status.textContent = err.message;
       }
+    } finally {
+      state.settingsSaving = false;
     }
   }
 

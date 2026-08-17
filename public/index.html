@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="/tailwind.css" />
-  <link rel="stylesheet" href="/gemini-app.css" />
+  <link rel="stylesheet" href="/gemini-app.css?v=mobile-cards-2" />
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen antialiased selection:bg-brand-500 selection:text-white font-sans transition-colors duration-200">
 
@@ -426,6 +426,7 @@
                   </thead>
                   <tbody id="subid-tbody"></tbody>
                 </table>
+                <div id="subid-card-list" class="subid-card-list hidden" role="list" aria-label="Detalhamento por SubID"></div>
               </div>
               <div class="pager" id="subid-pager"></div>
             </section>
@@ -520,11 +521,31 @@
             </div>
             <div class="table-scroll table-scroll--dark table-scroll--infinite" id="ops-scroll">
               <table class="data-table data-table--ops" id="ops-table">
-                <thead>
+                <thead id="ops-thead">
                   <tr>
-                    <th>SubID</th>
-                    <th>Canal</th>
-                    <th>Status</th>
+                    <th data-sort="subid">
+                      <span class="th-label">SubID</span>
+                      <input type="search" class="th-filter-ctrl" id="ops-filter-subid" placeholder="Filtrar…" autocomplete="off" />
+                    </th>
+                    <th data-sort="canal">
+                      <span class="th-label">Canal</span>
+                      <select class="th-filter-ctrl" id="ops-filter-canal" aria-label="Filtrar canal">
+                        <option value="">Todos</option>
+                        <option value="meta">Meta</option>
+                        <option value="pinterest">Pinterest</option>
+                        <option value="organico">Orgânico</option>
+                        <option value="indefinido">Indefinido</option>
+                      </select>
+                    </th>
+                    <th data-sort="status">
+                      <span class="th-label">Status</span>
+                      <select class="th-filter-ctrl" id="ops-filter-status" aria-label="Filtrar status">
+                        <option value="">Todos</option>
+                        <option value="ativa">Ativa</option>
+                        <option value="teste">Teste</option>
+                        <option value="desativada">Desativada</option>
+                      </select>
+                    </th>
                   </tr>
                 </thead>
                 <tbody id="ops-tbody"></tbody>
@@ -723,7 +744,7 @@
                       <h3>Projeção de Metas e Bônus</h3>
                       <p>Compara o faturamento do mês com a meta 100% e as faixas de bônus (100% / 125% / 150%).</p>
                     </div>
-                    <div class="form-grid">
+                    <div class="form-grid cfg-meta-grid">
                       <label>Meta 100% — faturamento do mês (R$)
                         <input type="text" id="set-meta-base" inputmode="decimal" placeholder="863.959,00" />
                         <span class="field-hint">Alvo base. META 125% = este valor × 1,25 · META 150% = × 1,5</span>
@@ -927,6 +948,6 @@
     </main>
   </div>
 
-  <script src="/app.js"></script>
+  <script src="/app.js?v=mobile-cards-2"></script>
 </body>
 </html>
