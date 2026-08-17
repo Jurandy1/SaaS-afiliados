@@ -98,11 +98,13 @@ function loadEnvFile() {
 }
 loadEnvFile();
 
-try {
-  const { ensureConfigSchema } = require("./ensureDb");
-  ensureConfigSchema().catch((err) => console.warn("[boot schema]", err.message));
-} catch (err) {
-  console.warn("[boot schema]", err.message);
+if (!process.env.VERCEL) {
+  try {
+    const { ensureConfigSchema } = require("./ensureDb");
+    ensureConfigSchema().catch((err) => console.warn("[boot schema]", err.message));
+  } catch (err) {
+    console.warn("[boot schema]", err.message);
+  }
 }
 
 function sendJson(res, status, body) {

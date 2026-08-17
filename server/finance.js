@@ -452,15 +452,15 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
   }
 
   const opsMap = await loadSubidOps(userId);
-  const subIds = applyOpsToSubIds(subIdsAll, opsMap);
-  persistInferredOps(subIds, userId).catch((e) => {
+  const subIdsWithOps = applyOpsToSubIds(subIdsAll, opsMap);
+  persistInferredOps(subIdsWithOps, userId).catch((e) => {
     console.warn("[finance] persist indefinidos:", e.message);
   });
 
   return {
     ...dash,
     daily,
-    subIds,
+    subIds: subIdsWithOps,
     kpis,
     tax,
   };
