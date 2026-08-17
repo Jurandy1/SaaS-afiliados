@@ -24,6 +24,8 @@ async function loadSubidOps(userId = requireUserId()) {
   }
 }
 
+const CANAIS = new Set(["meta", "pinterest", "organico", "indefinido"]);
+
 function normalizeStatus(status) {
   if (status == null || status === "") return null;
   const s = String(status).trim().toLowerCase();
@@ -31,6 +33,13 @@ function normalizeStatus(status) {
   if (s === "teste") return "teste";
   if (s === "ativa") return "ativa";
   return s;
+}
+
+function normalizeCanal(canal) {
+  if (canal == null || canal === "") return null;
+  const s = String(canal).trim().toLowerCase();
+  if (CANAIS.has(s)) return s;
+  return null;
 }
 
 async function upsertSubidOps(subid, partial, userId = requireUserId()) {
@@ -41,17 +50,99 @@ async function upsertSubidOps(subid, partial, userId = requireUserId()) {
   const prev = prevMap[key.toLowerCase()] || {};
   const nextStatus =
     partial.status != null ? normalizeStatus(partial.status) : normalizeStatus(prev.status);
+  const nextCanal =
+    partial.canal !== undefined ? normalizeCanal(partial.canal) : normalizeCanal(prev.canal);
   const row = {
     user_id: userId,
     subid: key,
-    canal: partial.canal != null ? partial.canal : prev.canal,
+    canal: nextCanal,
     status: nextStatus,
     produto: partial.produto != null ? partial.produto : prev.produto,
     updated_at: new Date().toISOString(),
   };
-  const { error } = await supabase.from("subid_ops").upsert(row, { onConflict: "user_id,subid" });
+  let { error } = await supabase.from("subid_ops").upsert(row, { onConflict: "user_id,subid" });
+  if (error && /indefinido|canal/i.test(error.message || "")) {
+    try {
+      const { ensureConfigSchema } = require("./ensureDb");
+      await ensureConfigSchema();
+    } catch (_) { /* ignore */ }
+    ({ error } = await supabase.from("subid_ops").upsert(row, { onConflict: "user_id,subid" }));
+  }
   if (error) throw new Error(error.message);
   return row;
+}
+
+async function upsertSubidOpsMany(rows, userId = requireUserId()) {
+  const list = (rows || []).filter((r) => r && r.subid);
+  if (!list.length) return 0;
+  const prevMap = await loadSubidOps(userId);
+  const now = new Date().toISOString();
+  const payload = list.map((r) => {
+    const key = String(r.subid).trim();
+    const prev = prevMap[key.toLowerCase()] || {};
+    return {
+      user_id: userId,
+      subid: key,
+      canal: r.canal !== undefined ? normalizeCanal(r.canal) : normalizeCanal(prev.canal),
+      status: r.status != null ? normalizeStatus(r.status) : normalizeStatus(prev.status),
+      produto: r.produto != null ? r.produto : (prev.produto || null),
+      updated_at: now,
+    };
+  });
+  const supabase = getSupabase();
+  let error = null;
+  for (let i = 0; i < payload.length; i += 200) {
+    const chunk = payload.slice(i, i + 200);
+    ({ error } = await supabase.from("subid_ops").upsert(chunk, { onConflict: "user_id,subid" }));
+    if (error && /indefinido|canal/i.test(error.message || "")) {
+      try {
+        const { ensureConfigSchema } = require("./ensureDb");
+        await ensureConfigSchema();
+      } catch (_) { /* ignore */ }
+      ({ error } = await supabase.from("subid_ops").upsert(chunk, { onConflict: "user_id,subid" }));
+    }
+    if (error) throw new Error(error.message);
+  }
+  return payload.length;
+}
+
+async function persistInferredOps(subIds, userId = requireUserId()) {
+  const list = Array.isArray(subIds) ? subIds : [];
+  if (!list.length) return 0;
+  const opsMap = await loadSubidOps(userId);
+  const now = new Date().toISOString();
+  const rows = [];
+  for (const r of list) {
+    const subid = String(r.subid || "").trim();
+    if (!subid) continue;
+    const key = subid.toLowerCase();
+    if (opsMap[key]) continue;
+    const canal = inferCanal(r.subid, r.inv_meta, r.inv_pin);
+    if (canal !== "indefinido") continue;
+    rows.push({
+      user_id: userId,
+      subid,
+      canal: "indefinido",
+      status: r.status === "pausada" ? "desativada" : (r.status || null),
+      produto: r.produto || null,
+      updated_at: now,
+    });
+  }
+  if (!rows.length) return 0;
+  const supabase = getSupabase();
+  let { error } = await supabase.from("subid_ops").upsert(rows, { onConflict: "user_id,subid" });
+  if (error && /indefinido|canal/i.test(error.message || "")) {
+    try {
+      const { ensureConfigSchema } = require("./ensureDb");
+      await ensureConfigSchema();
+    } catch (_) { /* ignore */ }
+    ({ error } = await supabase.from("subid_ops").upsert(rows, { onConflict: "user_id,subid" }));
+  }
+  if (error) {
+    console.warn("[subidOps] persist indefinidos:", error.message);
+    return 0;
+  }
+  return rows.length;
 }
 
 function inferCanal(subid, invMeta, invPin) {
@@ -80,4 +171,11 @@ function applyOpsToSubIds(subIds, opsMap) {
   });
 }
 
-module.exports = { loadSubidOps, upsertSubidOps, applyOpsToSubIds, inferCanal };
+module.exports = {
+  loadSubidOps,
+  upsertSubidOps,
+  upsertSubidOpsMany,
+  applyOpsToSubIds,
+  inferCanal,
+  persistInferredOps,
+};

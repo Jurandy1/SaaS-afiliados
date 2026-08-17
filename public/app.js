@@ -160,7 +160,6 @@
     dataSort: { key: null, dir: "asc" },
     subidSort: { key: null, dir: "asc" },
     opsSort: { key: "status", dir: "asc" },
-    opsFilters: { subid: "", canal: "", status: "" },
     dailySort: { key: null, dir: "asc" },
     dailyRows: [],
     chartMode: "profit",
@@ -1557,7 +1556,7 @@
     if (!root || root.dataset.sortWired === "1") return;
     root.dataset.sortWired = "1";
     root.addEventListener("click", (e) => {
-      if (e.target.closest("input, select, textarea, .th-filter-ctrl")) return;
+      if (e.target.closest("input, select, textarea")) return;
       const th = e.target.closest("th[data-sort]");
       if (!th || !root.contains(th)) return;
       e.preventDefault();
@@ -2389,23 +2388,11 @@
   function renderOpsTable() {
     const tb = $("#ops-tbody");
     if (!tb) return;
-    const qTop = ($("#ops-search")?.value || "").trim().toLowerCase();
-    const f = state.opsFilters || { subid: "", canal: "", status: "" };
-    const qHead = String(f.subid || "").trim().toLowerCase();
-    const canalF = String(f.canal || "").trim();
-    const statusF = String(f.status || "").trim();
     const statusRank = { ativa: 0, teste: 1, desativada: 2 };
     const sortKey = state.opsSort?.key || "status";
     const sortDir = state.opsSort?.dir || "asc";
 
-    let list = (state.dash?.subIds || []).filter((r) => {
-      const id = String(r.subid || "").toLowerCase();
-      if (qTop && !id.includes(qTop)) return false;
-      if (qHead && !id.includes(qHead)) return false;
-      if (canalF && (r.canal || "indefinido") !== canalF) return false;
-      if (statusF && normalizeStatus(r.status) !== statusF) return false;
-      return true;
-    });
+    let list = filteredSubIds(state.dash?.subIds || [], $("#ops-search")?.value, "geral");
 
     list = sortRows(list, sortKey, sortDir, (r) => {
       if (sortKey === "subid") return r.subid;
@@ -3612,6 +3599,12 @@
         state.subidPage = 1;
         renderSubIdsDash();
       }
+      const opsSearch = $("#ops-search");
+      if (opsSearch) {
+        opsSearch.value = q;
+        state.opsVisible = 40;
+        if (state.view === "canais") renderOpsTable();
+      }
     });
     globalSearch?.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && globalSearch.value.trim()) {
@@ -3624,22 +3617,6 @@
 
     $("#subid-search")?.addEventListener("input", debounce(() => { state.subidVisible = 40; renderSubIdsDash(); }, 200));
     $("#ops-search")?.addEventListener("input", debounce(() => { state.opsVisible = 40; renderOpsTable(); }, 200));
-    const bindOpsFilter = (sel, key) => {
-      const el = $(sel);
-      if (!el || el.dataset.opsFilterWired === "1") return;
-      el.dataset.opsFilterWired = "1";
-      const handler = () => {
-        if (!state.opsFilters) state.opsFilters = { subid: "", canal: "", status: "" };
-        state.opsFilters[key] = el.value || "";
-        state.opsVisible = 40;
-        renderOpsTable();
-      };
-      el.addEventListener("input", debounce(handler, 180));
-      el.addEventListener("change", handler);
-    };
-    bindOpsFilter("#ops-filter-subid", "subid");
-    bindOpsFilter("#ops-filter-canal", "canal");
-    bindOpsFilter("#ops-filter-status", "status");
     wireSortHeaders("#ops-thead", () => state.opsSort, () => {
       state.opsVisible = 40;
       renderOpsTable();
@@ -3829,7 +3806,12 @@
           body: JSON.stringify({ csv: text }),
         });
         status.className = "form-status ok";
-        status.textContent = `Pinterest: ${r.gravados} linhas importadas.`;
+        const periodo = r.range?.since && r.range?.until ? ` · ${r.range.since} a ${r.range.until}` : "";
+        const gasto = r.gasto != null ? ` · gasto ${Number(r.gasto).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "";
+        const classif = r.classificados
+          ? ` · ${r.classificados} SubIDs classificados (${r.ativas || 0} ativas / ${r.desativadas || 0} desativadas)`
+          : "";
+        status.textContent = `Pinterest: ${r.gravados} linhas${classif}${gasto}${periodo}. Ajuste o período para ver Campanhas Pinterest.`;
         await loadDashboard({ force: false });
       } catch (err) {
         status.className = "form-status err";
@@ -3912,21 +3894,35 @@
     if (state.settingsSaving) return;
     state.settingsSaving = true;
     try {
-      const payload = readSettingsFromForms();
+      const all = readSettingsFromForms();
+      const payload = part === "metas"
+        ? {
+            metaBase: all.metaBase,
+            metaDias: all.metaDias,
+            metaBonus100: all.metaBonus100,
+            metaBonus125: all.metaBonus125,
+            metaBonus150: all.metaBonus150,
+          }
+        : {
+            taxRate: all.taxRate,
+            metaTaxRate: all.metaTaxRate,
+            teamName: all.teamName,
+            teamPlan: all.teamPlan,
+          };
       const s = await api("/api/settings", {
         method: "POST",
         body: JSON.stringify(payload),
       });
       state.settings = {
-        taxRate: s.taxRate != null ? Number(s.taxRate) : payload.taxRate,
-        metaTaxRate: s.metaTaxRate != null ? Number(s.metaTaxRate) : payload.metaTaxRate,
-        metaBase: s.metaBase != null ? Number(s.metaBase) : payload.metaBase,
-        metaDias: s.metaDias != null ? Number(s.metaDias) : payload.metaDias,
-        metaBonus100: s.metaBonus100 != null ? Number(s.metaBonus100) : payload.metaBonus100,
-        metaBonus125: s.metaBonus125 != null ? Number(s.metaBonus125) : payload.metaBonus125,
-        metaBonus150: s.metaBonus150 != null ? Number(s.metaBonus150) : payload.metaBonus150,
-        teamName: s.teamName != null ? s.teamName : payload.teamName,
-        teamPlan: s.teamPlan != null ? s.teamPlan : payload.teamPlan,
+        taxRate: s.taxRate != null ? Number(s.taxRate) : (payload.taxRate != null ? payload.taxRate : state.settings.taxRate),
+        metaTaxRate: s.metaTaxRate != null ? Number(s.metaTaxRate) : (payload.metaTaxRate != null ? payload.metaTaxRate : state.settings.metaTaxRate),
+        metaBase: s.metaBase != null ? Number(s.metaBase) : (payload.metaBase != null ? payload.metaBase : state.settings.metaBase),
+        metaDias: s.metaDias !== undefined && s.metaDias !== null ? Number(s.metaDias) : (part === "metas" ? all.metaDias : state.settings.metaDias),
+        metaBonus100: s.metaBonus100 != null ? Number(s.metaBonus100) : (payload.metaBonus100 != null ? payload.metaBonus100 : state.settings.metaBonus100),
+        metaBonus125: s.metaBonus125 != null ? Number(s.metaBonus125) : (payload.metaBonus125 != null ? payload.metaBonus125 : state.settings.metaBonus125),
+        metaBonus150: s.metaBonus150 != null ? Number(s.metaBonus150) : (payload.metaBonus150 != null ? payload.metaBonus150 : state.settings.metaBonus150),
+        teamName: s.teamName != null ? s.teamName : (payload.teamName != null ? payload.teamName : state.settings.teamName),
+        teamPlan: s.teamPlan != null ? s.teamPlan : (payload.teamPlan != null ? payload.teamPlan : state.settings.teamPlan),
       };
       paintSettingsForms(state.settings);
       cacheMetaProjSettings(state.settings);

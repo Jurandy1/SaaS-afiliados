@@ -261,7 +261,7 @@ create index if not exists idx_user_profiles_role on user_profiles (role);
 create table if not exists subid_ops (
   user_id uuid not null,
   subid text not null,
-  canal text check (canal in ('meta', 'pinterest', 'organico')),
+  canal text check (canal is null or canal in ('meta', 'pinterest', 'organico', 'indefinido')),
   status text check (status is null or status in ('ativa', 'teste', 'desativada', 'pausada')),
   produto text,
   updated_at timestamptz default now(),
@@ -271,6 +271,10 @@ create index if not exists subid_ops_user_idx on subid_ops (user_id);
 
 -- Upgrades idempotentes para bancos criados antes deste schema
 alter table if exists app_settings
+  add column if not exists tax_rate numeric not null default 0,
+  add column if not exists team_name text not null default 'Minha conta',
+  add column if not exists team_plan text not null default 'Shopee · Meta',
+  add column if not exists meta_base numeric not null default 863959,
   add column if not exists claude_api_key text not null default '',
   add column if not exists claude_model text not null default 'claude-sonnet-4-20250514',
   add column if not exists meta_tax_rate numeric default 12,
@@ -286,3 +290,22 @@ alter table if exists subid_ops drop constraint if exists subid_ops_status_check
 alter table if exists subid_ops
   add constraint subid_ops_status_check
   check (status is null or status in ('ativa', 'teste', 'desativada', 'pausada'));
+
+do $$
+declare r record;
+begin
+  for r in
+    select conname from pg_constraint
+    where conrelid = 'public.subid_ops'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) ilike '%canal%'
+  loop
+    execute format('alter table public.subid_ops drop constraint if exists %I', r.conname);
+  end loop;
+end $$;
+
+alter table if exists subid_ops
+  add constraint subid_ops_canal_check
+  check (canal is null or canal in ('meta', 'pinterest', 'organico', 'indefinido'));
+
+notify pgrst, 'reload schema';

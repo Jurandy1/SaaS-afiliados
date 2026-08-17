@@ -127,12 +127,29 @@ async function saveClaudeCredentials({ apiKey, model }, userId = requireUserId()
       user_id: userId,
       meta_base: settings.metaBase,
       tax_rate: settings.taxRate,
+      meta_tax_rate: settings.metaTaxRate,
+      meta_dias: settings.metaDias,
+      meta_bonus_100: settings.metaBonus100,
+      meta_bonus_125: settings.metaBonus125,
+      meta_bonus_150: settings.metaBonus150,
       team_name: settings.teamName,
       team_plan: settings.teamPlan,
       claude_api_key: nextKey,
       claude_model: nextModel,
       updated_at: now,
     }));
+    if (error && /(meta_tax_rate|meta_dias|meta_bonus_)/i.test(error.message || "")) {
+      ({ error } = await supabase.from("app_settings").insert({
+        user_id: userId,
+        meta_base: settings.metaBase,
+        tax_rate: settings.taxRate,
+        team_name: settings.teamName,
+        team_plan: settings.teamPlan,
+        claude_api_key: nextKey,
+        claude_model: nextModel,
+        updated_at: now,
+      }));
+    }
   }
 
   if (error && /claude_api_key|claude_model/i.test(error.message || "")) {

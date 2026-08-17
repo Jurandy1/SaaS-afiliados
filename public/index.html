@@ -516,36 +516,16 @@
                 <p class="dashboard-section-desc">Alterações salvam automaticamente · clique para classificar canal e status</p>
               </div>
               <div class="flex flex-wrap items-center gap-2 justify-end w-full md:w-auto">
-                <input type="search" id="ops-search" class="search max-w-xs w-full sm:w-auto" placeholder="Buscar SubID…" />
+                <input type="search" id="ops-search" class="search max-w-xs w-full sm:w-auto" placeholder="Filtrar por SubID…" />
               </div>
             </div>
             <div class="table-scroll table-scroll--dark table-scroll--infinite" id="ops-scroll">
               <table class="data-table data-table--ops" id="ops-table">
                 <thead id="ops-thead">
                   <tr>
-                    <th data-sort="subid">
-                      <span class="th-label">SubID</span>
-                      <input type="search" class="th-filter-ctrl" id="ops-filter-subid" placeholder="Filtrar…" autocomplete="off" />
-                    </th>
-                    <th data-sort="canal">
-                      <span class="th-label">Canal</span>
-                      <select class="th-filter-ctrl" id="ops-filter-canal" aria-label="Filtrar canal">
-                        <option value="">Todos</option>
-                        <option value="meta">Meta</option>
-                        <option value="pinterest">Pinterest</option>
-                        <option value="organico">Orgânico</option>
-                        <option value="indefinido">Indefinido</option>
-                      </select>
-                    </th>
-                    <th data-sort="status">
-                      <span class="th-label">Status</span>
-                      <select class="th-filter-ctrl" id="ops-filter-status" aria-label="Filtrar status">
-                        <option value="">Todos</option>
-                        <option value="ativa">Ativa</option>
-                        <option value="teste">Teste</option>
-                        <option value="desativada">Desativada</option>
-                      </select>
-                    </th>
+                    <th class="th-sort" data-sort="subid">SubID</th>
+                    <th class="th-sort" data-sort="canal">Canal</th>
+                    <th class="th-sort" data-sort="status">Status</th>
                   </tr>
                 </thead>
                 <tbody id="ops-tbody"></tbody>
@@ -665,7 +645,7 @@
                     <label>Arquivo CSV
                       <input type="file" id="pin-file" accept=".csv,text/csv" />
                     </label>
-                    <p class="hint">Formato AfiliadosPRO. Entra por dia e SubID, sem imposto extra.</p>
+                    <p class="hint">Export do Ads Manager com ativas e desativadas (Date + Ad name + Spend). Um import classifica os SubIDs como Pinterest: pausada/arquivada ou sem gasto → Desativada; com gasto e ACTIVE → Ativa. Não precisa classificar os 500 pins na mão.</p>
                     <div class="form-actions">
                       <button type="button" class="btn primary sm" id="btn-pin-import">Importar CSV</button>
                     </div>

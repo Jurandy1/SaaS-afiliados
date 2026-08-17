@@ -713,9 +713,26 @@ async function loadSettings(userId = requireUserId()) {
   };
 }
 
+function settingsFromRow(userId, core, extras) {
+  const data = { ...core, ...extras };
+  const metaDias = data.meta_dias != null && data.meta_dias !== "" ? Number(data.meta_dias) : null;
+  return {
+    metaBase: Number(data.meta_base || 863959),
+    metaDias: Number.isFinite(metaDias) && metaDias > 0 ? metaDias : null,
+    metaBonus100: data.meta_bonus_100 != null ? Number(data.meta_bonus_100) : 1,
+    metaBonus125: data.meta_bonus_125 != null ? Number(data.meta_bonus_125) : 2,
+    metaBonus150: data.meta_bonus_150 != null ? Number(data.meta_bonus_150) : 3,
+    taxRate: data.tax_rate != null ? Number(data.tax_rate) : 11.7,
+    metaTaxRate: data.meta_tax_rate != null ? Number(data.meta_tax_rate) : 12,
+    teamName: data.team_name || "Minha conta",
+    teamPlan: data.team_plan || "Shopee · Meta",
+    userId,
+  };
+}
+
 async function saveSettings(partial, userId = requireUserId()) {
   const prev = await loadSettings(userId);
-  const next = {
+  const core = {
     user_id: userId,
     meta_base: partial.metaBase != null ? Number(partial.metaBase) : prev.metaBase,
     tax_rate: partial.taxRate != null ? Number(partial.taxRate) : prev.taxRate,
@@ -723,49 +740,50 @@ async function saveSettings(partial, userId = requireUserId()) {
     team_plan: partial.teamPlan != null ? String(partial.teamPlan) : prev.teamPlan,
     updated_at: new Date().toISOString(),
   };
-  if (partial.metaTaxRate != null) next.meta_tax_rate = Number(partial.metaTaxRate);
-  else if (prev.metaTaxRate != null) next.meta_tax_rate = Number(prev.metaTaxRate);
-
+  const extras = {};
+  if (partial.metaTaxRate != null) extras.meta_tax_rate = Number(partial.metaTaxRate);
   if (partial.metaDias !== undefined) {
-    next.meta_dias = partial.metaDias == null || partial.metaDias === ""
+    extras.meta_dias = partial.metaDias == null || partial.metaDias === ""
       ? null
       : Number(partial.metaDias);
-  } else if (prev.metaDias != null) {
-    next.meta_dias = Number(prev.metaDias);
   }
-
-  if (partial.metaBonus100 != null) next.meta_bonus_100 = Number(partial.metaBonus100);
-  else if (prev.metaBonus100 != null) next.meta_bonus_100 = Number(prev.metaBonus100);
-  if (partial.metaBonus125 != null) next.meta_bonus_125 = Number(partial.metaBonus125);
-  else if (prev.metaBonus125 != null) next.meta_bonus_125 = Number(prev.metaBonus125);
-  if (partial.metaBonus150 != null) next.meta_bonus_150 = Number(partial.metaBonus150);
-  else if (prev.metaBonus150 != null) next.meta_bonus_150 = Number(prev.metaBonus150);
+  if (partial.metaBonus100 != null) extras.meta_bonus_100 = Number(partial.metaBonus100);
+  if (partial.metaBonus125 != null) extras.meta_bonus_125 = Number(partial.metaBonus125);
+  if (partial.metaBonus150 != null) extras.meta_bonus_150 = Number(partial.metaBonus150);
 
   const supabase = getSupabase();
-  let { error } = await supabase.from("app_settings").upsert(next);
-  if (error && /(meta_tax_rate|meta_dias|meta_bonus_)/i.test(error.message || "")) {
-    const extraKeys = ["meta_tax_rate", "meta_dias", "meta_bonus_100", "meta_bonus_125", "meta_bonus_150"];
-    const extras = {};
-    for (const k of extraKeys) {
-      if (k in next) {
-        extras[k] = next[k];
-        delete next[k];
+  const { ensureConfigSchema, upsertAppSettingsSql } = require("./ensureDb");
+
+  let { error } = await supabase.from("app_settings").upsert(core);
+  if (error) {
+    await ensureConfigSchema();
+    ({ error } = await supabase.from("app_settings").upsert(core));
+  }
+  if (error) {
+    const viaPg = await upsertAppSettingsSql(core);
+    if (!viaPg) throw new Error(error.message);
+  }
+
+  if (Object.keys(extras).length) {
+    let extraErr = null;
+    ({ error: extraErr } = await supabase.from("app_settings").update(extras).eq("user_id", userId));
+    if (extraErr) {
+      await ensureConfigSchema();
+      ({ error: extraErr } = await supabase.from("app_settings").update(extras).eq("user_id", userId));
+    }
+    if (extraErr) {
+      const viaPg = await upsertAppSettingsSql({ user_id: userId, ...extras, updated_at: core.updated_at });
+      if (!viaPg) {
+        console.warn("[settings] extras não gravadas via API:", extraErr.message);
       }
     }
-    ({ error } = await supabase.from("app_settings").upsert(next));
-    if (error) throw new Error(error.message);
-    const extraErrs = [];
-    for (const [k, v] of Object.entries(extras)) {
-      const { error: e2 } = await supabase.from("app_settings").update({ [k]: v }).eq("user_id", userId);
-      if (e2) extraErrs.push(`${k}: ${e2.message}`);
-    }
-    if (extraErrs.length) {
-      throw new Error(`Salvo parcialmente. Rode npm run setup:db para gravar metas/bônus (${extraErrs[0]})`);
-    }
-  } else if (error) {
-    throw new Error(error.message);
   }
-  return loadSettings(userId);
+
+  try {
+    return await loadSettings(userId);
+  } catch (_) {
+    return settingsFromRow(userId, core, extras);
+  }
 }
 
 module.exports = {

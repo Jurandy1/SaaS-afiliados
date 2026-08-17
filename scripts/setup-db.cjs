@@ -43,6 +43,20 @@ async function main() {
     await client.connect();
     console.log(`Aplicando schema.sql (${label})…`);
     await client.query(sql);
+    const cols = await client.query(`
+      select column_name
+      from information_schema.columns
+      where table_schema = 'public' and table_name = 'app_settings'
+      order by ordinal_position
+    `);
+    const ops = await client.query(`
+      select column_name
+      from information_schema.columns
+      where table_schema = 'public' and table_name = 'subid_ops'
+      order by ordinal_position
+    `);
+    console.log("app_settings:", cols.rows.map((r) => r.column_name).join(", "));
+    console.log("subid_ops:", ops.rows.map((r) => r.column_name).join(", "));
     await client.end();
   }
 

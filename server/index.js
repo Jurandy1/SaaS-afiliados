@@ -98,6 +98,13 @@ function loadEnvFile() {
 }
 loadEnvFile();
 
+try {
+  const { ensureConfigSchema } = require("./ensureDb");
+  ensureConfigSchema().catch((err) => console.warn("[boot schema]", err.message));
+} catch (err) {
+  console.warn("[boot schema]", err.message);
+}
+
 function sendJson(res, status, body) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",

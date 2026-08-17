@@ -5,7 +5,7 @@ const { loadMetaSpendByDay } = require("./meta");
 const { loadPinSpendByDay } = require("./pinterest");
 const { requireUserId } = require("./auth");
 const { loadSettings } = require("./store");
-const { loadSubidOps, applyOpsToSubIds, inferCanal } = require("./subidOps");
+const { loadSubidOps, applyOpsToSubIds, inferCanal, persistInferredOps } = require("./subidOps");
 
 function round2(n) {
   return Math.round(Number(n || 0) * 100) / 100;
@@ -350,7 +350,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     seenSubs.add(sub);
   }
   for (const [sub, spend] of Object.entries(pin.bySub)) {
-    if (!sub || seenSubs.has(sub) || !(spend > 0)) continue;
+    if (!sub || sub === "semsubid" || seenSubs.has(sub)) continue;
     const fin = calcLucroRoi(0, 0, spend, tax);
     const cliquesPin = pin.clicksBySub[sub] || 0;
     orphanSubs.push({
@@ -374,10 +374,11 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
       ctr_meta: null,
       abatimento_cliques: null,
       canal: "pinterest",
-      status: "ativa",
+      status: Number(spend) > 0 ? "ativa" : "desativada",
       daily: [],
       ...fin,
     });
+    seenSubs.add(sub);
   }
 
   const subIdsAll = reconcileSubIdsToPeriod(
@@ -450,10 +451,16 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     console.warn("[finance] persist:", e.message);
   }
 
+  const opsMap = await loadSubidOps(userId);
+  const subIds = applyOpsToSubIds(subIdsAll, opsMap);
+  persistInferredOps(subIds, userId).catch((e) => {
+    console.warn("[finance] persist indefinidos:", e.message);
+  });
+
   return {
     ...dash,
     daily,
-    subIds: applyOpsToSubIds(subIdsAll, await loadSubidOps(userId)),
+    subIds,
     kpis,
     tax,
   };

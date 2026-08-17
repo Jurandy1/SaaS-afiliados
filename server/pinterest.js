@@ -25,13 +25,15 @@ function normalizeHeader(h) {
 }
 
 function findCol(headers, ...aliases) {
-  const map = {};
-  headers.forEach((h, i) => {
-    map[normalizeHeader(h)] = i;
-  });
-  for (const a of aliases) {
-    const k = normalizeHeader(a);
-    if (map[k] != null) return map[k];
+  const norms = headers.map((h) => normalizeHeader(h));
+  const wanted = aliases.map((a) => normalizeHeader(a)).filter(Boolean);
+  for (const a of wanted) {
+    const exact = norms.indexOf(a);
+    if (exact >= 0) return exact;
+  }
+  for (const a of wanted) {
+    const i = norms.findIndex((h) => h.startsWith(`${a}_`) || h.endsWith(`_${a}`));
+    if (i >= 0) return i;
   }
   return -1;
 }
@@ -66,36 +68,60 @@ function parseCsv(text) {
   return { headers, rows };
 }
 
+function parseDateCell(dateRaw) {
+  const s = String(dateRaw || "").trim();
+  if (!s) return null;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) {
+    const [d, m, y] = s.split("/");
+    return `${y}-${m}-${d}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return null;
+}
+
 function parsePinterestCsv(text) {
   const { headers, rows } = parseCsv(text);
-  const iName = findCol(headers, "ad_name", "nome_do_anuncio", "nome", "ad name");
-  const iSpend = findCol(headers, "spend", "gasto", "amount spent");
-  const iClicks = findCol(headers, "pin_clicks", "cliques", "clicks", "paid clicks");
-  const iStatus = findCol(headers, "ad_entity_status", "status");
+  const iName = findCol(headers, "ad_name", "nome_do_anuncio", "nome", "ad name", "pin_description", "pin description");
+  const iDesc = findCol(headers, "pin_description", "pin description", "description");
+  const iSpend = findCol(
+    headers,
+    "spend_in_account_currency",
+    "amount_spent",
+    "spend",
+    "gasto",
+    "amount spent"
+  );
+  const iClicks = findCol(
+    headers,
+    "paid_pin_clicks",
+    "pin_clicks",
+    "paid_clicks",
+    "cliques",
+    "clicks",
+    "paid clicks"
+  );
+  const iStatus = findCol(headers, "ad_entity_status", "campaign_entity_status", "status");
   const iDate = findCol(headers, "date", "data", "day");
   const iAdId = findCol(headers, "ad_id", "ad id");
 
   const parsed = [];
   for (const row of rows) {
     const adName = iName >= 0 ? String(row[iName] || "").trim() : "";
-    if (!adName) continue;
+    const pinDesc = iDesc >= 0 && iDesc !== iName ? String(row[iDesc] || "").trim() : "";
+    const label = adName || pinDesc;
+    if (!label) continue;
+    const data = parseDateCell(iDate >= 0 ? row[iDate] : "");
+    if (!data) continue;
     const spend = iSpend >= 0 ? parseMoney(row[iSpend]) : 0;
-    const dateRaw = iDate >= 0 ? String(row[iDate] || "").trim() : "";
-    let data = dateRaw;
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateRaw)) {
-      const [d, m, y] = dateRaw.split("/");
-      data = `${y}-${m}-${d}`;
-    } else if (/^\d{4}-\d{2}-\d{2}/.test(dateRaw)) {
-      data = dateRaw.slice(0, 10);
-    }
     const adId = iAdId >= 0 ? String(row[iAdId] || "").trim() : "";
-    const subid = normalizeSubId(adName);
-    const id = `${adId || subid || adName.slice(0, 20)}_${data || "nodate"}`;
+    const subid = normalizeSubId(adName || pinDesc);
+    if (!subid) continue;
+    const id = `${adId || subid}_${data}`;
     parsed.push({
       id,
       ad_id: adId,
-      data: data || null,
-      ad_name: adName,
+      data,
+      ad_name: adName || pinDesc,
       subid,
       gasto: Math.round(spend * 100) / 100,
       cliques: iClicks >= 0 ? parseInt(String(row[iClicks] || "0").replace(/[^0-9]/g, ""), 10) || 0 : 0,
@@ -107,8 +133,11 @@ function parsePinterestCsv(text) {
 }
 
 async function importPinterestCsv(text, userId = requireUserId()) {
-  const rows = parsePinterestCsv(text).map((r) => ({ ...r, user_id: userId }));
-  if (!rows.length) throw new Error("Nenhuma linha válida no CSV Pinterest");
+  const parsed = parsePinterestCsv(text);
+  if (!parsed.length) {
+    throw new Error("Nenhuma linha válida no CSV Pinterest. Use o export do Ads Manager (Date + Ad name + Spend).");
+  }
+  const rows = parsed.map((r) => ({ ...r, user_id: userId }));
   const supabase = getSupabase();
   let gravados = 0;
   for (let i = 0; i < rows.length; i += 200) {
@@ -117,14 +146,77 @@ async function importPinterestCsv(text, userId = requireUserId()) {
     if (error) throw new Error(error.message);
     gravados += chunk.length;
   }
-  return { linhas: rows.length, gravados };
+  const classificados = await applyPinterestCsvOps(parsed, userId);
+  const subids = new Set(rows.map((r) => r.subid));
+  const datas = rows.map((r) => r.data).sort();
+  const gasto = Math.round(rows.reduce((a, r) => a + Number(r.gasto || 0), 0) * 100) / 100;
+  const cliques = rows.reduce((a, r) => a + Number(r.cliques || 0), 0);
+  return {
+    linhas: rows.length,
+    gravados,
+    subids: subids.size,
+    gasto,
+    cliques,
+    classificados: classificados.total,
+    ativas: classificados.ativas,
+    desativadas: classificados.desativadas,
+    range: { since: datas[0] || null, until: datas[datas.length - 1] || null },
+  };
+}
+
+function pinStatusFromEntity(raw) {
+  const s = String(raw || "").trim().toUpperCase();
+  if (!s) return null;
+  if (["ACTIVE", "ENABLED", "RUNNING"].includes(s)) return "ativa";
+  if (
+    ["PAUSED", "ARCHIVED", "DELETED", "DISABLED", "INACTIVE", "DRAFT", "ADVERTISER_DISABLED"].includes(s)
+  ) {
+    return "desativada";
+  }
+  return null;
+}
+
+function summarizePinSubIds(rows) {
+  const bySub = new Map();
+  for (const r of rows || []) {
+    const subid = String(r.subid || "").trim();
+    if (!subid) continue;
+    const prev = bySub.get(subid) || { subid, gasto: 0, cliques: 0, data: "", statusRaw: "" };
+    prev.gasto += Number(r.gasto || 0);
+    prev.cliques += Number(r.cliques || 0);
+    const day = String(r.data || "");
+    if (!prev.data || day >= prev.data) {
+      prev.data = day;
+      prev.statusRaw = r.status || prev.statusRaw;
+    }
+    bySub.set(subid, prev);
+  }
+  return [...bySub.values()];
+}
+
+async function applyPinterestCsvOps(rows, userId = requireUserId()) {
+  const { upsertSubidOpsMany } = require("./subidOps");
+  const ops = summarizePinSubIds(rows).map((r) => {
+    const fromEntity = pinStatusFromEntity(r.statusRaw);
+    let status = fromEntity;
+    if (!status) status = Number(r.gasto) > 0 ? "ativa" : "desativada";
+    if (fromEntity === "ativa" && !(Number(r.gasto) > 0)) status = "desativada";
+    return { subid: r.subid, canal: "pinterest", status };
+  });
+  if (!ops.length) return { total: 0, ativas: 0, desativadas: 0 };
+  await upsertSubidOpsMany(ops, userId);
+  return {
+    total: ops.length,
+    ativas: ops.filter((o) => o.status === "ativa").length,
+    desativadas: ops.filter((o) => o.status === "desativada").length,
+  };
 }
 
 async function loadPinSpendByDay(startDate, endDate, userId = requireUserId()) {
   const supabase = getSupabase();
   const pageSize = 1000;
   const all = [];
-  for (let from = 0; from < 5000; from += pageSize) {
+  for (let from = 0; from < 200000; from += pageSize) {
     const { data, error } = await supabase
       .from("pinterest_ads_daily")
       .select("data, subid, gasto, ad_name, ad_id, cliques")
