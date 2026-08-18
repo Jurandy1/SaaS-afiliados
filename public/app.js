@@ -2287,6 +2287,33 @@
     }
   }
 
+  function refreshCampaignKpisFromFilter() {
+    const ch = state.channel || "geral";
+    if (ch !== "meta" && ch !== "pinterest" && ch !== "organico") return;
+    const dash = state.dash;
+    if (!dash) {
+      renderChannelKpis(ch, {});
+      return;
+    }
+    const q = ($("#subid-search")?.value || "").trim();
+    const channelSubs = filteredSubIds(dash.subIds || [], q, ch);
+    let k = kpisFromSubIds(channelSubs, dash.kpis);
+    if (ch === "meta" && k.cliques_shopee != null && Number(k.cliques_meta) > 0) {
+      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_meta)) * 10000) / 100;
+    }
+    if (ch === "pinterest" && k.cliques_shopee != null && Number(k.cliques_pin) > 0) {
+      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_pin)) * 10000) / 100;
+    }
+    renderChannelKpis(ch, k);
+    const liveText = $("#dash-live-text");
+    if (liveText) {
+      const label = `${canalLabel(ch)} · `;
+      liveText.textContent = channelSubs.length
+        ? `${label}${fmtNum(channelSubs.length)} SubID${channelSubs.length === 1 ? "" : "s"}${q ? ` · filtro "${q}"` : ""}`
+        : q ? `${label}Nenhum SubID para "${q}"` : `${label}Ao vivo`;
+    }
+  }
+
   function applyChannelView() {
     const ch = state.channel || "geral";
     const isChannel = ch === "meta" || ch === "pinterest" || ch === "organico";
@@ -2349,7 +2376,6 @@
       renderChart(daily);
       renderDailyTable(daily, k);
     } else {
-      renderChannelKpis(ch, k);
       if (!state.subidColPrefs) state.subidColPrefs = {};
       if (!state.subidColPrefs[ch]) state.subidColPrefs[ch] = readSubidColPrefs(ch);
       paintSubidColPicker(ch);
@@ -2357,13 +2383,11 @@
     }
     renderSuggestions(dash);
 
-    const liveText = $("#dash-live-text");
-    if (liveText) {
-      const n = channelSubs.length;
-      const label = isChannel ? `${canalLabel(ch)} · ` : "";
-      liveText.textContent = n
-        ? `${label}${fmtNum(n)} SubIDs no período`
-        : `${label}Ao vivo`;
+    if (!isChannel) {
+      const liveText = $("#dash-live-text");
+      if (liveText) {
+        liveText.textContent = "Ao vivo";
+      }
     }
   }
 
@@ -2646,6 +2670,7 @@
     }
 
     renderInfiniteHint($("#subid-pager"), slice.length, total);
+    refreshCampaignKpisFromFilter();
   }
 
   function renderSubIdCard(r, ch) {
