@@ -149,6 +149,17 @@ function reconcileSubIdsToPeriod(subIds, start, end, tax) {
     }
 
     let cliquesShopee = agg.cliques_shopee;
+    if (cliquesShopee <= 0 && Number(sub.cliques_shopee || 0) > 0 && agg.pedidos > 0) {
+      const basePed = Number(sub.pedidos || 0);
+      if (basePed > 0) {
+        cliquesShopee = Math.min(
+          Number(sub.cliques_shopee),
+          Math.round(Number(sub.cliques_shopee) * (agg.pedidos / basePed)),
+        );
+      } else {
+        cliquesShopee = Number(sub.cliques_shopee);
+      }
+    }
 
     const fin = calcLucroRoi(agg.comissao, agg.inv_meta, agg.inv_pin, tax);
     const fat = round2(agg.faturamento);

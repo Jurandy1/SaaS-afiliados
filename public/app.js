@@ -2375,6 +2375,12 @@
     }
   }
 
+  function channelKpisFor(ch, dash, channelSubs) {
+    const fromServer = dash?.channelKpis?.[ch];
+    if (fromServer && fromServer.faturamento != null) return fromServer;
+    return kpisFromSubIds(channelSubs, dash?.kpis);
+  }
+
   function refreshCampaignKpisFromFilter() {
     const ch = state.channel || "geral";
     if (ch !== "meta" && ch !== "pinterest" && ch !== "organico") return;
@@ -2385,7 +2391,9 @@
     }
     const q = ($("#subid-search")?.value || "").trim();
     const channelSubs = filteredSubIds(dash.subIds || [], q, ch, { activeOnly: true });
-    let k = kpisFromSubIds(channelSubs, dash.kpis);
+    let k = q
+      ? kpisFromSubIds(channelSubs, dash.kpis)
+      : channelKpisFor(ch, dash, channelSubs);
     if (ch === "meta" && k.cliques_shopee != null && Number(k.cliques_meta) > 0) {
       k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_meta)) * 10000) / 100;
     }
@@ -2420,7 +2428,9 @@
     }
 
     const channelSubs = filteredSubIds(dash.subIds || [], "", ch, { activeOnly: isChannel });
-    let k = isChannel ? kpisFromSubIds(channelSubs, dash.kpis) : {
+    let k = isChannel
+      ? (channelKpisFor(ch, dash, channelSubs))
+      : {
       ...(dash.kpis || {}),
       ...kpisFromSubIds(dash.subIds || [], dash.kpis),
       faturamento: dash.kpis?.faturamento,

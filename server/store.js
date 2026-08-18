@@ -3,6 +3,7 @@
 const { getSupabase } = require("./supabase");
 const { requireUserId, requestCached } = require("./auth");
 const { brtTodayISO, brtFirstDayOfMonth, shopeeEndDate, brtSubtractDays } = require("./brtDates");
+const { normalizeShopeeSubId } = require("./normalizeSubId");
 
 function maskSecret(secret) {
   const s = String(secret || "");
@@ -369,10 +370,21 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
   };
 }
 
-function loadMenuOrders(startDate, endDate, userId = requireUserId(), { limit = 3000 } = {}) {
-  return loadOrders(
-    { startDate, endDate, limit, columns: "subid, data, status, faturamento, comissao" },
-    userId,
+/** Carrega todos os pedidos do intervalo (paginado). Limite antigo de 3k truncava KPIs de campanha. */
+async function loadMenuOrders(startDate, endDate, userId = requireUserId(), { max = 100000 } = {}) {
+  const supabase = getSupabase();
+  const cols = "subid, data, status, faturamento, comissao";
+  return pagedSelect(
+    (from, to) => supabase
+      .from("orders")
+      .select(cols)
+      .eq("user_id", userId)
+      .gte("data", startDate)
+      .lte("data", endDate)
+      .order("data", { ascending: true })
+      .order("order_id", { ascending: true })
+      .range(from, to),
+    { pageSize: 2000, max },
   );
 }
 
@@ -392,7 +404,7 @@ async function attachMenuPreviews(dash, startDate, endDate, userId = requireUser
 
     const bySubDay = {};
     for (const o of orders || []) {
-      const sub = String(o.subid || "organico");
+      const sub = normalizeShopeeSubId(o.subid);
       const day = o.data;
       if (!day) continue;
       if (!bySubDay[sub]) bySubDay[sub] = {};
@@ -405,12 +417,10 @@ async function attachMenuPreviews(dash, startDate, endDate, userId = requireUser
           concluidos: 0,
           pendentes: 0,
           cancelados: 0,
-          cliques_shopee: 0,
         };
       }
       const row = bySubDay[sub][day];
       row.pedidos += 1;
-      row.cliques_shopee += 1;
       const st = String(o.status || "");
       if (st === "cancelada") {
         row.cancelados += 1;
@@ -423,17 +433,35 @@ async function attachMenuPreviews(dash, startDate, endDate, userId = requireUser
       else row.pendentes += 1;
     }
 
-    dash.subIds = (dash.subIds || []).map((r) => {
-      const days = bySubDay[r.subid] || {};
-      const daily = Object.values(days)
-        .map((d) => ({
-          ...d,
-          faturamento: Math.round(d.faturamento * 100) / 100,
-          comissao: Math.round(d.comissao * 100) / 100,
-        }))
-        .sort((a, b) => String(a.data).localeCompare(String(b.data)));
-      return { ...r, daily };
+    const dailyFromMap = (key) => Object.values(bySubDay[key] || {})
+      .map((d) => ({
+        ...d,
+        faturamento: Math.round(d.faturamento * 100) / 100,
+        comissao: Math.round(d.comissao * 100) / 100,
+      }))
+      .sort((a, b) => String(a.data).localeCompare(String(b.data)));
+
+    const seen = new Set();
+    const merged = (dash.subIds || []).map((r) => {
+      const key = normalizeShopeeSubId(r.subid);
+      seen.add(key);
+      return { ...r, subid: key, daily: dailyFromMap(key) };
     });
+
+    for (const key of Object.keys(bySubDay)) {
+      if (seen.has(key)) continue;
+      merged.push({
+        subid: key,
+        faturamento: 0,
+        comissao: 0,
+        pedidos: 0,
+        concluidos: 0,
+        pendentes: 0,
+        cancelados: 0,
+        daily: dailyFromMap(key),
+      });
+    }
+    dash.subIds = merged;
   } catch (_) {
     if (includePreviews) {
       dash.ordersPreview = dash.ordersPreview || [];
@@ -489,16 +517,80 @@ function channelDailyFromSubs(subIds, taxRate = 0, metaTaxRate = 12) {
   };
 }
 
+function channelKpisFromSubs(subIds, channel, taxRate = 0, metaTaxRate = 12) {
+  const { calcLucroRoi } = require("./finance");
+  const tax = { taxRate, metaTaxRate };
+  const hasActivity = (r) => {
+    const nz = (v) => Number(v || 0) > 0;
+    if (nz(r.faturamento) || nz(r.comissao) || nz(r.pedidos)) return true;
+    if (nz(r.inv_meta) || nz(r.inv_pin)) return true;
+    if (nz(r.cliques_meta) || nz(r.cliques_pin)) return true;
+    if (r.cliques_shopee != null && Number(r.cliques_shopee) > 0) return true;
+    return false;
+  };
+  const subs = (subIds || []).filter((s) => s.canal === channel && hasActivity(s));
+  let fat = 0;
+  let com = 0;
+  let invMeta = 0;
+  let invPin = 0;
+  let pedidos = 0;
+  let cliquesMeta = 0;
+  let cliquesPin = 0;
+  let cliquesShopee = 0;
+  let hasCliquesShopee = false;
+  for (const r of subs) {
+    fat += Number(r.faturamento || 0);
+    com += Number(r.comissao || 0);
+    invMeta += Number(r.inv_meta || 0);
+    invPin += Number(r.inv_pin || 0);
+    pedidos += Number(r.pedidos || 0);
+    cliquesMeta += Number(r.cliques_meta || 0);
+    cliquesPin += Number(r.cliques_pin || 0);
+    if (r.cliques_shopee != null) {
+      hasCliquesShopee = true;
+      cliquesShopee += Number(r.cliques_shopee || 0);
+    }
+  }
+  const fin = calcLucroRoi(com, invMeta, invPin, tax);
+  const cliquesAds = channel === "meta" ? cliquesMeta : channel === "pinterest" ? cliquesPin : cliquesMeta + cliquesPin;
+  let abatimentoCliques = null;
+  if (hasCliquesShopee && cliquesAds > 0) {
+    abatimentoCliques = Math.round((cliquesShopee / cliquesAds) * 10000) / 100;
+  }
+  return {
+    faturamento: Math.round(fat * 100) / 100,
+    comissao: Math.round(com * 100) / 100,
+    inv_meta: fin.inv_meta,
+    inv_pin: fin.inv_pin,
+    inv_meta_taxed: fin.inv_meta_taxed,
+    inv_total: fin.inv_total,
+    lucro: fin.lucro,
+    roi: fin.roi,
+    pedidos,
+    cliques_meta: cliquesMeta,
+    cliques_pin: cliquesPin,
+    cliques_ads: cliquesAds,
+    cliques_shopee: hasCliquesShopee ? cliquesShopee : null,
+    abatimento_cliques: abatimentoCliques,
+    abatimento: fat > 0 ? Math.round((com / fat) * 10000) / 100 : null,
+  };
+}
+
 function slimDashForClient(dash) {
   if (!dash) return dash;
   const taxRate = dash.tax?.taxRate ?? dash.kpis?.taxRate ?? 0;
   const metaTaxRate = dash.tax?.metaTaxRate ?? dash.kpis?.metaTaxRate ?? 12;
   const dailyByChannel = dash.dailyByChannel || channelDailyFromSubs(dash.subIds, taxRate, metaTaxRate);
+  const channelKpis = {
+    meta: channelKpisFromSubs(dash.subIds, "meta", taxRate, metaTaxRate),
+    pinterest: channelKpisFromSubs(dash.subIds, "pinterest", taxRate, metaTaxRate),
+    organico: channelKpisFromSubs(dash.subIds, "organico", taxRate, metaTaxRate),
+  };
   const subIds = (dash.subIds || []).map((r) => {
     const { daily, ...rest } = r;
     return rest;
   });
-  const out = { ...dash, subIds, dailyByChannel };
+  const out = { ...dash, subIds, dailyByChannel, channelKpis };
   delete out.ordersPreview;
   delete out.productsPreview;
   return out;
