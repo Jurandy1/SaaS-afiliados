@@ -15,6 +15,7 @@ const {
   loadSettings,
   saveSettings,
   attachMenuPreviews,
+  loadMenuOrders,
   slimDashForClient,
   loadSubidDaily,
   attachMtdKpis,
@@ -133,6 +134,9 @@ function contentType(filePath) {
 function cacheHeadersFor(filePath) {
   if (filePath.endsWith(".html")) return { "Cache-Control": "no-cache" };
   if (/\.(js|css)$/.test(filePath)) {
+    if (!process.env.VERCEL) {
+      return { "Cache-Control": "no-store" };
+    }
     return { "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400" };
   }
   if (/\.(png|svg|jpg|jpeg|webp|woff2|ico)$/.test(filePath)) {
@@ -970,9 +974,18 @@ async function requestHandler(req, res) {
               return;
             }
 
-            let fromDb = await loadDashboardFromDb(startDate, endDate);
+            const [fromDbRes, ordersRes] = await Promise.all([
+              loadDashboardFromDb(startDate, endDate),
+              loadMenuOrders(startDate, endDate).catch((e) => {
+                console.warn("[dashboard] orders:", e.message);
+                return [];
+              }),
+            ]);
+            let fromDb = fromDbRes;
             if (fromDb) {
-              fromDb = await attachMenuPreviews(fromDb, startDate, endDate);
+              fromDb = await attachMenuPreviews(fromDb, startDate, endDate, undefined, {
+                preloadedOrders: ordersRes,
+              });
               fromDb = await enrichDashboardWithAds(fromDb, undefined, {
                 persistSubIds: false,
                 persistDaily: false,

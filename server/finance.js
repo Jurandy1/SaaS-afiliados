@@ -192,49 +192,97 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
   const end = dash.range?.endDate;
   if (!start || !end) return dash;
 
-  let tax = { taxRate: 11.7, metaTaxRate: 12 };
-  try {
-    tax = await loadSettings(userId);
-  } catch (e) {
-    console.warn("[finance] settings:", e.message);
-  }
-
-  let metaRows = [];
-  let pinRows = [];
-  try {
-    metaRows = await loadMetaSpendByDay(start, end, userId);
-  } catch (e) {
-    console.warn("[finance] meta:", e.message);
-  }
-  try {
-    pinRows = await loadPinSpendByDay(start, end, userId);
-  } catch (e) {
-    console.warn("[finance] pin:", e.message);
-  }
+  const [taxRes, metaRes, pinRes, opsRes] = await Promise.all([
+    loadSettings(userId).catch((e) => { console.warn("[finance] settings:", e.message); return null; }),
+    loadMetaSpendByDay(start, end, userId).catch((e) => { console.warn("[finance] meta:", e.message); return []; }),
+    loadPinSpendByDay(start, end, userId).catch((e) => { console.warn("[finance] pin:", e.message); return []; }),
+    loadSubidOps(userId).catch((e) => { console.warn("[finance] ops:", e.message); return {}; }),
+  ]);
+  const tax = taxRes || { taxRate: 11.7, metaTaxRate: 12 };
+  const metaRows = metaRes || [];
+  const pinRows = pinRes || [];
+  const opsMap = opsRes || {};
 
   const meta = sumSpend(metaRows);
   const pin = sumSpend(pinRows);
 
-  const daily = (dash.daily || []).map((d) => {
-    const invMeta = meta.byDay[d.data] || 0;
-    const invPin = pin.byDay[d.data] || 0;
-    const fin = calcLucroRoi(d.comissao, invMeta, invPin, tax);
-    const fat = Number(d.faturamento || 0);
-    const com = Number(d.comissao || 0);
-    const abatimento = fat > 0 ? round2((com / fat) * 100) : null;
-    return { ...d, ...fin, abatimento };
-  });
+  // Índice sub → Set<dias com gasto> para juntar dias-Ads aos dias-Shopee
+  const metaSubDays = new Map();
+  const pinSubDays = new Map();
+  for (const k of Object.keys(meta.bySubDay || {})) {
+    const [sub, day] = k.split("|");
+    if (!sub || !day) continue;
+    if (!metaSubDays.has(sub)) metaSubDays.set(sub, new Set());
+    metaSubDays.get(sub).add(day);
+  }
+  for (const k of Object.keys(pin.bySubDay || {})) {
+    const [sub, day] = k.split("|");
+    if (!sub || !day) continue;
+    if (!pinSubDays.has(sub)) pinSubDays.set(sub, new Set());
+    pinSubDays.get(sub).add(day);
+  }
+
+  function blankShopeeDay(day) {
+    return {
+      data: day,
+      faturamento: 0,
+      comissao: 0,
+      pedidos: 0,
+      concluidos: 0,
+      pendentes: 0,
+      cancelados: 0,
+      unpaid: 0,
+      cliques_shopee: 0,
+    };
+  }
+
+  function buildSubDaily(subKey, shopeeDaily) {
+    const byDay = new Map();
+    for (const d of shopeeDaily || []) {
+      if (d && d.data) byDay.set(d.data, { ...d });
+    }
+    for (const day of metaSubDays.get(subKey) || []) {
+      if (!byDay.has(day)) byDay.set(day, blankShopeeDay(day));
+    }
+    for (const day of pinSubDays.get(subKey) || []) {
+      if (!byDay.has(day)) byDay.set(day, blankShopeeDay(day));
+    }
+    return [...byDay.values()]
+      .sort((a, b) => String(a.data).localeCompare(String(b.data)))
+      .map((d) => {
+        const sk = `${subKey}|${d.data}`;
+        const dFin = calcLucroRoi(d.comissao, meta.bySubDay[sk] || 0, pin.bySubDay[sk] || 0, tax);
+        return { ...d, ...dFin };
+      });
+  }
+
+  // Uniao dos dias: Shopee (dash.daily) ∪ Meta ∪ Pin
+  const allDaysSet = new Set();
+  for (const d of dash.daily || []) if (d && d.data) allDaysSet.add(d.data);
+  for (const day of Object.keys(meta.byDay || {})) allDaysSet.add(day);
+  for (const day of Object.keys(pin.byDay || {})) allDaysSet.add(day);
+  const shopeeDailyByDay = new Map();
+  for (const d of dash.daily || []) if (d && d.data) shopeeDailyByDay.set(d.data, d);
+
+  const daily = [...allDaysSet]
+    .sort()
+    .map((day) => {
+      const src = shopeeDailyByDay.get(day) || blankShopeeDay(day);
+      const invMeta = meta.byDay[day] || 0;
+      const invPin = pin.byDay[day] || 0;
+      const fin = calcLucroRoi(src.comissao, invMeta, invPin, tax);
+      const fat = Number(src.faturamento || 0);
+      const com = Number(src.comissao || 0);
+      const abatimento = fat > 0 ? round2((com / fat) * 100) : null;
+      return { ...src, ...fin, abatimento };
+    });
 
   const subIds = (dash.subIds || []).map((r) => {
     const key = String(r.subid || "").trim().toLowerCase();
     const invMeta = meta.bySub[key] || 0;
     const invPin = pin.bySub[key] || 0;
     const fin = calcLucroRoi(r.comissao, invMeta, invPin, tax);
-    const dailyRows = (r.daily || []).map((d) => {
-      const sk = `${key}|${d.data}`;
-      const dFin = calcLucroRoi(d.comissao, meta.bySubDay[sk] || 0, pin.bySubDay[sk] || 0, tax);
-      return { ...d, ...dFin };
-    });
+    const dailyRows = buildSubDaily(key, r.daily);
     let canal = r.canal || null;
     if (!canal) {
       canal = inferCanal(r.subid, fin.inv_meta, fin.inv_pin);
@@ -344,7 +392,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
       abatimento_cliques: null,
       canal: inferCanal(sub, spend, pin.bySub[sub] || 0),
       status: "ativa",
-      daily: [],
+      daily: buildSubDaily(sub, []),
       ...fin,
     });
     seenSubs.add(sub);
@@ -375,7 +423,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
       abatimento_cliques: null,
       canal: "pinterest",
       status: Number(spend) > 0 ? "ativa" : "desativada",
-      daily: [],
+      daily: buildSubDaily(sub, []),
       ...fin,
     });
     seenSubs.add(sub);
@@ -451,11 +499,12 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     console.warn("[finance] persist:", e.message);
   }
 
-  const opsMap = await loadSubidOps(userId);
   const subIdsWithOps = applyOpsToSubIds(subIdsAll, opsMap);
-  persistInferredOps(subIdsWithOps, userId).catch((e) => {
-    console.warn("[finance] persist indefinidos:", e.message);
-  });
+  if (persistDaily || persistSubIds) {
+    persistInferredOps(subIdsWithOps, userId).catch((e) => {
+      console.warn("[finance] persist indefinidos:", e.message);
+    });
+  }
 
   return {
     ...dash,

@@ -425,8 +425,10 @@ async function syncMetaDaily({ daysBack = 30, since, until } = {}, userId = requ
 async function loadMetaSpendByDay(startDate, endDate, userId = requireUserId()) {
   const supabase = getSupabase();
   const pageSize = 1000;
+  const maxPages = 20;
   const all = [];
-  for (let from = 0; from < 8000; from += pageSize) {
+  for (let page = 0; page < maxPages; page++) {
+    const from = page * pageSize;
     const { data, error } = await supabase
       .from("meta_ads_daily")
       .select("data, subid, gasto, campaign_name, ad_name, ad_id, cliques, impressoes, alcance")
@@ -435,8 +437,9 @@ async function loadMetaSpendByDay(startDate, endDate, userId = requireUserId()) 
       .lte("data", endDate)
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
-    all.push(...(data || []));
-    if (!data || data.length < pageSize) break;
+    if (!data || !data.length) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
   }
   return all;
 }

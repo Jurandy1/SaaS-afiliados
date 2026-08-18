@@ -215,18 +215,21 @@ async function applyPinterestCsvOps(rows, userId = requireUserId()) {
 async function loadPinSpendByDay(startDate, endDate, userId = requireUserId()) {
   const supabase = getSupabase();
   const pageSize = 1000;
+  const maxPages = 20;
   const all = [];
-  for (let from = 0; from < 200000; from += pageSize) {
+  for (let page = 0; page < maxPages; page++) {
+    const from = page * pageSize;
     const { data, error } = await supabase
       .from("pinterest_ads_daily")
-      .select("data, subid, gasto, ad_name, ad_id, cliques")
+      .select("data, subid, gasto, cliques")
       .eq("user_id", userId)
       .gte("data", startDate)
       .lte("data", endDate)
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
-    all.push(...(data || []));
-    if (!data || data.length < pageSize) break;
+    if (!data || !data.length) break;
+    all.push(...data);
+    if (data.length < pageSize) break;
   }
   return all;
 }

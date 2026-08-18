@@ -1,27 +1,29 @@
 "use strict";
 
 const { getSupabase } = require("./supabase");
-const { requireUserId } = require("./auth");
+const { requireUserId, requestCached } = require("./auth");
 
 async function loadSubidOps(userId = requireUserId()) {
-  const supabase = getSupabase();
-  try {
-    const { data, error } = await supabase.from("subid_ops").select("*").eq("user_id", userId);
-    if (error) throw error;
-    const map = {};
-    for (const r of data || []) {
-      const rawStatus = r.status || null;
-      map[String(r.subid || "").toLowerCase()] = {
-        canal: r.canal || null,
-        status: rawStatus === "pausada" ? "desativada" : rawStatus,
-        produto: r.produto || null,
-      };
+  return requestCached(`loadSubidOps:${userId}`, async () => {
+    const supabase = getSupabase();
+    try {
+      const { data, error } = await supabase.from("subid_ops").select("*").eq("user_id", userId);
+      if (error) throw error;
+      const map = {};
+      for (const r of data || []) {
+        const rawStatus = r.status || null;
+        map[String(r.subid || "").toLowerCase()] = {
+          canal: r.canal || null,
+          status: rawStatus === "pausada" ? "desativada" : rawStatus,
+          produto: r.produto || null,
+        };
+      }
+      return map;
+    } catch (e) {
+      console.warn("[subidOps] load:", e.message);
+      return {};
     }
-    return map;
-  } catch (e) {
-    console.warn("[subidOps] load:", e.message);
-    return {};
-  }
+  });
 }
 
 const CANAIS = new Set(["meta", "pinterest", "organico", "indefinido"]);

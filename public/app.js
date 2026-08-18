@@ -517,6 +517,10 @@
     const invMeta = hasData ? Number(k.inv_meta || 0) : null;
     const invPin = hasData ? Number(k.inv_pin || 0) : null;
     const invTotal = hasData ? Number(k.inv_total || 0) : null;
+    const invMetaTaxed = hasData
+      ? Number(k.inv_meta_taxed != null ? k.inv_meta_taxed : invMeta || 0)
+      : null;
+    const metaHasTax = hasData && invMeta > 0 && invMetaTaxed > invMeta + 0.005;
     const lucro = !hasData ? null : (k.lucro != null ? Number(k.lucro) : Number(k.comissao || 0) - Number(invTotal || 0));
     const roi = hasData ? k.roi : null;
     const hasRoi = hasData && invTotal > 0 && Number.isFinite(Number(roi));
@@ -589,11 +593,11 @@
             <span class="text-lg font-bold text-blue-200 shrink-0">R$</span>
             <span>${money(invMeta)}</span>
           </div>
-          <p class="text-[11px] text-blue-100/90 mt-1 font-medium">${hasData ? (invMeta > 0 ? "Sincronizado via API" : "Sem sync Meta neste período") : "—"}</p>
+          <p class="text-[11px] text-blue-100/90 mt-1 font-medium">${hasData ? (invMeta > 0 ? (metaHasTax ? `c/ imposto Meta · ${fmt(invMetaTaxed)}` : "Sincronizado via API") : "Sem sync Meta neste período") : "—"}</p>
         </div>
         <div class="relative kpi-hero-foot bg-black/10 p-2.5 rounded-xl mt-auto">
           <span class="text-xs text-blue-100 shrink-0">Taxado no ROI:</span>
-          <span class="text-xs font-black text-white">${hasData && invMeta > 0 ? "Sim" : "—"}</span>
+          <span class="text-xs font-black text-white">${hasData && invMeta > 0 ? (metaHasTax ? "Sim" : "Não") : "—"}</span>
         </div>
       </div>
 
@@ -610,7 +614,7 @@
             <span class="text-lg font-bold text-rose-200 shrink-0">R$</span>
             <span>${money(invPin)}</span>
           </div>
-          <p class="text-[11px] text-rose-100/90 mt-1 font-medium">${hasData ? (invPin > 0 ? `total c/ imposto · ${fmt(invTotal)}` : "Nenhum gasto neste período") : "—"}</p>
+          <p class="text-[11px] text-rose-100/90 mt-1 font-medium">${hasData ? (invPin > 0 ? "Somente gasto Pinterest (CSV)" : "Nenhum gasto neste período") : "—"}</p>
         </div>
         <div class="relative kpi-hero-foot bg-black/10 p-2.5 rounded-xl mt-auto">
           <span class="text-xs text-rose-100 shrink-0">Status:</span>
@@ -1702,7 +1706,20 @@
     return { start, end };
   }
 
+  const _aggCache = new WeakMap();
   function aggregateSubInPeriod(r, start, end) {
+    if (r && typeof r === "object") {
+      let bucket = _aggCache.get(r);
+      const key = `${start || ""}|${end || ""}`;
+      if (bucket && bucket[key]) return bucket[key];
+      const result = aggregateSubInPeriodImpl(r, start, end);
+      if (!bucket) { bucket = {}; _aggCache.set(r, bucket); }
+      bucket[key] = result;
+      return result;
+    }
+    return aggregateSubInPeriodImpl(r, start, end);
+  }
+  function aggregateSubInPeriodImpl(r, start, end) {
     const allDaily = r?.daily || [];
     if (!start || !end || !allDaily.length) {
       return {
@@ -1784,24 +1801,30 @@
   function kpisFromSubIds(subs, baseKpis) {
     const list = subs || [];
     const { start, end } = periodRange();
-    const fat = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).faturamento, 0);
-    const com = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).comissao, 0);
-    const invMeta = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).inv_meta, 0);
-    const invPin = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).inv_pin, 0);
-    const pedidos = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).pedidos, 0);
-    const concluidos = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).concluidos, 0);
-    const pendentes = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).pendentes, 0);
-    const cancelados = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).cancelados, 0);
-    const cliquesMeta = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).cliques_meta, 0);
-    const cliquesPin = list.reduce((a, r) => a + aggregateSubInPeriod(r, start, end).cliques_pin, 0);
-    const cliquesAds = list.reduce((a, r) => a + adsClicksFor(aggregateSubInPeriod(r, start, end), state.channel), 0);
-    const impressoes = list.reduce((a, r) => a + Number(r.impressoes || 0), 0);
-    const alcance = list.reduce((a, r) => a + Number(r.alcance || 0), 0);
-    const cliquesShopeeRaw = list.reduce((a, r) => {
-      const v = aggregateSubInPeriod(r, start, end).cliques_shopee;
-      if (v == null) return a;
-      return (a == null ? 0 : a) + Number(v);
-    }, null);
+    let fat = 0, com = 0, invMeta = 0, invPin = 0;
+    let pedidos = 0, concluidos = 0, pendentes = 0, cancelados = 0;
+    let cliquesMeta = 0, cliquesPin = 0, cliquesAds = 0;
+    let impressoes = 0, alcance = 0;
+    let cliquesShopeeRaw = null;
+    for (const r of list) {
+      const a = aggregateSubInPeriod(r, start, end);
+      fat += a.faturamento;
+      com += a.comissao;
+      invMeta += a.inv_meta;
+      invPin += a.inv_pin;
+      pedidos += a.pedidos;
+      concluidos += a.concluidos;
+      pendentes += a.pendentes;
+      cancelados += a.cancelados;
+      cliquesMeta += a.cliques_meta;
+      cliquesPin += a.cliques_pin;
+      cliquesAds += adsClicksFor(a, state.channel);
+      impressoes += Number(r.impressoes || 0);
+      alcance += Number(r.alcance || 0);
+      if (a.cliques_shopee != null) {
+        cliquesShopeeRaw = (cliquesShopeeRaw == null ? 0 : cliquesShopeeRaw) + Number(a.cliques_shopee);
+      }
+    }
     const spendMeta = invMeta;
     const cpc_meta = cliquesMeta > 0 ? Math.round((spendMeta / cliquesMeta) * 100) / 100 : null;
     const ctr_meta = impressoes > 0 ? Math.round((cliquesMeta / impressoes) * 10000) / 100 : null;
@@ -2110,6 +2133,22 @@
     return allSubidColumnDefs(ch).filter((c) => c.locked || prefs[c.key]);
   }
 
+  let _trendDatesCache = { key: "", dates: [] };
+  function trendDatesFor(start, end) {
+    const key = `${start || ""}|${end || ""}`;
+    if (_trendDatesCache.key === key) return _trendDatesCache.dates;
+    const dates = [];
+    if (start && end) {
+      const cur = new Date(`${start}T12:00:00`);
+      const last = new Date(`${end}T12:00:00`);
+      while (cur <= last) {
+        dates.push(cur.toISOString().slice(0, 10));
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+    _trendDatesCache = { key, dates };
+    return dates;
+  }
   function subidTrendScore(r) {
     const byDate = new Map();
     for (const d of r.daily || []) {
@@ -2118,16 +2157,11 @@
       byDate.set(key, (byDate.get(key) || 0) + Number(d.comissao || 0));
     }
 
-    let dates = [];
     const start = state.dash?.range?.startDate;
     const end = state.dash?.range?.endDate;
+    let dates;
     if (start && end) {
-      const cur = new Date(`${start}T12:00:00`);
-      const last = new Date(`${end}T12:00:00`);
-      while (cur <= last) {
-        dates.push(cur.toISOString().slice(0, 10));
-        cur.setDate(cur.getDate() + 1);
-      }
+      dates = trendDatesFor(start, end);
     } else {
       dates = [...byDate.keys()].sort();
     }
@@ -2370,16 +2404,21 @@
     const daily = isChannel
       ? (dash.dailyByChannel?.[ch] || dailyFromSubIds(channelSubs, start, end))
       : (dash.daily || []);
+    const defer = (fn) => {
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(fn);
+      else setTimeout(fn, 0);
+    };
     if (!isChannel) {
       renderKpis(k, (dash.subIds || []).length);
       renderMetaProgressCard(k);
       renderChart(daily);
-      renderDailyTable(daily, k);
+      defer(() => renderDailyTable(daily, k));
     } else {
       if (!state.subidColPrefs) state.subidColPrefs = {};
       if (!state.subidColPrefs[ch]) state.subidColPrefs[ch] = readSubidColPrefs(ch);
       paintSubidColPicker(ch);
-      renderSubIdsDash();
+      renderChannelKpis(ch, k);
+      defer(() => renderSubIdsDash());
     }
     renderSuggestions(dash);
 
@@ -2404,7 +2443,7 @@
     }, { passive: true });
   }
 
-  function renderInfiniteHint(el, shown, total) {
+  function renderInfiniteHint(el, shown, total, onMore) {
     if (!el) return;
     if (!total) {
       el.innerHTML = "";
@@ -2414,7 +2453,14 @@
       el.innerHTML = `<span class="infinite-hint">${fmtNum(total)} registro(s)</span>`;
       return;
     }
-    el.innerHTML = `<span class="infinite-hint">Mostrando ${fmtNum(shown)} de ${fmtNum(total)} · role para carregar mais</span>`;
+    const label = `Mostrando ${fmtNum(shown)} de ${fmtNum(total)} · role ou toque para carregar mais`;
+    if (typeof onMore === "function") {
+      el.innerHTML = `<button type="button" class="btn ghost sm infinite-hint" data-more="1">${label}</button>`;
+      const btn = el.querySelector("button[data-more]");
+      if (btn) btn.addEventListener("click", (e) => { e.preventDefault(); onMore(); });
+    } else {
+      el.innerHTML = `<span class="infinite-hint">${label}</span>`;
+    }
   }
 
   function renderOpsTable() {
@@ -2605,7 +2651,8 @@
     const ch = state.channel || "geral";
     const mobile = isMobileLayout();
     const cols = paintSubidThead(ch);
-    let all = filteredSubIds(state.dash?.subIds || [], $("#subid-search")?.value, ch);
+    const search = $("#subid-search")?.value || "";
+    let all = filteredSubIds(state.dash?.subIds || [], search, ch);
     const statusRank = { ativa: 0, teste: 1, desativada: 2, pausada: 2 };
     all = sortRows(all, state.subidSort.key || "status", state.subidSort.dir || "asc", (r) => {
       if (state.subidSort.key === "subid") return r.subid;
@@ -2625,7 +2672,14 @@
     paintSortHeaders("#subid-thead", state.subidSort);
     const total = all.length;
     state.subidTotal = total;
-    const slice = all;
+    // Reseta janela de visíveis quando muda canal/busca/ordenação
+    const filterKey = `${ch}|${search}|${state.subidSort.key || "status"}|${state.subidSort.dir || "asc"}`;
+    if (state._subidFilterKey !== filterKey) {
+      state._subidFilterKey = filterKey;
+      state.subidVisible = 40;
+    }
+    if (!state.subidVisible || state.subidVisible < 40) state.subidVisible = 40;
+    const slice = all.slice(0, state.subidVisible);
     const pill = $("#subid-count-pill");
     if (pill) pill.textContent = fmtNum(total);
 
@@ -2669,7 +2723,13 @@
       wireSubIdExpand("#subid-tbody", renderSubIdsDash);
     }
 
-    renderInfiniteHint($("#subid-pager"), slice.length, total);
+    const loadMore = () => {
+      if (state.subidVisible >= state.subidTotal) return;
+      state.subidVisible = Math.min(state.subidVisible + 40, state.subidTotal);
+      renderSubIdsDash();
+    };
+    renderInfiniteHint($("#subid-pager"), slice.length, total, loadMore);
+    wireInfiniteScroll("#subid-scroll", loadMore);
     refreshCampaignKpisFromFilter();
   }
 
@@ -3952,11 +4012,13 @@
 
   async function bootApp() {
     setDashLoading(true);
+    // Dashboard é o mais pesado — dispara em paralelo mas não bloqueia
+    // o boot para que topbar/menu/skeleton renderizem em <100ms.
+    loadDashboard({ force: false }).catch(() => {});
     await Promise.all([
       loadCredentials(),
       loadMetaCreds(),
       loadSettingsUi(),
-      loadDashboard({ force: false }),
     ]);
   }
 

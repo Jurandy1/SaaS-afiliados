@@ -38,11 +38,25 @@ function tokenCacheKey(accessToken) {
 }
 
 function runWithUser(user, fn) {
-  return als.run({ user }, fn);
+  return als.run({ user, cache: new Map() }, fn);
 }
 
 function getUser() {
   return als.getStore()?.user || null;
+}
+
+async function requestCached(key, factory) {
+  const store = als.getStore();
+  if (!store || !store.cache) return factory();
+  if (store.cache.has(key)) return store.cache.get(key);
+  const promise = Promise.resolve().then(factory);
+  store.cache.set(key, promise);
+  try {
+    return await promise;
+  } catch (e) {
+    store.cache.delete(key);
+    throw e;
+  }
 }
 
 function requireUserId() {
@@ -254,6 +268,7 @@ module.exports = {
   runWithUser,
   getUser,
   requireUserId,
+  requestCached,
   verifyAccessToken,
   registerUser,
   loginUser,

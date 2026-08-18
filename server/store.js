@@ -1,7 +1,7 @@
 "use strict";
 
 const { getSupabase } = require("./supabase");
-const { requireUserId } = require("./auth");
+const { requireUserId, requestCached } = require("./auth");
 
 function maskSecret(secret) {
   const s = String(secret || "");
@@ -10,21 +10,23 @@ function maskSecret(secret) {
 }
 
 async function loadCredentials(userId = requireUserId()) {
-  const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from("app_credentials")
-    .select("app_id, secret, updated_at")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (data?.app_id && data?.secret) {
-    return {
-      appId: String(data.app_id).trim(),
-      secret: String(data.secret).trim(),
-      updatedAt: data.updated_at || null,
-    };
-  }
-  return { appId: "", secret: "", updatedAt: null };
+  return requestCached(`loadCredentials:${userId}`, async () => {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("app_credentials")
+      .select("app_id, secret, updated_at")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (data?.app_id && data?.secret) {
+      return {
+        appId: String(data.app_id).trim(),
+        secret: String(data.secret).trim(),
+        updatedAt: data.updated_at || null,
+      };
+    }
+    return { appId: "", secret: "", updatedAt: null };
+  });
 }
 
 async function resetAllSyncedData(userId = requireUserId()) {
@@ -224,26 +226,23 @@ const SUBID_METRIC_COLS = [
 
 async function loadDashboardFromDb(startDate, endDate, userId = requireUserId()) {
   const supabase = getSupabase();
-  const { data: daily, error: dErr } = await supabase
+
+  const dailyPromise = supabase
     .from("daily_metrics")
     .select("data, faturamento, comissao, pedidos, concluidos, pendentes, cancelados, unpaid, inv_meta, inv_pin, inv_total, lucro, roi")
     .eq("user_id", userId)
     .gte("data", startDate)
     .lte("data", endDate)
     .order("data", { ascending: true });
-  if (dErr) throw new Error(dErr.message);
 
-  let subIds = [];
-  try {
-    subIds = await pagedSelect(
-      (from, to) => supabase
-        .from("subid_metrics")
-        .select(SUBID_METRIC_COLS)
-        .eq("user_id", userId)
-        .order("comissao", { ascending: false })
-        .range(from, to),
-    );
-  } catch (e) {
+  const subIdsPromise = pagedSelect(
+    (from, to) => supabase
+      .from("subid_metrics")
+      .select(SUBID_METRIC_COLS)
+      .eq("user_id", userId)
+      .order("comissao", { ascending: false })
+      .range(from, to),
+  ).catch(async (e) => {
     const fallback = await pagedSelect(
       (from, to) => supabase
         .from("subid_metrics")
@@ -252,17 +251,28 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
         .order("comissao", { ascending: false })
         .range(from, to),
     );
-    subIds = fallback;
     if (!String(e.message || "").includes("column")) console.warn("[store] subid cols:", e.message);
-  }
+    return fallback;
+  });
 
-  const { data: lastRun } = await supabase
+  const lastRunPromise = supabase
     .from("sync_runs")
     .select("*")
     .eq("user_id", userId)
     .order("synced_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  const mtdPromise = loadFaturamentoMtd(userId).catch((e) => { console.warn("[store] mtd:", e.message); return null; });
+  const avg7Promise = loadFaturamentoAvgDays(7, userId).catch((e) => { console.warn("[store] avg7:", e.message); return null; });
+
+  const [dailyRes, subIds, lastRunRes, mtdRes, avg7Res] = await Promise.all([
+    dailyPromise, subIdsPromise, lastRunPromise, mtdPromise, avg7Promise,
+  ]);
+
+  if (dailyRes?.error) throw new Error(dailyRes.error.message);
+  const daily = dailyRes?.data || [];
+  const lastRun = lastRunRes?.data || null;
 
   if ((!daily || !daily.length) && (!subIds || !subIds.length)) return null;
 
@@ -296,20 +306,8 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
     ? Math.round((kpis.comissao / kpis.faturamento) * 10000) / 100
     : 0;
 
-  let faturamentoMtd = kpis.faturamento;
-  let faturamentoAvg7 = 0;
-  try {
-    const [mtd, avg7] = await Promise.all([
-      loadFaturamentoMtd(userId),
-      loadFaturamentoAvgDays(7, userId),
-    ]);
-    faturamentoMtd = mtd;
-    faturamentoAvg7 = avg7;
-  } catch (e) {
-    console.warn("[store] mtd:", e.message);
-  }
-  kpis.faturamentoMtd = faturamentoMtd;
-  kpis.faturamentoAvg7 = faturamentoAvg7;
+  kpis.faturamentoMtd = mtdRes != null ? mtdRes : kpis.faturamento;
+  kpis.faturamentoAvg7 = avg7Res != null ? avg7Res : 0;
 
   return {
     range: { startDate, endDate },
@@ -370,11 +368,20 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
   };
 }
 
-async function attachMenuPreviews(dash, startDate, endDate, userId = requireUserId(), { includePreviews = false } = {}) {
+function loadMenuOrders(startDate, endDate, userId = requireUserId(), { limit = 3000 } = {}) {
+  return loadOrders(
+    { startDate, endDate, limit, columns: "subid, data, status, faturamento, comissao" },
+    userId,
+  );
+}
+
+async function attachMenuPreviews(dash, startDate, endDate, userId = requireUserId(), { includePreviews = false, preloadedOrders = null } = {}) {
   if (!dash) return dash;
   try {
     const [orders, products] = await Promise.all([
-      loadOrders({ startDate, endDate, limit: 3000, columns: "subid, data, status, faturamento, comissao" }, userId),
+      preloadedOrders != null
+        ? Promise.resolve(preloadedOrders)
+        : loadMenuOrders(startDate, endDate, userId),
       includePreviews ? loadProducts({ limit: 100 }, userId) : Promise.resolve([]),
     ]);
     if (includePreviews) {
@@ -693,24 +700,26 @@ async function loadProducts({ limit = 200 } = {}, userId = requireUserId()) {
 }
 
 async function loadSettings(userId = requireUserId()) {
-  const supabase = getSupabase();
-  const { data } = await supabase.from("app_settings").select("*").eq("user_id", userId).maybeSingle();
-  const taxRate = data?.tax_rate != null ? Number(data.tax_rate) : 11.7;
-  const metaTaxRate = data?.meta_tax_rate != null ? Number(data.meta_tax_rate) : 12;
-  const metaDias = data?.meta_dias != null && data.meta_dias !== ""
-    ? Number(data.meta_dias)
-    : null;
-  return {
-    metaBase: Number(data?.meta_base || 863959),
-    metaDias: Number.isFinite(metaDias) && metaDias > 0 ? metaDias : null,
-    metaBonus100: data?.meta_bonus_100 != null ? Number(data.meta_bonus_100) : 1,
-    metaBonus125: data?.meta_bonus_125 != null ? Number(data.meta_bonus_125) : 2,
-    metaBonus150: data?.meta_bonus_150 != null ? Number(data.meta_bonus_150) : 3,
-    taxRate,
-    metaTaxRate,
-    teamName: data?.team_name || "Minha conta",
-    teamPlan: data?.team_plan || "Shopee · Meta",
-  };
+  return requestCached(`loadSettings:${userId}`, async () => {
+    const supabase = getSupabase();
+    const { data } = await supabase.from("app_settings").select("*").eq("user_id", userId).maybeSingle();
+    const taxRate = data?.tax_rate != null ? Number(data.tax_rate) : 11.7;
+    const metaTaxRate = data?.meta_tax_rate != null ? Number(data.meta_tax_rate) : 12;
+    const metaDias = data?.meta_dias != null && data.meta_dias !== ""
+      ? Number(data.meta_dias)
+      : null;
+    return {
+      metaBase: Number(data?.meta_base || 863959),
+      metaDias: Number.isFinite(metaDias) && metaDias > 0 ? metaDias : null,
+      metaBonus100: data?.meta_bonus_100 != null ? Number(data.meta_bonus_100) : 1,
+      metaBonus125: data?.meta_bonus_125 != null ? Number(data.meta_bonus_125) : 2,
+      metaBonus150: data?.meta_bonus_150 != null ? Number(data.meta_bonus_150) : 3,
+      taxRate,
+      metaTaxRate,
+      teamName: data?.team_name || "Minha conta",
+      teamPlan: data?.team_plan || "Shopee · Meta",
+    };
+  });
 }
 
 function settingsFromRow(userId, core, extras) {
@@ -794,6 +803,7 @@ module.exports = {
   persistOrdersAndProducts,
   loadDashboardFromDb,
   attachMenuPreviews,
+  loadMenuOrders,
   slimDashForClient,
   loadSubidDaily,
   loadOrders,
