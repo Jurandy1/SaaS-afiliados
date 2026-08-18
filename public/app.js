@@ -860,15 +860,15 @@
   }
 
   const KPI_ICONS = {
-    faturamento: "/icons/kpi/faturamento.png",
-    comissao: "/icons/kpi/comissao.png",
+    faturamento: "/assets/icons/kpi/faturamento.png",
+    comissao: "/assets/icons/kpi/comissao.png",
     investimento_meta: "/assets/meta.png",
     investimento_pin: "/assets/pinterest.png",
-    lucro: "/icons/kpi/lucro.png",
-    roi: "/icons/kpi/roi.png",
-    pedidos: "/icons/kpi/pedidos.png",
-    cliques: "/icons/kpi/cliques.png",
-    abatimento: "/icons/kpi/abatimento.png",
+    lucro: "/assets/icons/kpi/lucro.png",
+    roi: "/assets/icons/kpi/roi.png",
+    pedidos: "/assets/icons/kpi/pedidos.png",
+    cliques: "/assets/icons/kpi/cliques.png",
+    abatimento: "/assets/icons/kpi/abatimento.png",
   };
 
   const CHANNEL_HERO = {
