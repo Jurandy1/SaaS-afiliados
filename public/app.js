@@ -1727,11 +1727,28 @@
     return Math.round((shopee / ads) * 10000) / 100;
   }
 
-  function filteredSubIds(list, q, channel) {
+  /**
+   * True quando o SubID tem qualquer métrica não-zero no período carregado.
+   * O backend devolve todos os SubIDs de subid_metrics (histórico completo) e o
+   * enrich zera as métricas fora do intervalo — então basta olhar os totais.
+   */
+  function subHasPeriodActivity(r) {
+    if (!r) return false;
+    const nz = (v) => Number(v || 0) > 0;
+    if (nz(r.faturamento) || nz(r.comissao) || nz(r.pedidos)) return true;
+    if (nz(r.concluidos) || nz(r.pendentes) || nz(r.cancelados)) return true;
+    if (nz(r.inv_meta) || nz(r.inv_pin)) return true;
+    if (nz(r.cliques_meta) || nz(r.cliques_pin)) return true;
+    if (r.cliques_shopee != null && Number(r.cliques_shopee) > 0) return true;
+    return false;
+  }
+
+  function filteredSubIds(list, q, channel, { activeOnly = false } = {}) {
     const query = (q || "").trim().toLowerCase();
     const ch = channel != null ? channel : state.channel;
     return (list || []).filter((r) => {
       if (query && !String(r.subid).toLowerCase().includes(query)) return false;
+      if (activeOnly && !subHasPeriodActivity(r)) return false;
       if (!ch || ch === "geral") return true;
       return (r.canal || "indefinido") === ch;
     });
@@ -2367,7 +2384,7 @@
       return;
     }
     const q = ($("#subid-search")?.value || "").trim();
-    const channelSubs = filteredSubIds(dash.subIds || [], q, ch);
+    const channelSubs = filteredSubIds(dash.subIds || [], q, ch, { activeOnly: true });
     let k = kpisFromSubIds(channelSubs, dash.kpis);
     if (ch === "meta" && k.cliques_shopee != null && Number(k.cliques_meta) > 0) {
       k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_meta)) * 10000) / 100;
@@ -2402,7 +2419,7 @@
       return;
     }
 
-    const channelSubs = filteredSubIds(dash.subIds || [], "", ch);
+    const channelSubs = filteredSubIds(dash.subIds || [], "", ch, { activeOnly: isChannel });
     let k = isChannel ? kpisFromSubIds(channelSubs, dash.kpis) : {
       ...(dash.kpis || {}),
       ...kpisFromSubIds(dash.subIds || [], dash.kpis),
@@ -2442,11 +2459,14 @@
       ? (dash.dailyByChannel?.[ch] || dailyFromSubIds(channelSubs, start, end))
       : (dash.daily || []);
     const defer = (fn) => {
-      if (typeof requestAnimationFrame === "function") requestAnimationFrame(fn);
+      // Aba escondida (troca de tab, janela minimizada) suspende requestAnimationFrame
+      // e a tabela do canal ficaria em branco até voltar. Cai para setTimeout nesse caso.
+      if (typeof requestAnimationFrame === "function" && !document.hidden) requestAnimationFrame(fn);
       else setTimeout(fn, 0);
     };
     if (!isChannel) {
-      renderKpis(k, (dash.subIds || []).length);
+      const activeCount = (dash.subIds || []).filter(subHasPeriodActivity).length;
+      renderKpis(k, activeCount);
       renderMetaProgressCard(k);
       renderChart(daily);
       defer(() => renderDailyTable(daily, k));
@@ -2689,7 +2709,7 @@
     const mobile = isMobileLayout();
     const cols = paintSubidThead(ch);
     const search = $("#subid-search")?.value || "";
-    let all = filteredSubIds(state.dash?.subIds || [], search, ch);
+    let all = filteredSubIds(state.dash?.subIds || [], search, ch, { activeOnly: true });
     const statusRank = { ativa: 0, teste: 1, desativada: 2, pausada: 2 };
     all = sortRows(all, state.subidSort.key || "status", state.subidSort.dir || "asc", (r) => {
       if (state.subidSort.key === "subid") return r.subid;
