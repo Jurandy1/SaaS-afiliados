@@ -1525,7 +1525,14 @@
   function sortRows(rows, key, dir, getter) {
     if (!key || !rows?.length) return rows || [];
     const get = getter || ((r) => r[key]);
-    return [...rows].sort((a, b) => compareSortValues(get(a), get(b), dir || "asc"));
+    return [...rows].sort((a, b) => {
+      const c = compareSortValues(get(a), get(b), dir || "asc");
+      if (c !== 0) return c;
+      return String(a.subid || "").localeCompare(String(b.subid || ""), "pt-BR", {
+        sensitivity: "base",
+        numeric: true,
+      });
+    });
   }
 
   function toggleSortState(sortState, key, defaultDir = "desc") {
@@ -1560,7 +1567,8 @@
       const th = e.target.closest("th[data-sort]");
       if (!th || !root.contains(th)) return;
       e.preventDefault();
-      toggleSortState(getSortState(), th.dataset.sort, "desc");
+      const defaultDir = th.classList.contains("num") ? "desc" : "asc";
+      toggleSortState(getSortState(), th.dataset.sort, defaultDir);
       onChange();
     });
   }
@@ -2400,16 +2408,10 @@
       if (sortKey === "status") return statusRank[normalizeStatus(r.status)] ?? 9;
       return r[sortKey];
     });
-    list.sort((a, b) => {
-      const da = normalizeStatus(a.status) === "desativada" ? 1 : 0;
-      const db = normalizeStatus(b.status) === "desativada" ? 1 : 0;
-      return da - db;
-    });
 
     const total = list.length;
     state.opsTotal = total;
-    if (!state.opsVisible || state.opsVisible < 40) state.opsVisible = 40;
-    const slice = list.slice(0, state.opsVisible);
+    const slice = list;
 
     const countPill = $("#ops-count-pill");
     if (countPill) countPill.textContent = fmtNum(total);
@@ -2428,12 +2430,6 @@
     }).join("") || `<tr><td colspan="3" class="cell-muted">${state.dash ? "Nenhum SubID encontrado." : "Carregue o painel para listar SubIDs."}</td></tr>`;
     wireOpsSelects("#ops-tbody");
     renderInfiniteHint($("#ops-pager"), slice.length, total);
-    wireInfiniteScroll("#ops-scroll", () => {
-      const cur = state.opsTotal ?? total;
-      if (state.opsVisible >= cur) return;
-      state.opsVisible += 40;
-      renderOpsTable();
-    });
   }
 
   function renderIndefinidos() {
@@ -2605,8 +2601,7 @@
     paintSortHeaders("#subid-thead", state.subidSort);
     const total = all.length;
     state.subidTotal = total;
-    if (!state.subidVisible || state.subidVisible < 40) state.subidVisible = 40;
-    const slice = all.slice(0, state.subidVisible);
+    const slice = all;
     const pill = $("#subid-count-pill");
     if (pill) pill.textContent = fmtNum(total);
 
@@ -2651,12 +2646,6 @@
     }
 
     renderInfiniteHint($("#subid-pager"), slice.length, total);
-    wireInfiniteScroll("#subid-scroll", () => {
-      const cur = state.subidTotal ?? total;
-      if (state.subidVisible >= cur) return;
-      state.subidVisible += 40;
-      renderSubIdsDash();
-    });
   }
 
   function renderSubIdCard(r, ch) {
@@ -3033,8 +3022,6 @@
   function applyDash(dash, { cached } = {}) {
     state.dash = dash;
     state.subidPage = 1;
-    state.subidVisible = 40;
-    state.opsVisible = 40;
     applyChannelView();
     if (state.view === "canais") renderOpsTable();
     if (state.view === "config" && state.cfgTab === "indefinidos") renderIndefinidos();
@@ -3602,7 +3589,6 @@
       const opsSearch = $("#ops-search");
       if (opsSearch) {
         opsSearch.value = q;
-        state.opsVisible = 40;
         if (state.view === "canais") renderOpsTable();
       }
     });
@@ -3615,14 +3601,12 @@
       }
     });
 
-    $("#subid-search")?.addEventListener("input", debounce(() => { state.subidVisible = 40; renderSubIdsDash(); }, 200));
-    $("#ops-search")?.addEventListener("input", debounce(() => { state.opsVisible = 40; renderOpsTable(); }, 200));
+    $("#subid-search")?.addEventListener("input", debounce(() => { renderSubIdsDash(); }, 200));
+    $("#ops-search")?.addEventListener("input", debounce(() => { renderOpsTable(); }, 200));
     wireSortHeaders("#ops-thead", () => state.opsSort, () => {
-      state.opsVisible = 40;
       renderOpsTable();
     });
     wireSortHeaders("#subid-thead", () => state.subidSort, () => {
-      state.subidVisible = 40;
       renderSubIdsDash();
     });
     wireSortHeaders("#daily-table thead", () => state.dailySort, () => {
