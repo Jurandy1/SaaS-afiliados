@@ -4,6 +4,7 @@ const { normalizeSubId } = require("./normalizeSubId");
 const { getSupabase } = require("./supabase");
 const { requireUserId } = require("./auth");
 const { fetchWithTimeout } = require("./httpUtil");
+const { shopeeEndDate, brtSubtractDays } = require("./brtDates");
 
 function maskToken(token) {
   const s = String(token || "");
@@ -193,17 +194,10 @@ async function metaFetchAll(url) {
   return out;
 }
 
-function brtDateISO(d = new Date()) {
-  const ms = d.getTime() - 3 * 3600 * 1000;
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
 function rangeDaysBack(daysBack) {
   const days = Math.max(1, Math.min(90, Number(daysBack) || 7));
-  const until = brtDateISO(new Date(Date.now() - 24 * 3600 * 1000)); // ontem BRT approx
-  const untilDate = new Date(`${until}T15:00:00Z`);
-  const sinceDate = new Date(untilDate.getTime() - (days - 1) * 86400000);
-  const since = sinceDate.toISOString().slice(0, 10);
+  const until = shopeeEndDate();
+  const since = brtSubtractDays(days - 1, until);
   return { since, until, days };
 }
 
@@ -306,7 +300,7 @@ async function fetchAdInsightsDaily({ token, apiVersion, accountId, since, until
   return metaFetchAll(url);
 }
 
-async function syncMetaDaily({ daysBack = 30, since, until } = {}, userId = requireUserId()) {
+async function syncMetaDaily({ daysBack = 7, since, until } = {}, userId = requireUserId()) {
   const c = await loadMetaCredentials(userId);
   const token = c.accessToken;
   const apiVersion = c.apiVersion || "v19.0";
@@ -397,12 +391,20 @@ async function syncMetaDaily({ daysBack = 30, since, until } = {}, userId = requ
     throw new Error(`Meta sync sem dados: ${errors.join(" · ")}`);
   }
 
+  let classificados = { total: 0, classificados: 0 };
+  try {
+    classificados = await applyMetaSyncOps(userId);
+  } catch (e) {
+    errors.push(`Classificação canal="meta": ${e.message || e}`);
+  }
+
   const meta = {
     range: { since: sinceDate, until: untilDate, daysBack: days },
     contasUsadas: accountIds,
     linhas: rowsOut.length,
     gravados,
     totais: { gasto: Math.round(sumGasto * 100) / 100, cliques: sumCliques, impressoes: sumImpressoes },
+    classificados,
     erros: errors,
     elapsedMs: Date.now() - started,
   };
@@ -420,6 +422,51 @@ async function syncMetaDaily({ daysBack = 30, since, until } = {}, userId = requ
   });
 
   return meta;
+}
+
+/**
+ * Grude o canal="meta" em subid_ops para todo SubID que já teve gasto Meta.
+ * Mirror do applyPinterestCsvOps, mas puxando o histórico do meta_ads_daily
+ * (para que campanhas pausadas continuem atribuindo vendas atrasadas ao Meta).
+ * Não sobrescreve canal já definido (pinterest/organico/meta manuais são preservados).
+ */
+async function applyMetaSyncOps(userId = requireUserId()) {
+  const supabase = getSupabase();
+  const subs = new Set();
+  const pageSize = 1000;
+  const maxPages = 50;
+  for (let page = 0; page < maxPages; page++) {
+    const from = page * pageSize;
+    const { data, error } = await supabase
+      .from("meta_ads_daily")
+      .select("subid, gasto")
+      .eq("user_id", userId)
+      .not("subid", "is", null)
+      .gt("gasto", 0)
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    if (!data || !data.length) break;
+    for (const r of data) {
+      const s = String(r.subid || "").trim();
+      if (s) subs.add(s);
+    }
+    if (data.length < pageSize) break;
+  }
+  if (!subs.size) return { total: 0, classificados: 0 };
+
+  const { loadSubidOps, upsertSubidOpsMany } = require("./subidOps");
+  const prevMap = await loadSubidOps(userId);
+  const toClassify = [];
+  for (const subid of subs) {
+    const prev = prevMap[subid.toLowerCase()];
+    // Preserva canal já decidido (pinterest/organico/meta manual). Só preenche vazio ou indefinido.
+    if (!prev || !prev.canal || prev.canal === "indefinido") {
+      toClassify.push({ subid, canal: "meta" });
+    }
+  }
+  if (!toClassify.length) return { total: subs.size, classificados: 0 };
+  await upsertSubidOpsMany(toClassify, userId);
+  return { total: subs.size, classificados: toClassify.length };
 }
 
 async function loadMetaSpendByDay(startDate, endDate, userId = requireUserId()) {
@@ -467,6 +514,7 @@ module.exports = {
   testMetaCredentials,
   testMetaCredentialsPair,
   syncMetaDaily,
+  applyMetaSyncOps,
   loadMetaSpendByDay,
   loadCampaigns,
   parseAccountIds,

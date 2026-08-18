@@ -153,12 +153,9 @@ function inferCanal(subid, invMeta, invPin) {
   // Canal pago só com gasto real (Meta API / CSV Pin)
   if (invM > 0 && invP <= 0) return "meta";
   if (invP > 0 && invM <= 0) return "pinterest";
-  if (invM > 0 && invP > 0) return "indefinido";
-  // Sem mídia: pin* fica indefinido até importar CSV ou classificar manualmente
-  const sid = String(subid || "").trim().toLowerCase();
-  if (/^pin\d/.test(sid) || /^pin[_-]/.test(sid) || sid === "pinterest") return "indefinido";
-  // Resto sem ads = orgânico
-  return "organico";
+  // Sem sinal claro de canal pago: cai como indefinido para o usuário classificar manualmente.
+  // "Orgânico" só via classificação manual — nunca inferido.
+  return "indefinido";
 }
 
 function applyOpsToSubIds(subIds, opsMap) {
