@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="/tailwind.css" />
-  <link rel="stylesheet" href="/gemini-app.css?v=mobile-cards-2" />
+  <link rel="stylesheet" href="/gemini-app.css?v=radar-light-8" />
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen antialiased selection:bg-brand-500 selection:text-white font-sans transition-colors duration-200">
 
@@ -148,6 +148,14 @@
             </div>
           </div>
           <div>
+            <div class="nav-sec-title">Mineração</div>
+            <div class="space-y-1">
+              <button type="button" class="nav-item" data-view="supercomissoes">
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/produtos.png" alt="" /><span class="nav-label">Radar de Supercomissões</span></span>
+              </button>
+            </div>
+          </div>
+          <div>
             <div class="nav-sec-title">Inteligência</div>
             <div class="space-y-1">
               <button type="button" class="nav-item" data-view="analise-ia">
@@ -256,7 +264,7 @@
                       <i class="fa-regular fa-calendar text-indigo-600"></i>
                     </div>
                     <div class="min-w-0">
-                      <div class="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400" id="period-preset-subtitle">7 dias</div>
+                      <div class="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400" id="period-preset-subtitle">Últimos 7 dias</div>
                       <div class="text-sm font-semibold text-slate-800 truncate" id="period-range-display" title="">—</div>
                     </div>
                   </div>
@@ -435,6 +443,61 @@
           <footer class="mt-4 border-t border-slate-200 pt-4 text-center text-xs text-slate-500">
             Sistema de Afiliados · v.1 · <span id="footer-sync">Última sincronização —</span>
           </footer>
+        </section>
+
+        <!-- RADAR DE SUPERCOMISSÕES -->
+        <section id="view-supercomissoes" class="view hidden radar-view space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 class="text-xl font-bold text-slate-800">Radar de Supercomissões</h1>
+              <p class="text-xs text-slate-500 mt-1">A API identifica bônus de comissão pagos pelos vendedores, acumulando com a comissão Shopee.</p>
+            </div>
+            <span class="radar-scan-pill" id="radar-status">
+              <span class="radar-scan-dot"></span>
+              Sem varredura ainda
+            </span>
+          </div>
+
+          <form id="radar-form" class="radar-filters">
+            <label class="radar-field flex-1 min-w-[200px]">Palavra-chave (opcional)
+              <input type="search" id="radar-keyword" placeholder="Deixe vazio = busca automática" />
+            </label>
+            <label class="radar-field w-48">Comissão total
+              <select id="radar-min">
+                <option value="10">&gt; 10%</option>
+                <option value="15">&gt; 15%</option>
+                <option value="20" selected>&gt; 20%</option>
+                <option value="30">&gt; 30%</option>
+              </select>
+            </label>
+            <button type="submit" class="radar-btn-mine" id="btn-radar-minerar">Minerar</button>
+          </form>
+          <p class="hidden" id="radar-media-pill">Média da lista: —</p>
+
+          <div class="radar-table-wrap">
+            <div class="radar-table-head">
+              <h3 class="radar-table-title">Produtos <span class="count-pill" id="radar-count-pill">0</span></h3>
+              <input type="search" id="radar-filter" class="search max-w-xs" placeholder="Filtrar por produto…" />
+            </div>
+            <div class="radar-table-scroll">
+              <table class="radar-table" id="radar-table">
+                <thead>
+                  <tr>
+                    <th>Produto</th>
+                    <th>Preço</th>
+                    <th class="text-center">Comissão Shopee</th>
+                    <th class="text-center radar-th-bonus">Bônus vendedor</th>
+                    <th class="text-center radar-th-total">Total</th>
+                    <th>Métricas</th>
+                    <th class="text-right">Ações rápidas</th>
+                  </tr>
+                </thead>
+                <tbody id="radar-tbody">
+                  <tr><td colspan="7" class="radar-empty">Clique em Minerar para varrer a Shopee.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </section>
 
         <!-- ANÁLISE IA -->
@@ -928,6 +991,6 @@
     </main>
   </div>
 
-  <script src="/app.js?v=assets-cleanup-4"></script>
+  <script src="/app.js?v=period-7d-brt-9"></script>
 </body>
 </html>

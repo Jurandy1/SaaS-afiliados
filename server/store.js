@@ -2,6 +2,7 @@
 
 const { getSupabase } = require("./supabase");
 const { requireUserId, requestCached } = require("./auth");
+const { brtTodayISO, brtFirstDayOfMonth, shopeeEndDate, brtSubtractDays } = require("./brtDates");
 
 function maskSecret(secret) {
   const s = String(secret || "");
@@ -569,27 +570,21 @@ async function loadSubidDaily(subid, startDate, endDate, userId = requireUserId(
     });
 }
 
-function monthStartISO(d = new Date()) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  return `${y}-${m}-01`;
+function monthStartISO() {
+  return brtFirstDayOfMonth();
 }
 
-function todayISO(d = new Date()) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+function todayISO() {
+  return brtTodayISO();
 }
 
-function daysAgoISO(n, d = new Date()) {
-  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate() - n);
-  return todayISO(x);
+function daysAgoISO(n) {
+  return brtSubtractDays(n, brtTodayISO());
 }
 
 async function loadFaturamentoMtd(userId = requireUserId()) {
   const start = monthStartISO();
-  const end = todayISO();
+  const end = shopeeEndDate();
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from("daily_metrics")
@@ -606,9 +601,9 @@ async function loadFaturamentoMtd(userId = requireUserId()) {
 
 /** Média de faturamento dos últimos N dias do mês (calendário), independente do filtro do dashboard. */
 async function loadFaturamentoAvgDays(n = 7, userId = requireUserId()) {
-  const end = todayISO();
+  const end = shopeeEndDate();
   const startMonth = monthStartISO();
-  const startWindow = daysAgoISO(Math.max(0, n - 1));
+  const startWindow = brtSubtractDays(Math.max(0, n - 1), end);
   const start = startWindow > startMonth ? startWindow : startMonth;
   const supabase = getSupabase();
   const { data, error } = await supabase

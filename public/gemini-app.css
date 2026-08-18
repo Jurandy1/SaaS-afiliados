@@ -2925,3 +2925,258 @@ html, body { max-width: 100%; overflow-x: hidden; }
 @media (max-width: 1023px) {
   body.sidebar-open { overflow: hidden; }
 }
+
+/* Radar de Supercomissões — visual claro (referência Central de Ofertas) */
+#view-supercomissoes.radar-view {
+  background: transparent;
+}
+.radar-scan-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ea580c;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+.radar-scan-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #f97316;
+  animation: radar-pulse 1.4s ease-in-out infinite;
+}
+@keyframes radar-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.radar-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 20px;
+}
+.radar-field {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.radar-field input,
+.radar-field select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  color: #334155;
+  background: #fff;
+}
+.radar-field select {
+  font-weight: 600;
+  color: #c2410c;
+  background: #f8fafc;
+}
+.radar-field input:focus,
+.radar-field select:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 1px #f97316;
+}
+.radar-btn-mine {
+  height: 42px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+.radar-btn-mine:hover { background: #1e293b; }
+.radar-btn-mine:disabled { opacity: 0.6; cursor: wait; }
+.radar-table-wrap {
+  background: #e8eef5;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+.radar-table-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #cbd5e1;
+  background: #dce6f0;
+}
+.radar-table-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.radar-table-scroll { overflow-x: auto; }
+.radar-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+  background: #e8eef5;
+  color: #334155;
+}
+.radar-table thead tr {
+  background: #d5e0ec;
+  border-bottom: 1px solid #cbd5e1;
+}
+.radar-table th {
+  padding: 16px 24px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #475569;
+  white-space: nowrap;
+}
+.radar-table td {
+  padding: 16px 24px;
+  border-bottom: 1px solid #c9d5e3;
+  vertical-align: middle;
+  background: #e8eef5;
+}
+.radar-table tbody tr:hover td { background: #dce6f0; }
+.radar-table tbody tr:hover td.radar-cell-bonus { background: #ffedd5; }
+.radar-table tbody tr:hover td.radar-cell-total { background: #d1fae5; }
+.radar-empty {
+  text-align: center;
+  color: #94a3b8;
+  padding: 32px 16px !important;
+}
+.radar-empty--err { color: #ef4444; }
+.radar-prod {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 220px;
+}
+.radar-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+.radar-thumb--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+.radar-nome {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.3;
+  max-width: 280px;
+}
+.radar-loja {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 2px;
+}
+.radar-price {
+  font-weight: 700;
+  color: #334155;
+  white-space: nowrap;
+}
+.radar-cell-shopee {
+  text-align: center;
+  color: #64748b;
+  font-weight: 500;
+}
+.radar-th-bonus {
+  text-align: center;
+  color: #c2410c !important;
+  background: #fed7aa !important;
+}
+.radar-cell-bonus {
+  text-align: center;
+  font-weight: 700;
+  color: #c2410c;
+  background: #ffedd5 !important;
+}
+.radar-th-total {
+  text-align: center;
+  color: #047857 !important;
+  background: #a7f3d0 !important;
+  font-size: 13px !important;
+}
+.radar-cell-total {
+  text-align: center;
+  font-weight: 900;
+  font-size: 15px;
+  color: #047857;
+  background: #d1fae5 !important;
+}
+.radar-metrics {
+  display: flex;
+  flex-direction: column;
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+}
+.radar-star { color: #f59e0b; }
+.radar-actions-cell { text-align: right; }
+.radar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.radar-btn-backup {
+  display: inline-block;
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.radar-btn-backup:hover { background: #e2e8f0; }
+.radar-btn-link {
+  display: inline-block;
+  background: #059669;
+  color: #fff !important;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.radar-btn-link:hover { background: #047857; }
+

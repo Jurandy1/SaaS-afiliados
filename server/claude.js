@@ -14,6 +14,7 @@ const { enrichDashboardWithAds } = require("./finance");
 const { loadCampaigns } = require("./meta");
 const { loadSubidOps } = require("./subidOps");
 const { fetchWithTimeout } = require("./httpUtil");
+const { shopeeEndDate, brtFirstDayOfMonth } = require("./brtDates");
 
 const DEFAULT_MODEL = process.env.CLAUDE_MODEL?.trim() || "claude-sonnet-4-6";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
@@ -645,18 +646,11 @@ async function chatClaude({ message, history, startDate, endDate }, userId = req
 }
 
 function todayISO() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return shopeeEndDate();
 }
 
 function defaultMonthStart() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  return `${y}-${m}-01`;
+  return brtFirstDayOfMonth();
 }
 
 module.exports = {

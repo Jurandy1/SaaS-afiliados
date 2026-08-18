@@ -58,6 +58,7 @@ const {
   getRadarRecompra,
   searchProdutosApi,
   generateAffiliateShortLink,
+  radarSupercomissoes,
 } = require("./backup");
 const { runAutoSync, cronAuthorized, startLocalAutoSync } = require("./autoSync");
 const { latestJob, runUserDashboardSync } = require("./syncJobs");
@@ -79,6 +80,7 @@ const {
   profilePublic,
   ADMIN_EMAIL,
 } = require("./profiles");
+const { clampDashRange, shopeeEndDate } = require("./brtDates");
 
 const PORT = Number(process.env.PORT || 3790);
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
@@ -210,14 +212,6 @@ function extractMultipartFile(raw, contentType) {
     return body;
   }
   return null;
-}
-
-function defaultRange() {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(end.getDate() - 6);
-  const fmt = (d) => d.toISOString().slice(0, 10);
-  return { startDate: fmt(start), endDate: fmt(end) };
 }
 
 function bearer(req) {
@@ -510,9 +504,9 @@ async function requestHandler(req, res) {
         if (pathname === "/api/meta/sync" && req.method === "POST") {
           const body = await readBody(req);
           try {
-            const daysBack = Number(body.daysBack || url.searchParams.get("days") || 30);
+            const daysBack = Number(body.daysBack || url.searchParams.get("days") || 7);
             const since = body.since || url.searchParams.get("since") || null;
-            const until = body.until || url.searchParams.get("until") || null;
+            const until = body.until || url.searchParams.get("until") || shopeeEndDate();
             const result = await syncMetaDaily({ daysBack, since, until });
             sendJson(res, 200, { success: true, ...result });
           } catch (err) {
@@ -603,8 +597,7 @@ async function requestHandler(req, res) {
 
         if (pathname === "/api/subid-daily" && req.method === "GET") {
           const subid = url.searchParams.get("subid") || "";
-          const startDate = url.searchParams.get("start") || defaultRange().startDate;
-          const endDate = url.searchParams.get("end") || defaultRange().endDate;
+          const { startDate, endDate } = clampDashRange(url.searchParams.get("start"), url.searchParams.get("end"));
           try {
             const daily = await loadSubidDaily(subid, startDate, endDate);
             sendJson(res, 200, { success: true, subid, daily });
@@ -616,8 +609,7 @@ async function requestHandler(req, res) {
 
         if (pathname === "/api/sync" && req.method === "POST") {
           const body = await readBody(req);
-          const startDate = body.start || body.startDate || defaultRange().startDate;
-          const endDate = body.end || body.endDate || defaultRange().endDate;
+          const { startDate, endDate } = clampDashRange(body.start || body.startDate, body.end || body.endDate);
           try {
             const current = await latestJob();
             if (current.status === "running") {
@@ -644,8 +636,7 @@ async function requestHandler(req, res) {
 
         if (pathname === "/api/sync/worker" && req.method === "POST") {
           const body = await readBody(req);
-          const startDate = body.start || body.startDate || defaultRange().startDate;
-          const endDate = body.end || body.endDate || defaultRange().endDate;
+          const { startDate, endDate } = clampDashRange(body.start || body.startDate, body.end || body.endDate);
           try {
             const result = await runUserDashboardSync({ startDate, endDate });
             sendJson(res, 200, result);
@@ -840,6 +831,30 @@ async function requestHandler(req, res) {
           return;
         }
 
+        if (pathname === "/api/radar-supercomissoes" && req.method === "GET") {
+          const cred = await credentialsPublic();
+          if (!cred.configured) {
+            sendJson(res, 400, {
+              success: false,
+              error: "Configure a sua API Shopee em Configurações.",
+              code: "CREDS_MISSING",
+            });
+            return;
+          }
+          try {
+            const result = await radarSupercomissoes({
+              keyword: url.searchParams.get("keyword") || "",
+              min: Number(url.searchParams.get("min") || 15),
+              page: Number(url.searchParams.get("page") || 1),
+              limit: Number(url.searchParams.get("limit") || 50),
+            });
+            sendJson(res, 200, { success: true, ...result });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
         if (pathname === "/api/backup/shortlink" && req.method === "POST") {
           const body = await readBody(req);
           try {
@@ -918,8 +933,7 @@ async function requestHandler(req, res) {
 
         if (pathname === "/api/orders" && req.method === "GET") {
           try {
-            const startDate = url.searchParams.get("start") || defaultRange().startDate;
-            const endDate = url.searchParams.get("end") || defaultRange().endDate;
+            const { startDate, endDate } = clampDashRange(url.searchParams.get("start"), url.searchParams.get("end"));
             const orders = await loadOrders({ startDate, endDate, limit: 500 });
             sendJson(res, 200, { success: true, orders });
           } catch (err) {
@@ -940,8 +954,7 @@ async function requestHandler(req, res) {
 
         if (pathname === "/api/campaigns" && req.method === "GET") {
           try {
-            const startDate = url.searchParams.get("start") || defaultRange().startDate;
-            const endDate = url.searchParams.get("end") || defaultRange().endDate;
+            const { startDate, endDate } = clampDashRange(url.searchParams.get("start"), url.searchParams.get("end"));
             const campaigns = await loadCampaigns(startDate, endDate);
             sendJson(res, 200, { success: true, campaigns });
           } catch (err) {
@@ -951,8 +964,7 @@ async function requestHandler(req, res) {
         }
 
         if (pathname === "/api/dashboard" && req.method === "GET") {
-          const startDate = url.searchParams.get("start") || defaultRange().startDate;
-          const endDate = url.searchParams.get("end") || defaultRange().endDate;
+          const { startDate, endDate } = clampDashRange(url.searchParams.get("start"), url.searchParams.get("end"));
           const force = url.searchParams.get("force") === "1";
           const cred = await credentialsPublic();
           if (!cred.configured) {

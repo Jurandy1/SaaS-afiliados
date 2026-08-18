@@ -116,6 +116,9 @@ function toComissaoPct(rate) {
 
 function normalizeShopeeProduct(node) {
   const preco = Number(node.price || node.priceMin || 0);
+  const comissaoShopee = toComissaoPct(node.shopeeCommissionRate);
+  const comissaoVendedor = toComissaoPct(node.sellerCommissionRate);
+  const comissaoTotal = toComissaoPct(node.commissionRate) || Math.round((comissaoShopee + comissaoVendedor) * 100) / 100;
   return {
     itemId: String(node.itemId || ""),
     shopId: String(node.shopId || ""),
@@ -123,7 +126,9 @@ function normalizeShopeeProduct(node) {
     preco,
     precoMin: Number(node.priceMin || 0),
     precoMax: Number(node.priceMax || 0),
-    comissao_pct: toComissaoPct(node.commissionRate),
+    comissao_pct: comissaoTotal,
+    comissaoShopee,
+    comissaoVendedor,
     comissao_valor: Number(node.commission || 0),
     vendas_shopee: Number(node.sales || 0),
     imagem: String(node.imageUrl || ""),
@@ -181,18 +186,91 @@ async function queryProductOffersByShop(shopId, { page = 1, limit = 50, sortType
   return data?.productOfferV2 || { nodes: [], pageInfo: {} };
 }
 
-async function queryProductOffersByKeyword(keyword, { shopId = null, page = 1, limit = 20 } = {}) {
+async function queryProductOffersByKeyword(keyword, { shopId = null, page = 1, limit = 20, sortType = 1, listType = 0 } = {}) {
   const termo = String(keyword || "").trim();
   if (!termo) return { nodes: [], pageInfo: {} };
   const shopClause = shopId ? `, shopId: ${Number(shopId)}` : "";
   const query = `{
-    productOfferV2(keyword: ${JSON.stringify(termo)}${shopClause}, listType: 0, sortType: 1, page: ${page}, limit: ${Math.min(50, limit)}) {
+    productOfferV2(keyword: ${JSON.stringify(termo)}${shopClause}, listType: ${Number(listType) || 0}, sortType: ${Number(sortType) || 1}, page: ${page}, limit: ${Math.min(50, limit)}) {
       nodes { ${PRODUCT_OFFER_NODES} }
       pageInfo { page limit hasNextPage }
     }
   }`;
   const data = await shopeeGraphql(query);
   return data?.productOfferV2 || { nodes: [], pageInfo: {} };
+}
+
+async function queryCommissionFeed({ page = 1, limit = 50, listType = 0 } = {}) {
+  const query = `{
+    productOfferV2(listType: ${Number(listType) || 0}, sortType: 5, page: ${page}, limit: ${Math.min(50, limit)}) {
+      nodes { ${PRODUCT_OFFER_NODES} }
+      pageInfo { page limit hasNextPage }
+    }
+  }`;
+  const data = await shopeeGraphql(query);
+  return data?.productOfferV2 || { nodes: [], pageInfo: {} };
+}
+
+function toRadarProduto(p) {
+  const shopee = Number(p.comissaoShopee || 0);
+  const vendedor = Number(p.comissaoVendedor || 0);
+  const total = Number(p.comissao_pct || shopee + vendedor || 0);
+  const preco = Number(p.preco || 0);
+  return {
+    itemId: p.itemId,
+    shopId: p.shopId,
+    nome: p.nome,
+    loja: p.loja,
+    imagem: p.imagem,
+    preco,
+    comissaoShopee: shopee,
+    comissaoVendedor: vendedor,
+    comissaoTotal: Math.round(total * 100) / 100,
+    lucroEstimado: Math.round(preco * total) / 100,
+    vendas: Number(p.vendas_shopee || 0),
+    rating: Number(p.rating || 0),
+    link: p.linkAfiliado || p.linkProduto || "",
+    linkProduto: p.linkProduto || "",
+    linkAfiliado: p.linkAfiliado || "",
+  };
+}
+
+async function radarSupercomissoes({ keyword = "", min = 15, page = 1, limit = 50 } = {}) {
+  const minPct = Number(min) || 0;
+  const kw = String(keyword || "").trim();
+  const lim = Math.min(50, Number(limit) || 50);
+  const pg = Math.max(1, Number(page) || 1);
+
+  let offer = { nodes: [], pageInfo: {} };
+  if (kw) {
+    offer = await queryProductOffersByKeyword(kw, { page: pg, limit: lim, sortType: 5, listType: 0 });
+  } else {
+    try {
+      offer = await queryTopCommissionOffers({ page: pg, limit: lim });
+    } catch (_) {
+      offer = { nodes: [], pageInfo: {} };
+    }
+    if (!(offer.nodes || []).length) {
+      offer = await queryCommissionFeed({ page: pg, limit: lim, listType: 0 });
+    }
+  }
+
+  const produtos = (offer.nodes || [])
+    .map(normalizeShopeeProduct)
+    .map(toRadarProduto)
+    .filter((p) => p.itemId && p.comissaoTotal >= minPct)
+    .sort((a, b) => b.comissaoTotal - a.comissaoTotal);
+
+  const media = produtos.length
+    ? Math.round((produtos.reduce((s, p) => s + p.comissaoTotal, 0) / produtos.length) * 10) / 10
+    : 0;
+
+  return {
+    produtos,
+    media,
+    pageInfo: offer.pageInfo || {},
+    varredura: new Date().toISOString(),
+  };
 }
 
 async function queryTopCommissionOffers({ page = 1, limit = 50 } = {}) {
@@ -1211,4 +1289,5 @@ module.exports = {
   analisarInsightGrupo,
   generateAffiliateShortLink,
   parseShopeeUrl,
+  radarSupercomissoes,
 };

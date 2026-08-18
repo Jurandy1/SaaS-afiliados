@@ -102,6 +102,7 @@
     canais: "Canais e status",
     config: "Configurações",
     produtos: "Backup",
+    supercomissoes: "Radar de Supercomissões",
     campanhas: "Campanhas",
     pedidos: "Pedidos",
   };
@@ -283,34 +284,46 @@
     if (state.periodPreset === "month") return true;
     const start = state.dash?.range?.startDate || $("#start-date")?.value;
     const end = state.dash?.range?.endDate || $("#end-date")?.value;
-    return start === monthStartISO() && end === todayISO();
+    return start === monthStartISO() && end === yesterdayISO();
   }
   function escapeHtml(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
-  function todayISO() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  function brtTodayISO(date = new Date()) {
+    const ms = date.getTime() - 3 * 3600 * 1000;
+    return new Date(ms).toISOString().slice(0, 10);
   }
-  function yesterdayISO() { return daysAgoISO(1); }
+  function brtSubtractDays(days, refIso) {
+    const [y, m, d] = String(refIso).slice(0, 10).split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d - Number(days || 0)));
+    return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+  }
+  /** Shopee/Meta diário: último dia útil = ontem BRT (conversionReport não traz o dia corrente). */
+  function shopeeEndDate() {
+    return brtSubtractDays(1, brtTodayISO());
+  }
+  function todayISO() {
+    return brtTodayISO();
+  }
+  function yesterdayISO() {
+    return shopeeEndDate();
+  }
   function daysAgoISO(n) {
-    const d = new Date();
-    d.setDate(d.getDate() - n);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return brtSubtractDays(n, brtTodayISO());
+  }
+  function daysAgoFromShopeeEnd(n) {
+    return brtSubtractDays(n, shopeeEndDate());
   }
   function monthStartISO() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+    return `${brtTodayISO().slice(0, 7)}-01`;
   }
   function monthPreviousRangeISO() {
-    const d = new Date();
-    d.setDate(1);
-    d.setMonth(d.getMonth() - 1);
-    const y = d.getFullYear();
-    const m = d.getMonth() + 1;
-    const start = `${y}-${String(m).padStart(2, "0")}-01`;
-    const last = new Date(y, m, 0);
-    const end = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`;
+    const [y, m] = brtTodayISO().slice(0, 7).split("-").map(Number);
+    const py = m === 1 ? y - 1 : y;
+    const pm = m === 1 ? 12 : m - 1;
+    const start = `${py}-${String(pm).padStart(2, "0")}-01`;
+    const last = new Date(Date.UTC(py, pm, 0)).getUTCDate();
+    const end = `${py}-${String(pm).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
     return { start, end };
   }
   function shortDay(iso) {
@@ -445,6 +458,7 @@
 
     const isData = DATA_VIEWS.has(view);
     $("#view-dashboard").classList.toggle("hidden", view !== "dashboard");
+    $("#view-supercomissoes")?.classList.toggle("hidden", view !== "supercomissoes");
     $("#view-analise-ia")?.classList.toggle("hidden", view !== "analise-ia");
     $("#view-canais")?.classList.toggle("hidden", view !== "canais");
     $("#view-config").classList.toggle("hidden", view !== "config");
@@ -454,6 +468,7 @@
     setSidebarOpen(false);
 
     if (view === "dashboard") applyChannelView();
+    if (view === "supercomissoes") mountRadarPage();
     if (view === "analise-ia") {
       mountIaChat();
       updateIaTokenBoard();
@@ -1057,6 +1072,28 @@
       document.body.appendChild(s);
     });
     return window.BackupUI;
+  }
+
+  async function ensureRadarUi() {
+    if (window.RadarUI) return window.RadarUI;
+    await new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "/radar.js?v=4";
+      s.async = true;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error("radar.js"));
+      document.body.appendChild(s);
+    });
+    return window.RadarUI;
+  }
+
+  async function mountRadarPage() {
+    try {
+      const ui = await ensureRadarUi();
+      if (ui) await ui.mount();
+    } catch (e) {
+      console.warn(e);
+    }
   }
 
   function debounce(fn, ms) {
@@ -2939,8 +2976,8 @@
 
     if (!$("#data-thead")) return;
 
-    const start = $("#start-date")?.value || daysAgoISO(6);
-    const end = $("#end-date")?.value || todayISO();
+    const start = $("#start-date")?.value || daysAgoFromShopeeEnd(6);
+    const end = $("#end-date")?.value || yesterdayISO();
 
     // Garante painel carregado para menus derivados (visão, performance, etc.)
     if (!state.dash && state.configured) {
@@ -3145,7 +3182,7 @@
   const PRESET_SUBTITLES = {
     all: "Todo período",
     yesterday: "Ontem",
-    "7d": "7 dias",
+    "7d": "Últimos 7 dias",
     "14d": "14 dias",
     "30d": "30 dias",
     month: "Este mês",
@@ -3446,24 +3483,24 @@
       $("#start-date").value = yesterdayISO();
       $("#end-date").value = yesterdayISO();
     } else if (kind === "7d") {
-      $("#start-date").value = daysAgoISO(6);
-      $("#end-date").value = todayISO();
+      $("#start-date").value = daysAgoFromShopeeEnd(6);
+      $("#end-date").value = yesterdayISO();
     } else if (kind === "14d") {
-      $("#start-date").value = daysAgoISO(13);
-      $("#end-date").value = todayISO();
+      $("#start-date").value = daysAgoFromShopeeEnd(13);
+      $("#end-date").value = yesterdayISO();
     } else if (kind === "30d") {
-      $("#start-date").value = daysAgoISO(29);
-      $("#end-date").value = todayISO();
+      $("#start-date").value = daysAgoFromShopeeEnd(29);
+      $("#end-date").value = yesterdayISO();
     } else if (kind === "all") {
-      $("#start-date").value = daysAgoISO(89);
-      $("#end-date").value = todayISO();
+      $("#start-date").value = daysAgoFromShopeeEnd(89);
+      $("#end-date").value = yesterdayISO();
     } else if (kind === "prev_month") {
       const range = monthPreviousRangeISO();
       $("#start-date").value = range.start;
       $("#end-date").value = range.end;
     } else {
       $("#start-date").value = monthStartISO();
-      $("#end-date").value = todayISO();
+      $("#end-date").value = yesterdayISO();
     }
     syncTopbarRange();
     loadDashboard({ force: false });
@@ -3510,8 +3547,17 @@
     $("#btn-chart-profit")?.addEventListener("click", () => setChartMode("profit"));
     $("#btn-chart-revenue")?.addEventListener("click", () => setChartMode("revenue"));
 
-    $("#start-date").value = daysAgoISO(6);
-    $("#end-date").value = todayISO();
+    const max = yesterdayISO();
+    const startEl = $("#start-date");
+    const endEl = $("#end-date");
+    if (startEl) {
+      startEl.max = max;
+      startEl.value = daysAgoFromShopeeEnd(6);
+    }
+    if (endEl) {
+      endEl.max = max;
+      endEl.value = max;
+    }
     state.periodPreset = "7d";
     syncTopbarRange();
     $$("#period-bar .period-preset[data-range]").forEach((b) => b.classList.toggle("active", b.dataset.range === "7d"));
@@ -3519,7 +3565,12 @@
     $("#btn-period-custom")?.addEventListener("click", () => togglePeriodCustom());
     $("#btn-period-apply")?.addEventListener("click", () => {
       const start = $("#start-date")?.value;
-      const end = $("#end-date")?.value;
+      let end = $("#end-date")?.value;
+      const max = yesterdayISO();
+      if (end && end > max) {
+        end = max;
+        if ($("#end-date")) $("#end-date").value = max;
+      }
       if (!start || !end) return;
       clearPeriodPresets();
       state.periodPreset = "custom";

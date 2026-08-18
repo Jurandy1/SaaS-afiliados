@@ -12,19 +12,15 @@ const { getSupabaseAdmin, runWithUser } = require("./auth");
 const { buildDashboard } = require("./metrics");
 const { syncMetaDaily, metaCredentialsPublic } = require("./meta");
 const { credentialsPublic } = require("./store");
+const { shopeeEndDate, brtSubtractDays } = require("./brtDates");
 
 const LOCAL_INTERVAL_MS = Number(process.env.AUTO_SYNC_INTERVAL_MS || 2 * 60 * 60 * 1000);
 const LOCAL_BOOT_DELAY_MS = Number(process.env.AUTO_SYNC_BOOT_DELAY_MS || 20_000);
 
-function brtDateISO(offsetDays = 0) {
-  const ms = Date.now() - 3 * 3600 * 1000 + offsetDays * 86400000;
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
 function rangeForMode(mode) {
-  const until = brtDateISO(0);
-  const daysBack = mode === "recent" ? 2 : 6; // 3 dias ou 7 dias inclusive
-  const since = brtDateISO(-daysBack);
+  const until = shopeeEndDate();
+  const daysBack = mode === "recent" ? 2 : 6; // 3 dias ou 7 dias até ontem BRT
+  const since = brtSubtractDays(daysBack, until);
   return { since, until, days: daysBack + 1 };
 }
 
