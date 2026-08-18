@@ -19,6 +19,16 @@ alter table if exists subid_ops drop constraint if exists subid_ops_canal_check;
 alter table if exists subid_ops add constraint subid_ops_canal_check
   check (canal is null or canal in ('meta', 'pinterest', 'organico', 'indefinido'));
 
+create table if not exists clique_daily (
+  user_id uuid not null,
+  data date not null,
+  subid text not null,
+  cliques integer not null default 0,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, data, subid)
+);
+create index if not exists idx_clique_daily_user_data on clique_daily (user_id, data);
+
 notify pgrst, 'reload schema';
 `;
 

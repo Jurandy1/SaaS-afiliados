@@ -937,7 +937,7 @@
     },
   };
 
-  function channelMetricCard(label, value, tone, iconKey) {
+  function channelMetricCard(label, value, tone, iconKey, hint) {
     const theme = CHANNEL_HERO[tone] || CHANNEL_HERO.orange;
     const isMoney = String(value).startsWith("R$");
     let currency = "";
@@ -955,6 +955,7 @@
         ${isMoney
           ? `<div class="kpi-hero-value text-white channel-hero-value"><span class="text-base font-bold ${theme.currency} shrink-0">${currency}</span><span>${amount}</span></div>`
           : `<p class="channel-hero-value text-white font-black tracking-tight">${value}</p>`}
+        ${hint ? `<p class="channel-hero-hint">${escapeHtml(hint)}</p>` : ""}
       </div>
     </article>`;
   }
@@ -968,7 +969,7 @@
     const pct = (v) => (!hasData ? "—" : fmtPct(v));
     const lucroNeg = Number(k?.lucro) < 0;
     const roiNeg = Number(k?.roi) < 0;
-    const invMeta = k?.inv_meta_taxed != null ? k.inv_meta_taxed : k?.inv_meta;
+    const invMeta = k?.inv_meta;
     const hasRoi = hasData && Number(k?.inv_total) > 0 && Number.isFinite(Number(k?.roi));
     const lucroTone = lucroNeg ? "rose" : "emerald";
     const roiTone = roiNeg ? "rose" : "emerald";
@@ -981,7 +982,7 @@
         ["Investimento Meta", money(invMeta), "meta", "investimento_meta"],
         ["Lucro", money(k?.lucro), lucroTone, "lucro"],
         ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "roi"],
-        ["Pedidos", num(k?.pedidos), "indigo", "pedidos"],
+        ["Pedidos", num(k?.pedidos), "indigo", "pedidos", "Validados"],
         ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
         ["Abatimento", pct(k?.abatimento_cliques), "amber", "abatimento"],
       ];
@@ -992,7 +993,7 @@
         ["Investimento Pinterest", money(k?.inv_pin), "pin", "investimento_pin"],
         ["Lucro", money(k?.lucro), lucroTone, "lucro"],
         ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "roi"],
-        ["Pedidos", num(k?.pedidos), "indigo", "pedidos"],
+        ["Pedidos", num(k?.pedidos), "indigo", "pedidos", "Validados"],
         ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
         ["Abatimento", pct(k?.abatimento_cliques), "amber", "abatimento"],
       ];
@@ -1000,13 +1001,22 @@
       cards = [
         ["Faturamento", money(k?.faturamento), "orange", "faturamento"],
         ["Comissão", money(k?.comissao), "emerald", "comissao"],
-        ["Lucro", money(k?.lucro), lucroTone, "lucro"],
-        ["Pedidos", num(k?.pedidos), "indigo", "pedidos"],
+        ["Pedidos", num(k?.pedidos), "indigo", "pedidos", "Validados"],
         ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
       ];
     }
 
-    el.innerHTML = `<div class="channel-kpi-metrics channel-kpi-metrics--${cards.length}">${cards.map(([lab, val, tone, icon]) => channelMetricCard(lab, val, tone, icon)).join("")}</div>`;
+    const cancelados = Number(k?.cancelados || 0);
+    const unpaid = Number(k?.unpaid || 0);
+    let alertHtml = "";
+    if (hasData && (cancelados > 0 || unpaid > 0)) {
+      const bits = [];
+      if (cancelados > 0) bits.push(`<strong>${fmtNum(cancelados)}</strong> cancelado${cancelados === 1 ? "" : "s"}`);
+      if (unpaid > 0) bits.push(`<strong>${fmtNum(unpaid)}</strong> não pago${unpaid === 1 ? "" : "s"}`);
+      alertHtml = `<p class="channel-kpi-alert" role="status"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>O card Pedidos conta só os <strong>validados</strong> (concluídos + pendentes). ${bits.join(" e ")} ficam de fora — não entram em faturamento nem comissão.</span></p>`;
+    }
+
+    el.innerHTML = `<div class="channel-kpi-metrics channel-kpi-metrics--${cards.length}">${cards.map(([lab, val, tone, icon, hint]) => channelMetricCard(lab, val, tone, icon, hint)).join("")}</div>${alertHtml}`;
   }
 
   function chartGridColor() {
@@ -1783,6 +1793,7 @@
         concluidos: Number(r?.concluidos || 0),
         pendentes: Number(r?.pendentes || 0),
         cancelados: Number(r?.cancelados || 0),
+        unpaid: Number(r?.unpaid || 0),
         inv_meta: Number(r?.inv_meta || 0),
         inv_pin: Number(r?.inv_pin || 0),
         cliques_meta: Number(r?.cliques_meta || 0),
@@ -1802,6 +1813,7 @@
           concluidos: 0,
           pendentes: 0,
           cancelados: 0,
+          unpaid: 0,
           inv_meta: invM,
           inv_pin: invP,
           cliques_meta: Number(r?.cliques_meta || 0),
@@ -1816,6 +1828,7 @@
         concluidos: 0,
         pendentes: 0,
         cancelados: 0,
+        unpaid: 0,
         inv_meta: 0,
         inv_pin: 0,
         cliques_meta: 0,
@@ -1830,6 +1843,7 @@
       concluidos: 0,
       pendentes: 0,
       cancelados: 0,
+      unpaid: 0,
       inv_meta: 0,
       inv_pin: 0,
       cliques_meta: 0,
@@ -1843,6 +1857,7 @@
       agg.concluidos += Number(d.concluidos || 0);
       agg.pendentes += Number(d.pendentes || 0);
       agg.cancelados += Number(d.cancelados || 0);
+      agg.unpaid += Number(d.unpaid || 0);
       agg.inv_meta += Number(d.inv_meta || 0);
       agg.inv_pin += Number(d.inv_pin || 0);
       agg.cliques_meta += Number(d.cliques_meta || 0);
@@ -1856,7 +1871,7 @@
     const list = subs || [];
     const { start, end } = periodRange();
     let fat = 0, com = 0, invMeta = 0, invPin = 0;
-    let pedidos = 0, concluidos = 0, pendentes = 0, cancelados = 0;
+    let pedidos = 0, concluidos = 0, pendentes = 0, cancelados = 0, unpaid = 0;
     let cliquesMeta = 0, cliquesPin = 0, cliquesAds = 0;
     let impressoes = 0, alcance = 0;
     let cliquesShopeeRaw = null;
@@ -1866,10 +1881,11 @@
       com += a.comissao;
       invMeta += a.inv_meta;
       invPin += a.inv_pin;
-      pedidos += a.pedidos;
+      pedidos += Number(a.concluidos || 0) + Number(a.pendentes || 0);
       concluidos += a.concluidos;
       pendentes += a.pendentes;
       cancelados += a.cancelados;
+      unpaid += Number(a.unpaid || 0);
       cliquesMeta += a.cliques_meta;
       cliquesPin += a.cliques_pin;
       cliquesAds += adsClicksFor(a, state.channel);
@@ -1883,8 +1899,8 @@
     const cpc_meta = cliquesMeta > 0 ? Math.round((spendMeta / cliquesMeta) * 100) / 100 : null;
     const ctr_meta = impressoes > 0 ? Math.round((cliquesMeta / impressoes) * 10000) / 100 : null;
     const tax = {
-      taxRate: state.settings.taxRate,
-      metaTaxRate: state.settings.metaTaxRate,
+      taxRate: Number(state.dash?.tax?.taxRate ?? state.settings.taxRate ?? 0),
+      metaTaxRate: Number(state.dash?.tax?.metaTaxRate ?? state.settings.metaTaxRate ?? 12),
     };
     const gov = Number(tax.taxRate || 0) / 100;
     const metaTax = Number(tax.metaTaxRate != null ? tax.metaTaxRate : 12) / 100;
@@ -1911,6 +1927,7 @@
       concluidos,
       pendentes,
       cancelados,
+      unpaid,
       cliques_meta: cliquesMeta,
       cliques_pin: cliquesPin,
       cliques_ads: cliquesAds,
@@ -2142,7 +2159,7 @@
   const SUBID_COL_ESSENTIAL = {
     meta: ["subid", "comissao", "inv_total", "lucro", "roi", "pedidos", "cliques_meta", "cliques_shopee", "abatimento", "tendencia", "status"],
     pinterest: ["subid", "comissao", "inv_total", "lucro", "roi", "pedidos", "cliques_pin", "cliques_shopee", "abatimento", "tendencia", "status"],
-    organico: ["subid", "comissao", "lucro", "roi", "pedidos", "cliques_shopee", "abatimento", "tendencia", "status"],
+    organico: ["subid", "comissao", "pedidos", "cliques_shopee", "abatimento", "tendencia", "status"],
     geral: ["subid", "comissao", "inv_total", "lucro", "roi", "pedidos", "cliques_shopee", "abatimento", "tendencia", "status"],
   };
 
@@ -2492,7 +2509,11 @@
     if (!isChannel) {
       const liveText = $("#dash-live-text");
       if (liveText) {
-        liveText.textContent = "Ao vivo";
+        const indef = dash.channelKpis?.indefinido;
+        const indefCom = Number(indef?.comissao || 0);
+        liveText.textContent = indefCom > 0.009
+          ? `Ao vivo · ${fmt(indefCom)} de comissão em SubIDs indefinidos (não entram nas campanhas)`
+          : "Ao vivo";
       }
     }
   }
@@ -3113,7 +3134,7 @@
             { label: "Invest. Pin", value: fmt(k.inv_pin) },
             { label: "Lucro", value: fmt(k.lucro) },
             { label: "ROI", value: fmtPct(k.roi) },
-            { label: "Pedidos", value: fmtNum(k.pedidos) },
+            { label: "Pedidos validados", value: fmtNum(k.pedidos) },
             { label: "SubIDs", value: fmtNum(k.subIdsCount || subIds.length) },
           ],
         );
@@ -3159,7 +3180,7 @@
             { label: "Lucro do período", value: fmt(k.lucro) },
             { label: "Investimento total", value: fmt(k.inv_total) },
             { label: "SubIDs ativos", value: fmtNum(subIds.length) },
-            { label: "Pedidos no período", value: fmtNum(k.pedidos || 0) },
+            { label: "Pedidos validados", value: fmtNum(k.pedidos || 0) },
             { label: "Shopee", value: state.configured ? "Configurada" : "Pendente" },
             { label: "Meta Ads", value: state.metaConfigured ? "Configurada" : "Pendente" },
           ],
@@ -3962,6 +3983,32 @@
           ? ` · ${r.classificados} SubIDs classificados (${r.ativas || 0} ativas / ${r.desativadas || 0} desativadas)`
           : "";
         status.textContent = `Pinterest: ${r.gravados} linhas${classif}${gasto}${periodo}. Ajuste o período para ver Campanhas Pinterest.`;
+        await loadDashboard({ force: false });
+      } catch (err) {
+        status.className = "form-status err";
+        status.textContent = err.message;
+      }
+    });
+
+    $("#btn-shopee-clicks-import")?.addEventListener("click", async () => {
+      const status = $("#shopee-clicks-status");
+      const file = $("#shopee-clicks-file")?.files?.[0];
+      if (!file) {
+        status.className = "form-status err";
+        status.textContent = "Selecione o CSV de cliques Shopee.";
+        return;
+      }
+      status.className = "form-status";
+      status.textContent = "Importando cliques…";
+      try {
+        const text = await file.text();
+        const r = await api("/api/shopee/clicks-import", {
+          method: "POST",
+          body: JSON.stringify({ csv: text }),
+        });
+        status.className = "form-status ok";
+        const periodo = r.range?.since && r.range?.until ? ` · ${r.range.since} a ${r.range.until}` : "";
+        status.textContent = `Cliques Shopee: ${Number(r.cliques || 0).toLocaleString("pt-BR")} cliques · ${r.subids || 0} SubIDs${periodo}. Recarregue Campanhas Meta.`;
         await loadDashboard({ force: false });
       } catch (err) {
         status.className = "form-status err";

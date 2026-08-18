@@ -31,6 +31,7 @@ const {
   loadCampaigns,
 } = require("./meta");
 const { importPinterestCsv } = require("./pinterest");
+const { importShopeeClicksCsv } = require("./shopeeClicks");
 const {
   claudeCredentialsPublic,
   saveClaudeCredentials,
@@ -171,7 +172,7 @@ function serveStatic(req, res, pathname) {
   fs.createReadStream(filePath).pipe(res);
 }
 
-const MAX_BODY_BYTES = 8 * 1024 * 1024;
+const MAX_BODY_BYTES = 40 * 1024 * 1024;
 
 async function readBody(req) {
   const chunks = [];
@@ -179,7 +180,7 @@ async function readBody(req) {
   for await (const c of req) {
     size += c.length;
     if (size > MAX_BODY_BYTES) {
-      const err = new Error("Payload grande demais (máx. 8 MB)");
+      const err = new Error("Payload grande demais (máx. 40 MB)");
       err.code = "PAYLOAD_TOO_LARGE";
       throw err;
     }
@@ -525,6 +526,23 @@ async function requestHandler(req, res) {
               return;
             }
             const result = await importPinterestCsv(text);
+            sendJson(res, 200, { success: true, ...result });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message || String(err) });
+          }
+          return;
+        }
+
+        if (pathname === "/api/shopee/clicks-import" && req.method === "POST") {
+          const body = await readBody(req);
+          try {
+            let text = body.csv || body._text || "";
+            if (body._raw && body._ct) text = extractMultipartFile(body._raw, body._ct) || text;
+            if (!text.trim()) {
+              sendJson(res, 400, { success: false, error: "Envie o CSV de cliques Shopee" });
+              return;
+            }
+            const result = await importShopeeClicksCsv(text);
             sendJson(res, 200, { success: true, ...result });
           } catch (err) {
             sendJson(res, 400, { success: false, error: err.message || String(err) });

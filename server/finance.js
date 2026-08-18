@@ -6,6 +6,7 @@ const { loadPinSpendByDay } = require("./pinterest");
 const { requireUserId } = require("./auth");
 const { loadSettings } = require("./store");
 const { loadSubidOps, applyOpsToSubIds, inferCanal, persistInferredOps } = require("./subidOps");
+const { loadShopeeClicksByDay } = require("./shopeeClicks");
 
 function round2(n) {
   return Math.round(Number(n || 0) * 100) / 100;
@@ -97,6 +98,7 @@ function reconcileSubIdsToPeriod(subIds, start, end, tax) {
           concluidos: 0,
           pendentes: 0,
           cancelados: 0,
+          unpaid: 0,
           cliques_shopee: 0,
           cliques_meta: clM,
           cliques_pin: clP,
@@ -114,6 +116,7 @@ function reconcileSubIdsToPeriod(subIds, start, end, tax) {
         concluidos: 0,
         pendentes: 0,
         cancelados: 0,
+        unpaid: 0,
         lucro: 0,
         roi: null,
         abatimento: null,
@@ -128,6 +131,7 @@ function reconcileSubIdsToPeriod(subIds, start, end, tax) {
       concluidos: 0,
       pendentes: 0,
       cancelados: 0,
+      unpaid: 0,
       inv_meta: 0,
       inv_pin: 0,
       cliques_meta: 0,
@@ -141,6 +145,7 @@ function reconcileSubIdsToPeriod(subIds, start, end, tax) {
       agg.concluidos += Number(d.concluidos || 0);
       agg.pendentes += Number(d.pendentes || 0);
       agg.cancelados += Number(d.cancelados || 0);
+      agg.unpaid += Number(d.unpaid || 0);
       agg.inv_meta += Number(d.inv_meta || 0);
       agg.inv_pin += Number(d.inv_pin || 0);
       agg.cliques_meta += Number(d.cliques_meta || 0);
@@ -149,17 +154,7 @@ function reconcileSubIdsToPeriod(subIds, start, end, tax) {
     }
 
     let cliquesShopee = agg.cliques_shopee;
-    if (cliquesShopee <= 0 && Number(sub.cliques_shopee || 0) > 0 && agg.pedidos > 0) {
-      const basePed = Number(sub.pedidos || 0);
-      if (basePed > 0) {
-        cliquesShopee = Math.min(
-          Number(sub.cliques_shopee),
-          Math.round(Number(sub.cliques_shopee) * (agg.pedidos / basePed)),
-        );
-      } else {
-        cliquesShopee = Number(sub.cliques_shopee);
-      }
-    }
+    // Não usar pedidos como clique. Sem relatório de cliques (CSV), fica 0.
 
     const fin = calcLucroRoi(agg.comissao, agg.inv_meta, agg.inv_pin, tax);
     const fat = round2(agg.faturamento);
@@ -178,6 +173,7 @@ function reconcileSubIdsToPeriod(subIds, start, end, tax) {
       concluidos: agg.concluidos,
       pendentes: agg.pendentes,
       cancelados: agg.cancelados,
+      unpaid: agg.unpaid,
       inv_meta: fin.inv_meta,
       inv_pin: fin.inv_pin,
       inv_meta_taxed: fin.inv_meta_taxed,
@@ -203,19 +199,35 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
   const end = dash.range?.endDate;
   if (!start || !end) return dash;
 
-  const [taxRes, metaRes, pinRes, opsRes] = await Promise.all([
+  const [taxRes, metaRes, pinRes, opsRes, clickRes] = await Promise.all([
     loadSettings(userId).catch((e) => { console.warn("[finance] settings:", e.message); return null; }),
     loadMetaSpendByDay(start, end, userId).catch((e) => { console.warn("[finance] meta:", e.message); return []; }),
     loadPinSpendByDay(start, end, userId).catch((e) => { console.warn("[finance] pin:", e.message); return []; }),
     loadSubidOps(userId).catch((e) => { console.warn("[finance] ops:", e.message); return {}; }),
+    loadShopeeClicksByDay(start, end, userId).catch((e) => { console.warn("[finance] cliques:", e.message); return []; }),
   ]);
   const tax = taxRes || { taxRate: 11.7, metaTaxRate: 12 };
   const metaRows = metaRes || [];
   const pinRows = pinRes || [];
   const opsMap = opsRes || {};
+  const clickRows = clickRes || [];
 
   const meta = sumSpend(metaRows);
   const pin = sumSpend(pinRows);
+  const clicksBySubDay = {};
+  const clicksBySub = {};
+  const clickSubDays = new Map();
+  for (const r of clickRows) {
+    const sub = String(r.subid || "").trim().toLowerCase();
+    const day = r.data;
+    const n = Number(r.cliques || 0);
+    if (!sub || !day || !(n > 0)) continue;
+    const sk = `${sub}|${day}`;
+    clicksBySubDay[sk] = (clicksBySubDay[sk] || 0) + n;
+    clicksBySub[sub] = (clicksBySub[sub] || 0) + n;
+    if (!clickSubDays.has(sub)) clickSubDays.set(sub, new Set());
+    clickSubDays.get(sub).add(day);
+  }
 
   // Índice sub → Set<dias com gasto> para juntar dias-Ads aos dias-Shopee
   const metaSubDays = new Map();
@@ -258,27 +270,42 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     for (const day of pinSubDays.get(subKey) || []) {
       if (!byDay.has(day)) byDay.set(day, blankShopeeDay(day));
     }
+    for (const day of clickSubDays.get(subKey) || []) {
+      if (!byDay.has(day)) byDay.set(day, blankShopeeDay(day));
+    }
     return [...byDay.values()]
       .sort((a, b) => String(a.data).localeCompare(String(b.data)))
       .map((d) => {
         const sk = `${subKey}|${d.data}`;
         const dFin = calcLucroRoi(d.comissao, meta.bySubDay[sk] || 0, pin.bySubDay[sk] || 0, tax);
-        // As linhas de "shopeeDaily" vêm de attachMenuPreviews (só pedidos) e não
-        // trazem cliques Meta/Pin — populamos aqui para que reconcileSubIdsToPeriod
-        // agregue corretamente (senão sub.cliques_meta cai a zero).
         const cliM = meta.clicksBySubDay?.[sk] || 0;
         const cliP = pin.clicksBySubDay?.[sk] || 0;
-        return { ...d, ...dFin, cliques_meta: cliM, cliques_pin: cliP };
+        const cliS = clicksBySubDay[sk] || 0;
+        return { ...d, ...dFin, cliques_meta: cliM, cliques_pin: cliP, cliques_shopee: cliS };
       });
   }
 
-  // Uniao dos dias: Shopee (dash.daily) ∪ Meta ∪ Pin
+  // União dos dias: pedidos validados dos SubIDs ∪ Meta ∪ Pin
   const allDaysSet = new Set();
-  for (const d of dash.daily || []) if (d && d.data) allDaysSet.add(d.data);
+  const shopeeDailyByDay = new Map();
+  for (const s of dash.subIds || []) {
+    for (const d of s.daily || []) {
+      const day = d && d.data;
+      if (!day) continue;
+      allDaysSet.add(day);
+      const cur = shopeeDailyByDay.get(day) || blankShopeeDay(day);
+      cur.faturamento += Number(d.faturamento || 0);
+      cur.comissao += Number(d.comissao || 0);
+      cur.pedidos += Number(d.pedidos || 0);
+      cur.concluidos += Number(d.concluidos || 0);
+      cur.pendentes += Number(d.pendentes || 0);
+      cur.cancelados += Number(d.cancelados || 0);
+      cur.unpaid += Number(d.unpaid || 0);
+      shopeeDailyByDay.set(day, cur);
+    }
+  }
   for (const day of Object.keys(meta.byDay || {})) allDaysSet.add(day);
   for (const day of Object.keys(pin.byDay || {})) allDaysSet.add(day);
-  const shopeeDailyByDay = new Map();
-  for (const d of dash.daily || []) if (d && d.data) shopeeDailyByDay.set(d.data, d);
 
   const daily = [...allDaysSet]
     .sort()
@@ -307,7 +334,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     const cliquesMeta = meta.clicksBySub[key] || 0;
     const cliquesPin = pin.clicksBySub[key] || 0;
     const cliquesAds = cliquesMeta + cliquesPin;
-    const cliquesShopee = r.cliques_shopee != null ? Number(r.cliques_shopee) : null;
+    const cliquesShopee = clicksBySub[key] || 0;
     const impressoes = meta.impressoesBySub[key] || 0;
     const alcance = meta.alcanceBySub[key] || 0;
     const metaAgg = meta.spendClicksBySub[key] || { spend: 0, clicks: 0, impressoes: 0 };
@@ -451,7 +478,17 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     end,
     tax,
   );
+  kpis.faturamento = round2(subIdsAll.reduce((a, r) => a + Number(r.faturamento || 0), 0));
+  kpis.comissao = round2(subIdsAll.reduce((a, r) => a + Number(r.comissao || 0), 0));
+  kpis.concluidos = subIdsAll.reduce((a, r) => a + Number(r.concluidos || 0), 0);
+  kpis.pendentes = subIdsAll.reduce((a, r) => a + Number(r.pendentes || 0), 0);
+  kpis.cancelados = subIdsAll.reduce((a, r) => a + Number(r.cancelados || 0), 0);
+  kpis.unpaid = subIdsAll.reduce((a, r) => a + Number(r.unpaid || 0), 0);
+  kpis.pedidos = kpis.concluidos + kpis.pendentes;
   kpis.cliques_shopee = subIdsAll.reduce((a, r) => a + Number(r.cliques_shopee || 0), 0);
+  const kpisAligned = calcLucroRoi(kpis.comissao, kpis.inv_meta, kpis.inv_pin, tax);
+  Object.assign(kpis, kpisAligned);
+  kpis.abatimento = kpis.faturamento > 0 ? round2((kpis.comissao / kpis.faturamento) * 100) : 0;
   if (kpis.cliques_shopee > 0 && Number(kpis.cliques_ads || 0) > 0) {
     kpis.abatimento_cliques = round2((kpis.cliques_shopee / Number(kpis.cliques_ads)) * 100);
   } else if (kpis.cliques_shopee > 0 && Number(kpis.cliques_meta || 0) > 0) {

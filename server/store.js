@@ -129,6 +129,7 @@ async function saveDashboardSnapshot(dash, userId = requireUserId(), { persistSu
       concluidos: r.concluidos,
       pendentes: r.pendentes,
       cancelados: r.cancelados,
+      unpaid: r.unpaid || 0,
       itens: r.itens || 0,
       abatimento: r.abatimento || 0,
       cliques_shopee: r.cliques_shopee != null ? Number(r.cliques_shopee) : 0,
@@ -210,11 +211,15 @@ async function persistOrdersAndProducts({ orders, orderItems, products }, userId
 
 async function pagedSelect(makeQuery, { pageSize = 1000, max = 5000 } = {}) {
   const all = [];
-  for (let from = 0; from < max; from += pageSize) {
-    const { data, error } = await makeQuery(from, from + pageSize - 1);
+  // PostgREST/Supabase devolve no máximo ~1000 linhas por request.
+  // pageSize > isso fazia parar no 1º lote (length < pageSize).
+  const size = Math.min(1000, Math.max(1, Number(pageSize) || 1000));
+  for (let from = 0; from < max; from += size) {
+    const { data, error } = await makeQuery(from, from + size - 1);
     if (error) throw new Error(error.message);
-    all.push(...(data || []));
-    if (!data || data.length < pageSize) break;
+    const rows = data || [];
+    all.push(...rows);
+    if (rows.length < size) break;
   }
   return all;
 }
@@ -304,6 +309,7 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
   kpis.lucro = Math.round(kpis.lucro * 100) / 100;
   // Recalcula ROI com a mesma base do invest exibido (já pode incluir taxa Meta)
   kpis.roi = kpis.inv_total > 0 ? Math.round((kpis.lucro / kpis.inv_total) * 10000) / 100 : null;
+  kpis.pedidos = Number(kpis.concluidos || 0) + Number(kpis.pendentes || 0);
   kpis.abatimento = kpis.faturamento > 0
     ? Math.round((kpis.comissao / kpis.faturamento) * 10000) / 100
     : 0;
@@ -345,6 +351,7 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
         concluidos: Number(r.concluidos || 0),
         pendentes: Number(r.pendentes || 0),
         cancelados: Number(r.cancelados || 0),
+        unpaid: Number(r.unpaid || 0),
         itens: Number(r.itens || 0),
         abatimento: Number(r.abatimento || 0),
         cliques_shopee: r.cliques_shopee != null ? Number(r.cliques_shopee) : null,
@@ -370,7 +377,7 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
   };
 }
 
-/** Carrega todos os pedidos do intervalo (paginado). Limite antigo de 3k truncava KPIs de campanha. */
+/** Carrega todos os pedidos do intervalo (páginas de 1000 — teto do PostgREST). */
 async function loadMenuOrders(startDate, endDate, userId = requireUserId(), { max = 100000 } = {}) {
   const supabase = getSupabase();
   const cols = "subid, data, status, faturamento, comissao";
@@ -382,9 +389,8 @@ async function loadMenuOrders(startDate, endDate, userId = requireUserId(), { ma
       .gte("data", startDate)
       .lte("data", endDate)
       .order("data", { ascending: true })
-      .order("order_id", { ascending: true })
       .range(from, to),
-    { pageSize: 2000, max },
+    { pageSize: 1000, max },
   );
 }
 
@@ -417,16 +423,20 @@ async function attachMenuPreviews(dash, startDate, endDate, userId = requireUser
           concluidos: 0,
           pendentes: 0,
           cancelados: 0,
+          unpaid: 0,
         };
       }
       const row = bySubDay[sub][day];
-      row.pedidos += 1;
       const st = String(o.status || "");
       if (st === "cancelada") {
         row.cancelados += 1;
         continue;
       }
-      if (st === "unpaid") continue;
+      if (st === "unpaid") {
+        row.unpaid = (row.unpaid || 0) + 1;
+        continue;
+      }
+      row.pedidos += 1;
       row.faturamento += Number(o.faturamento || 0);
       row.comissao += Number(o.comissao || 0);
       if (st === "concluida") row.concluidos += 1;
@@ -458,11 +468,13 @@ async function attachMenuPreviews(dash, startDate, endDate, userId = requireUser
         concluidos: 0,
         pendentes: 0,
         cancelados: 0,
+        unpaid: 0,
         daily: dailyFromMap(key),
       });
     }
     dash.subIds = merged;
-  } catch (_) {
+  } catch (err) {
+    console.warn("[store] attachMenuPreviews:", err.message || err);
     if (includePreviews) {
       dash.ordersPreview = dash.ordersPreview || [];
       dash.productsPreview = dash.productsPreview || [];
@@ -519,21 +531,24 @@ function channelDailyFromSubs(subIds, taxRate = 0, metaTaxRate = 12) {
 
 function channelKpisFromSubs(subIds, channel, taxRate = 0, metaTaxRate = 12) {
   const { calcLucroRoi } = require("./finance");
-  const tax = { taxRate, metaTaxRate };
   const hasActivity = (r) => {
     const nz = (v) => Number(v || 0) > 0;
     if (nz(r.faturamento) || nz(r.comissao) || nz(r.pedidos)) return true;
+    if (nz(r.cancelados) || nz(r.unpaid)) return true;
     if (nz(r.inv_meta) || nz(r.inv_pin)) return true;
     if (nz(r.cliques_meta) || nz(r.cliques_pin)) return true;
     if (r.cliques_shopee != null && Number(r.cliques_shopee) > 0) return true;
     return false;
   };
-  const subs = (subIds || []).filter((s) => s.canal === channel && hasActivity(s));
+  const canalOf = (s) => (s.canal === "meta" || s.canal === "pinterest" || s.canal === "organico" ? s.canal : "indefinido");
+  const subs = (subIds || []).filter((s) => canalOf(s) === channel && hasActivity(s));
   let fat = 0;
   let com = 0;
   let invMeta = 0;
   let invPin = 0;
   let pedidos = 0;
+  let cancelados = 0;
+  let unpaid = 0;
   let cliquesMeta = 0;
   let cliquesPin = 0;
   let cliquesShopee = 0;
@@ -543,7 +558,9 @@ function channelKpisFromSubs(subIds, channel, taxRate = 0, metaTaxRate = 12) {
     com += Number(r.comissao || 0);
     invMeta += Number(r.inv_meta || 0);
     invPin += Number(r.inv_pin || 0);
-    pedidos += Number(r.pedidos || 0);
+    pedidos += Number(r.concluidos || 0) + Number(r.pendentes || 0);
+    cancelados += Number(r.cancelados || 0);
+    unpaid += Number(r.unpaid || 0);
     cliquesMeta += Number(r.cliques_meta || 0);
     cliquesPin += Number(r.cliques_pin || 0);
     if (r.cliques_shopee != null) {
@@ -551,7 +568,7 @@ function channelKpisFromSubs(subIds, channel, taxRate = 0, metaTaxRate = 12) {
       cliquesShopee += Number(r.cliques_shopee || 0);
     }
   }
-  const fin = calcLucroRoi(com, invMeta, invPin, tax);
+  const fin = calcLucroRoi(com, invMeta, invPin, { taxRate, metaTaxRate });
   const cliquesAds = channel === "meta" ? cliquesMeta : channel === "pinterest" ? cliquesPin : cliquesMeta + cliquesPin;
   let abatimentoCliques = null;
   if (hasCliquesShopee && cliquesAds > 0) {
@@ -567,6 +584,8 @@ function channelKpisFromSubs(subIds, channel, taxRate = 0, metaTaxRate = 12) {
     lucro: fin.lucro,
     roi: fin.roi,
     pedidos,
+    cancelados,
+    unpaid,
     cliques_meta: cliquesMeta,
     cliques_pin: cliquesPin,
     cliques_ads: cliquesAds,
@@ -585,6 +604,7 @@ function slimDashForClient(dash) {
     meta: channelKpisFromSubs(dash.subIds, "meta", taxRate, metaTaxRate),
     pinterest: channelKpisFromSubs(dash.subIds, "pinterest", taxRate, metaTaxRate),
     organico: channelKpisFromSubs(dash.subIds, "organico", taxRate, metaTaxRate),
+    indefinido: channelKpisFromSubs(dash.subIds, "indefinido", taxRate, metaTaxRate),
   };
   const subIds = (dash.subIds || []).map((r) => {
     const { daily, ...rest } = r;

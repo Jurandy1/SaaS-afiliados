@@ -269,6 +269,17 @@ create table if not exists subid_ops (
 );
 create index if not exists subid_ops_user_idx on subid_ops (user_id);
 
+-- Cliques do Relatório de cliques Shopee (CSV) — abatimento do painel
+create table if not exists clique_daily (
+  user_id uuid not null,
+  data date not null,
+  subid text not null,
+  cliques integer not null default 0,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, data, subid)
+);
+create index if not exists idx_clique_daily_user_data on clique_daily (user_id, data);
+
 -- Upgrades idempotentes para bancos criados antes deste schema
 alter table if exists app_settings
   add column if not exists tax_rate numeric not null default 0,

@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="/tailwind.css" />
-  <link rel="stylesheet" href="/gemini-app.css?v=radar-light-8" />
+  <link rel="stylesheet" href="/gemini-app.css?v=radar-light-12" />
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen antialiased selection:bg-brand-500 selection:text-white font-sans transition-colors duration-200">
 
@@ -151,7 +151,7 @@
             <div class="nav-sec-title">Mineração</div>
             <div class="space-y-1">
               <button type="button" class="nav-item" data-view="supercomissoes">
-                <span class="nav-left"><img class="nav-logo is-square" src="/assets/produtos.png" alt="" /><span class="nav-label">Radar de Supercomissões</span></span>
+                <span class="nav-left"><img class="nav-logo is-square nav-logo--radar" src="/assets/radar.png?v=2" alt="" /><span class="nav-label">Radar de Supercomissões</span></span>
               </button>
             </div>
           </div>
@@ -719,6 +719,29 @@
                 <article class="settings-card">
                   <header class="settings-card-head">
                     <div class="settings-card-brand">
+                      <img class="is-square" src="/assets/shopee.png" alt="" width="22" height="22" />
+                      <div>
+                        <div class="settings-card-title">Cliques Shopee</div>
+                        <div class="settings-card-sub">Relatório de cliques (CSV) · abatimento</div>
+                      </div>
+                    </div>
+                    <span class="state-chip is-manual">Manual</span>
+                  </header>
+                  <div class="form">
+                    <label>Arquivo CSV
+                      <input type="file" id="shopee-clicks-file" accept=".csv,text/csv" />
+                    </label>
+                    <p class="hint">Export do Relatório de cliques da Shopee (colunas Sub_id e Tempo dos cliques). É o que o painel do cliente usa nos 136 mil cliques e no abatimento 117%.</p>
+                    <div class="form-actions">
+                      <button type="button" class="btn primary sm" id="btn-shopee-clicks-import">Importar CSV</button>
+                    </div>
+                    <div id="shopee-clicks-status" class="form-status"></div>
+                  </div>
+                </article>
+
+                <article class="settings-card">
+                  <header class="settings-card-head">
+                    <div class="settings-card-brand">
                       <img class="rounded" src="/assets/ia.png?v=3" alt="" width="22" height="22" />
                       <div>
                         <div class="settings-card-title">Claude (Anthropic)</div>
@@ -991,6 +1014,6 @@
     </main>
   </div>
 
-  <script src="/app.js?v=campaign-kpi-fix-10"></script>
+  <script src="/app.js?v=campaign-kpi-fix-18"></script>
 </body>
 </html>

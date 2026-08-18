@@ -93,6 +93,44 @@ html.light { color-scheme: light; }
 .channel-hero-icon img.is-square {
   border-radius: 4px;
 }
+.channel-hero-hint {
+  margin: 6px 0 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+.channel-kpi-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.channel-kpi-alert i {
+  margin-top: 2px;
+  flex-shrink: 0;
+  color: #d97706;
+}
+.channel-kpi-alert strong {
+  color: #78350f;
+}
+html.dark .channel-kpi-alert {
+  background: rgba(120, 53, 15, 0.3);
+  border-color: rgba(146, 64, 14, 0.6);
+  color: #fde68a;
+}
+html.dark .channel-kpi-alert i,
+html.dark .channel-kpi-alert strong {
+  color: #fcd34d;
+}
 .channel-hero-value {
   font-size: clamp(1.05rem, 2vw, 1.45rem);
   font-weight: 900;
@@ -942,6 +980,13 @@ html.dark .light-card {
   width: 20px;
   height: 20px;
   border-radius: 6px;
+  object-fit: contain;
+  background: transparent;
+}
+.nav-logo--radar {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
   object-fit: contain;
   background: transparent;
 }
