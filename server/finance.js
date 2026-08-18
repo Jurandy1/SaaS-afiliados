@@ -252,7 +252,12 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
       .map((d) => {
         const sk = `${subKey}|${d.data}`;
         const dFin = calcLucroRoi(d.comissao, meta.bySubDay[sk] || 0, pin.bySubDay[sk] || 0, tax);
-        return { ...d, ...dFin };
+        // As linhas de "shopeeDaily" vêm de attachMenuPreviews (só pedidos) e não
+        // trazem cliques Meta/Pin — populamos aqui para que reconcileSubIdsToPeriod
+        // agregue corretamente (senão sub.cliques_meta cai a zero).
+        const cliM = meta.clicksBySubDay?.[sk] || 0;
+        const cliP = pin.clicksBySubDay?.[sk] || 0;
+        return { ...d, ...dFin, cliques_meta: cliM, cliques_pin: cliP };
       });
   }
 
