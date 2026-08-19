@@ -157,16 +157,14 @@
   function updateTabLabels() {
     const g = state.grupos.length;
     const b = state.backups.length;
-    $$("#backup-tabs [data-backup-tab]").forEach((btn) => {
-      const id = btn.dataset.backupTab;
-      if (id === "grupos") btn.textContent = `Ninhos/Grupos (${g})`;
-      if (id === "listagem") btn.textContent = `Meus Backups (${b})`;
-      if (id === "cadastrar") btn.textContent = "+ Cadastrar link";
-      if (id === "garimpo") btn.textContent = "Garimpo inteligente";
-      if (id === "recompra") btn.textContent = "Radar de recompra";
-      if (id === "similar") btn.textContent = "Rastrear similares";
-      if (id === "config") btn.textContent = "Configurações";
-    });
+    const r = (state.recompra.produtos || []).length;
+    const setCount = (id, n) => {
+      const el = $(`#backup-tabs [data-tab-count="${id}"]`);
+      if (el) el.textContent = String(n);
+    };
+    setCount("grupos", g);
+    setCount("listagem", b);
+    setCount("recompra", r);
   }
 
   function setTab(tab) {
@@ -207,39 +205,32 @@
     }
     const s = state.stats;
     if (!s) return;
-    setKpi("backups", String(s.backups || 0), `${s.emGrupo || 0} em grupo · ${s.livres || 0} livres`);
-    setKpi("cobertura", String(s.coberturaApi || 0), `${s.coberturaPct || 0}% retornam no afiliado`);
-    setKpi("fora", String(s.foraAfiliado || 0), "revisar link");
+    setKpi("backups", String(s.backups || 0), `${s.emGrupo || 0} em grupos · ${s.livres || 0} livres`);
+    setKpi("cobertura", `${s.coberturaPct || 0}%`, `${s.coberturaApi || 0} produtos encontrados`);
+    const sinaisEl = $(`#backup-kpi-grid [data-k="sinais"]`);
+    if (sinaisEl) sinaisEl.classList.toggle("is-crit", Number(s.sinaisCriticos || s.foraAfiliado || 0) > 0);
     setKpi(
       "sinais",
       String(s.sinaisCriticos || 0),
-      `${s.foraAlertas || 0} fora do afiliado · restante revisar`,
+      `${s.foraAfiliado || 0} fora do programa de afiliados`,
     );
-    setKpi(
-      "scan",
-      formatTempoAtras(s.scanMaisAntigo),
-      s.scanMaisNovo ? `novo ${formatTempoAtras(s.scanMaisNovo)}` : "—",
-    );
-    setKpi("comissao", fmt(s.comissaoMedia || 0), `topo ${fmt(s.comissaoTopo || 0)}`);
-    setKpi(
-      "trocar",
-      String(s.trocarPrincipal || 0),
-      s.trocarTopNome
-        ? `-${fmt(s.trocarDiffTotal || 0)} ${s.trocarTopNome}: backup rendeu mais`
-        : "nenhuma oportunidade",
-    );
-    setKpi(
-      "variantes",
-      String(s.variantesComFaixa || 0),
-      `${s.variantesPct || 0}% dos itens (prefixo + sufixo)`,
-    );
-    setKpi(
-      "loja",
-      s.lojaMaisBackups || "—",
-      s.lojaMaisBackups
-        ? `${s.lojaMaisBackupsCount} itens${s.lojaMaisBackupsExtra ? `: ${s.lojaMaisBackupsExtra}` : ""}`
-        : "sem dados",
-    );
+    setKpi("comissao", fmt(s.comissaoMedia || 0), `Maior retorno: ${fmt(s.comissaoTopo || 0)}`);
+    const cobEl = $(`#backup-kpi-grid [data-k="cobertura"]`);
+    if (cobEl) cobEl.classList.toggle("is-good", Number(s.coberturaPct || 0) >= 70);
+    const live = $("#backup-live-status");
+    if (live) {
+      const when = s.scanMaisNovo || s.scanMaisAntigo;
+      live.innerHTML = when
+        ? `<span class="bk-dot"></span>Dados sincronizados · última atualização ${escapeHtml(formatTempoAtras(when))}`
+        : `<span class="bk-dot"></span>Aguardando primeira varredura`;
+    }
+    const scanStrong = $("#backup-scan-info strong");
+    if (scanStrong) {
+      const when = s.scanMaisNovo || s.scanMaisAntigo;
+      scanStrong.textContent = when
+        ? new Date(when).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+        : "—";
+    }
   }
 
   async function loadBackups() {
@@ -291,28 +282,36 @@
   function listItemHtml(b) {
     const periodo = formatPeriodoComissao(b.periodoFim);
     const comR = comissaoBRL(b);
-    const alertas = (b.alertas || []).map((a) =>
-      `<div class="bk-alert is-${a.nivel === "critico" ? "crit" : a.nivel === "aviso" ? "warn" : "ok"}">${escapeHtml(a.mensagem || "")}</div>`
-    ).join("");
-    return `<article class="bk-card bk-card--compact" data-item="${escapeHtml(b.itemId)}">
-      <div class="bk-card-top">
-        ${b.imagem ? `<img src="${escapeHtml(b.imagem)}" alt="" class="bk-thumb sm" />` : ""}
-        <div>
-          <div class="bk-title">${b.marcadoPrincipal ? "★ " : ""}${escapeHtml(b.apelido || b.nome || "Produto")}</div>
-          ${b.apelido ? `<div class="bk-meta">${escapeHtml(b.nome || "")}</div>` : ""}
-          <div class="bk-meta"><i class="fa-solid fa-store"></i> ${escapeHtml(b.loja || "—")}</div>
-          <div class="bk-line">${fmt(b.preco)} · ${Number(b.comissao_pct || 0)}% (${fmt(comR)}) · ${fmtNum(b.vendas_shopee)} vendas</div>
-          <div class="bk-meta">Atualizado ${escapeHtml(formatTempoAtras(b.ultima_verificacao))}${periodo ? ` · <span class="${periodo.critico ? "text-rose-600" : ""}">${escapeHtml(periodo.texto)}</span>` : ""}</div>
+    const alertas = b.alertas || [];
+    const critico = alertas.some((a) => a.nivel === "critico");
+    const status = critico
+      ? `<span class="bk-badge is-danger">Fora do afiliado</span>`
+      : alertas.length
+        ? `<span class="bk-badge is-warn">${alertas.length} alerta${alertas.length !== 1 ? "s" : ""}</span>`
+        : `<span class="bk-badge is-ok">Ativo</span>`;
+    const papel = b.marcadoPrincipal ? "Principal" : (b.grupoId ? "Reserva" : "Backup livre");
+    return `<tr data-item="${escapeHtml(b.itemId)}">
+      <td>
+        <div class="bk-product-cell">
+          ${b.imagem ? `<img src="${escapeHtml(b.imagem)}" alt="" class="bk-mini-thumb" />` : `<div class="bk-mini-thumb"><i class="fa-solid fa-box"></i></div>`}
+          <div>
+            <b>${escapeHtml(b.apelido || b.nome || "Produto")}</b>
+            <div class="bk-row-sub">${escapeHtml(papel)}${b.apelido ? ` · ${escapeHtml(b.nome || "")}` : ""}</div>
+          </div>
         </div>
-      </div>
-      ${alertas ? `<div class="bk-alerts">${alertas}</div>` : ""}
-      <div class="bk-actions">
-        <button type="button" class="bk-act" data-act="refresh" data-id="${escapeHtml(b.itemId)}"><i class="fa-solid fa-rotate"></i> Atualizar</button>
-        <button type="button" class="bk-act" data-act="copy" data-link="${escapeHtml(b.linkAfiliado || b.linkProduto || "")}"><i class="fa-solid fa-copy"></i> Copiar link</button>
-        <button type="button" class="bk-act" data-act="star" data-id="${escapeHtml(b.itemId)}" data-on="${b.marcadoPrincipal ? "1" : "0"}"><i class="fa-solid fa-star"></i> ${b.marcadoPrincipal ? "Desmarcar" : "Marcar"}</button>
-        <button type="button" class="bk-act danger" data-act="del" data-id="${escapeHtml(b.itemId)}" data-nome="${escapeHtml(b.apelido || b.nome || "")}"><i class="fa-solid fa-trash"></i> Remover</button>
-      </div>
-    </article>`;
+      </td>
+      <td>${escapeHtml(b.loja || "—")}</td>
+      <td>${fmt(b.preco)}</td>
+      <td><b class="bk-com-pct">${Number(b.comissao_pct || 0)}%</b> · ${fmt(comR)}</td>
+      <td>${status}</td>
+      <td>${escapeHtml(formatTempoAtras(b.ultima_verificacao))}${periodo ? `<div class="bk-row-sub ${periodo.critico ? "is-crit" : ""}">${escapeHtml(periodo.texto)}</div>` : ""}</td>
+      <td class="bk-row-acts">
+        <button type="button" class="bk-icon-btn" data-act="refresh" data-id="${escapeHtml(b.itemId)}" title="Atualizar"><i class="fa-solid fa-rotate"></i></button>
+        <button type="button" class="bk-icon-btn" data-act="copy" data-link="${escapeHtml(b.linkAfiliado || b.linkProduto || "")}" title="Copiar link"><i class="fa-solid fa-copy"></i></button>
+        <button type="button" class="bk-icon-btn" data-act="star" data-id="${escapeHtml(b.itemId)}" data-on="${b.marcadoPrincipal ? "1" : "0"}" title="${b.marcadoPrincipal ? "Desmarcar" : "Marcar"} principal"><i class="fa-solid fa-star"></i></button>
+        <button type="button" class="bk-icon-btn danger" data-act="del" data-id="${escapeHtml(b.itemId)}" data-nome="${escapeHtml(b.apelido || b.nome || "")}" title="Remover"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>`;
   }
 
   async function renderListagem() {
@@ -346,13 +345,15 @@
     if (filtro === "principais") items = items.filter((b) => b.marcadoPrincipal);
     if (meta) meta.textContent = `${items.length} produto(s)`;
     if (!state.backups.length) {
-      listEl.innerHTML = `<div class="bk-empty"><i class="fa-solid fa-box-archive"></i><div>Nenhum produto cadastrado ainda</div><p>Vá em Cadastrar link para adicionar seu primeiro backup.</p></div>`;
+      listEl.innerHTML = `<div class="bk-empty"><i class="fa-solid fa-box-archive"></i><div>Nenhum produto cadastrado ainda</div><p>Vá em Adicionar para incluir seu primeiro backup.</p></div>`;
       return;
     }
     const shown = items.slice(0, state.listVisible);
-    listEl.innerHTML = shown.map(listItemHtml).join("")
+    listEl.innerHTML = `<table class="bk-table"><thead><tr>
+      <th>Produto</th><th>Loja</th><th>Preço</th><th>Comissão</th><th>Status</th><th>Atualização</th><th></th>
+    </tr></thead><tbody>${shown.map(listItemHtml).join("")}</tbody></table>`
       + (items.length > state.listVisible
-        ? `<div class="text-center pt-2"><button type="button" class="btn ghost sm" id="btn-backup-more">Carregar mais (${items.length - state.listVisible})</button></div>`
+        ? `<div class="text-center pt-3"><button type="button" class="btn ghost sm" id="btn-backup-more">Carregar mais (${items.length - state.listVisible})</button></div>`
         : "");
     $("#btn-backup-more")?.addEventListener("click", () => {
       state.listVisible += 30;
@@ -400,6 +401,14 @@
     }
     const niche = categoriaProduto(principal);
     const refreshing = state.refreshingGrupoId === g.docId;
+    const crit = [principal, ...backups].filter(Boolean).some((p) =>
+      (p.alertas || []).some((a) => a.nivel === "critico")
+    );
+    const badge = crit
+      ? `<span class="bk-badge is-danger">Fora da API</span>`
+      : insights.length
+        ? `<span class="bk-badge is-warn">${insights.length} alerta${insights.length !== 1 ? "s" : ""}</span>`
+        : `<span class="bk-badge is-ok">Estável</span>`;
     const tiles = [
       principal ? produtoTile(principal, "Principal", true, g.docId, false) : "",
       ...sorted.map((p, i) => produtoTile(
@@ -409,7 +418,7 @@
         g.docId,
         sugestao && p.itemId === sugestao.itemId,
       )),
-      `<button type="button" class="bk-add-tile" data-act="add-to-group" data-gid="${escapeHtml(g.docId)}"><i class="fa-solid fa-plus"></i><span>Adicionar backup</span></button>`,
+      `<button type="button" class="bk-add-tile" data-act="add-to-group" data-gid="${escapeHtml(g.docId)}"><i class="fa-solid fa-plus"></i><span>Adicionar reserva</span></button>`,
     ].join("");
 
     return `<article class="bk-gcard" data-gid="${escapeHtml(g.docId)}">
@@ -424,19 +433,19 @@
           <div class="min-w-0">
             <h4 class="bk-gname"><i class="fa-solid fa-bullseye"></i><span>${escapeHtml(g.nome)}</span></h4>
             <div class="bk-glink">
-              <span>Link ativo: <strong>${escapeHtml(principal ? (principal.apelido || String(principal.nome || "").slice(0, 35)) : "—")}</strong></span>
-              <span class="bk-reservas">${backups.length} reserva(s)</span>
+              Principal: <b>${escapeHtml(principal ? (principal.apelido || String(principal.nome || "").slice(0, 42)) : "—")}</b>
+              ${principal?.loja ? ` · ${escapeHtml(principal.loja)}` : ""}
             </div>
             <div class="bk-gfin">
-              <span>Lucro histórico: <b class="is-money">${fmt(g.lucro_historico || 0)}</b></span>
-              <span>GMV: <b class="is-gmv">${fmt(g.gmv_historico || 0)}</b></span>
+              <span class="bk-metric">Lucro <b class="is-money">${fmt(g.lucro_historico || 0)}</b></span>
+              <span class="bk-metric">GMV <b class="is-gmv">${fmt(g.gmv_historico || 0)}</b></span>
+              <span class="bk-metric">Reservas <b>${backups.length}</b></span>
             </div>
           </div>
         </div>
         <div class="bk-gactions">
-          ${insights.length ? `<span class="bk-alert-pill"><i class="fa-solid fa-lightbulb"></i> ${insights.length} alerta${insights.length !== 1 ? "s" : ""}</span>` : ""}
-          <button type="button" class="bk-btn-vinc" data-act="add-to-group" data-gid="${escapeHtml(g.docId)}">+ Vincular backup</button>
-          <button type="button" class="bk-icon-btn ${refreshing ? "is-spin" : ""}" data-act="refresh-group" data-gid="${escapeHtml(g.docId)}" title="Atualizar grupo" ${refreshing ? "disabled" : ""}><i class="fa-solid fa-rotate"></i></button>
+          ${badge}
+          <button type="button" class="bk-btn-ghost" data-act="refresh-group" data-gid="${escapeHtml(g.docId)}" ${refreshing ? "disabled" : ""}>${refreshing ? "Atualizando…" : "Atualizar"}</button>
           <button type="button" class="bk-icon-btn danger" data-act="del-group" data-gid="${escapeHtml(g.docId)}" data-nome="${escapeHtml(g.nome)}" title="Remover grupo"><i class="fa-solid fa-trash"></i></button>
           <button type="button" class="bk-icon-btn" data-act="toggle-group" data-gid="${escapeHtml(g.docId)}" aria-label="Expandir"><i class="fa-solid fa-chevron-${open ? "down" : "right"}"></i></button>
         </div>
@@ -446,7 +455,7 @@
           <div class="bk-advisor-title"><i class="fa-solid fa-lightbulb"></i> Contingência Advisor</div>
           ${insights.map((ins) => `<div class="bk-insight">
             <div><b>${escapeHtml(ins.titulo)}</b><p>${escapeHtml(ins.mensagem)}</p></div>
-            ${ins.backupId ? `<button type="button" data-act="rotate" data-gid="${escapeHtml(g.docId)}" data-id="${escapeHtml(ins.backupId)}">Rotacionar agora</button>` : ""}
+            ${ins.backupId ? `<button type="button" data-act="rotate" data-gid="${escapeHtml(g.docId)}" data-id="${escapeHtml(ins.backupId)}">Trocar principal</button>` : ""}
           </div>`).join("")}
         </div>` : ""}
         ${sugestao ? `<div class="bk-advisor" style="background:#eff6ff;border-color:#bfdbfe">
@@ -454,12 +463,12 @@
           <div class="bk-insight" style="border-color:#bfdbfe">
             <div><b>Trocar por ${escapeHtml(sugestao.apelido || sugestao.nome || "")}</b>
             <p>Comissão ${fmt(comissaoBRL(sugestao))} vs ${fmt(comissaoBRL(principal))}</p></div>
-            <button type="button" data-act="swap" data-gid="${escapeHtml(g.docId)}" data-id="${escapeHtml(sugestao.itemId)}">Trocar agora</button>
+            <button type="button" data-act="swap" data-gid="${escapeHtml(g.docId)}" data-id="${escapeHtml(sugestao.itemId)}">Trocar principal</button>
           </div>
         </div>` : ""}
         ${backups.length ? `<div class="bk-sort-row">
           <span>Ordenar por:</span>
-          ${[["comissao", "Comissão"], ["rating", "Rating"], ["vendas", "Vendas"]].map(([id, lab]) =>
+          ${[["comissao", "Maior comissão"], ["vendas", "Mais vendas"], ["rating", "Melhor rating"]].map(([id, lab]) =>
             `<button type="button" class="bk-chip ${state.criterio === id ? "is-active" : ""}" data-act="criterio" data-c="${id}">${lab}</button>`
           ).join("")}
         </div>` : ""}
@@ -523,8 +532,10 @@
     }
     syncNichoSelect();
     const list = gruposFiltrados();
+    const meta = $("#backup-grupos-meta");
+    if (meta) meta.textContent = `${list.length} grupo${list.length === 1 ? "" : "s"} · ordenados por prioridade`;
     if (!state.grupos.length) {
-      box.innerHTML = `<div class="bk-empty"><i class="fa-solid fa-bullseye"></i><div>Nenhum grupo encontrado</div><p>Crie um ninho para comparar o principal com reservas.</p></div>`;
+      box.innerHTML = `<div class="bk-empty"><i class="fa-solid fa-bullseye"></i><div>Nenhum grupo encontrado</div><p>Crie um grupo para comparar o principal com reservas.</p></div>`;
       return;
     }
     if (!list.length) {
@@ -680,6 +691,7 @@
       return;
     }
     box.innerHTML = lista.map((p) => mineCardHtml(p, "recompra")).join("");
+    updateTabLabels();
   }
 
   function renderConfig() {
@@ -824,7 +836,8 @@
 
   async function varrerTodas() {
     const cfg = loadCfg();
-    const btn = $("#btn-backup-varrer");
+    const btns = $$(".js-backup-varrer");
+    const labelFor = (btn) => (btn.id === "btn-backup-varrer" ? "Executar scan" : "Atualizar tudo");
     try {
       if (!state.backups.length) await loadBackups();
     } catch (err) {
@@ -840,11 +853,12 @@
       if (!ok) return;
     }
     state.varrendo = true;
-    if (btn) {
+    btns.forEach((btn) => {
       btn.disabled = true;
       btn.classList.add("is-spin");
-      btn.querySelector("span").textContent = "Varrendo links...";
-    }
+      const span = btn.querySelector("span");
+      if (span) span.textContent = "Varrendo…";
+    });
     try {
       const r = await api("/api/backup/refresh-all", {
         method: "POST",
@@ -862,11 +876,12 @@
       alert(err.message || String(err));
     } finally {
       state.varrendo = false;
-      if (btn) {
+      btns.forEach((btn) => {
         btn.disabled = false;
         btn.classList.remove("is-spin");
-        btn.querySelector("span").textContent = "Varrer todas as ofertas";
-      }
+        const span = btn.querySelector("span");
+        if (span) span.textContent = labelFor(btn);
+      });
     }
   }
 
@@ -952,7 +967,7 @@
       renderGrupos();
     });
 
-    $("#btn-backup-varrer")?.addEventListener("click", () => varrerTodas());
+    $$(".js-backup-varrer").forEach((btn) => btn.addEventListener("click", () => varrerTodas()));
 
     $("#btn-backup-lookup")?.addEventListener("click", async () => {
       const status = $("#backup-lookup-status");

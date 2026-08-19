@@ -1,0 +1,13 @@
+{
+  "name": "Metricly — Afiliados",
+  "short_name": "Metricly",
+  "description": "Dashboard de vendas Shopee + Meta Ads",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#ee4d2d",
+  "icons": [
+    { "src": "/assets/radar.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/assets/radar.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -6,6 +6,92 @@
   const USER_KEY = "metricly_user";
   const THEME_KEY = "afiliados_theme";
 
+  /* ─── Push / Browser Notifications ─── */
+  const SyncNotify = (() => {
+    let _lastSyncedAt = null;
+
+    async function registerPush() {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      try {
+        const reg = await navigator.serviceWorker.register("/sw.js");
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") return;
+
+        const res = await fetch("/api/push/public-key");
+        const { key } = await res.json();
+        if (!key) return;
+
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(key),
+          });
+        }
+
+        const token = localStorage.getItem(TOKEN_KEY);
+        await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(sub.toJSON()),
+        });
+      } catch (e) {
+        console.warn("[push] registro falhou:", e);
+      }
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+      const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+      const raw = atob(base64);
+      const arr = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+      return arr;
+    }
+
+    function _toast(msg, type = "ok") {
+      let container = document.getElementById("sync-toast-container");
+      if (!container) {
+        container = document.createElement("div");
+        container.id = "sync-toast-container";
+        container.style.cssText =
+          "position:fixed;top:18px;right:18px;z-index:99999;display:flex;flex-direction:column;gap:10px;pointer-events:none;";
+        document.body.appendChild(container);
+      }
+      const el = document.createElement("div");
+      el.className = "sync-toast sync-toast--" + type;
+      el.innerHTML = msg;
+      container.appendChild(el);
+      setTimeout(() => { el.classList.add("sync-toast--hide"); setTimeout(() => el.remove(), 400); }, 6000);
+    }
+
+    function notify(dash, { userTriggered = false } = {}) {
+      const syncedAt = dash.syncedAt || null;
+      if (!syncedAt) return;
+      if (_lastSyncedAt === null) { _lastSyncedAt = syncedAt; return; }
+      if (syncedAt === _lastSyncedAt) return;
+      _lastSyncedAt = syncedAt;
+      if (userTriggered) return;
+
+      const fat = Number(dash.kpis?.faturamento || 0);
+      const com = Number(dash.kpis?.comissao || 0);
+      const pedidos = Number(dash.kpis?.pedidos || 0);
+      if (fat <= 0) return;
+
+      const fatStr = fat.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+      const comStr = com.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+      const title = `💰 Vendeu ${fatStr} hoje!`;
+      const body = `${pedidos} pedido${pedidos !== 1 ? "s" : ""} · Comissão: ${comStr}`;
+
+      _toast(`<strong>${title}</strong><br><span style="font-size:12px">${body}</span>`);
+    }
+
+    return { registerPush, notify };
+  })();
+
   function applyTheme(mode) {
     const html = document.documentElement;
     const icon = $("#theme-icon");
@@ -1069,13 +1155,13 @@
     if (!document.querySelector("link[data-backup-css]")) {
       const l = document.createElement("link");
       l.rel = "stylesheet";
-      l.href = "/backup.css";
+      l.href = "/backup.css?v=pro-3";
       l.dataset.backupCss = "1";
       document.head.appendChild(l);
     }
     await new Promise((resolve, reject) => {
       const s = document.createElement("script");
-      s.src = "/backup.js";
+      s.src = "/backup.js?v=pro-2";
       s.async = true;
       s.onload = resolve;
       s.onerror = () => reject(new Error("backup.js"));
@@ -3013,7 +3099,7 @@
     if (titleEl) titleEl.textContent = VIEW_LABELS[view] || view;
     if (subEl) {
       subEl.textContent = view === "produtos"
-        ? "Backup & Contingência Pro — proteja links, grupos e radar de recompra."
+        ? "Gerencie produtos principais, reservas e oportunidades de substituição em um único lugar."
         : "Dados reais da sua conta no período selecionado.";
     }
     const panelTitle = $("#data-panel-title");
@@ -3192,7 +3278,7 @@
     }
   }
 
-  function applyDash(dash, { cached } = {}) {
+  function applyDash(dash, { cached, userTriggered } = {}) {
     state.dash = dash;
     state.subidPage = 1;
     applyChannelView();
@@ -3201,6 +3287,7 @@
     const when = dash.syncedAt ? new Date(dash.syncedAt).toLocaleString("pt-BR") : "—";
     $("#sync-meta").textContent = `${cached ? "cache · " : ""}${dash.nodes || 0} nodes · ${when}`;
     $("#footer-sync").textContent = `Última sincronização ${when}`;
+    SyncNotify.notify(dash, { userTriggered: !!userTriggered });
   }
 
   function setStateChip(sel, ok, okText, offText) {
@@ -3496,7 +3583,7 @@
       }
       const q = new URLSearchParams({ start, end });
       const dash = await api(`/api/dashboard?${q}`, { dedupeKey: "dashboard" });
-      applyDash(dash, { cached: dash.cached });
+      applyDash(dash, { cached: dash.cached, userTriggered: force });
       const banner = $("#sync-banner");
       if (force) {
         banner.className = "banner ok keep";
@@ -4139,15 +4226,29 @@
   }
 
   async function bootApp() {
+    SyncNotify.registerPush();
     setDashLoading(true);
-    // Dashboard é o mais pesado — dispara em paralelo mas não bloqueia
-    // o boot para que topbar/menu/skeleton renderizem em <100ms.
     loadDashboard({ force: false }).catch(() => {});
     await Promise.all([
       loadCredentials(),
       loadMetaCreds(),
       loadSettingsUi(),
     ]);
+  }
+
+  function startAutoSyncPoller() {
+    const POLL_MS = 2 * 60 * 1000;
+    setInterval(async () => {
+      if (!getToken()) return;
+      try {
+        const start = $("#start-date")?.value;
+        const end = $("#end-date")?.value;
+        if (!start || !end) return;
+        const q = new URLSearchParams({ start, end });
+        const dash = await api(`/api/dashboard?${q}`, { dedupeKey: "bg-poll" });
+        applyDash(dash, { cached: true, userTriggered: false });
+      } catch (_) { /* silent */ }
+    }, POLL_MS);
   }
 
   async function boot() {
@@ -4161,6 +4262,7 @@
       const me = await api("/api/auth/me");
       showApp(me.user || getStoredUser());
       await bootApp();
+      startAutoSyncPoller();
     } catch {
       clearSession();
       showAuth();

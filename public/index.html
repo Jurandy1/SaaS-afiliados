@@ -6,12 +6,15 @@
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#f8fafc" />
   <title>Sistema de Afiliados</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="/tailwind.css" />
-  <link rel="stylesheet" href="/gemini-app.css?v=radar-light-12" />
+  <link rel="stylesheet" href="/gemini-app.css?v=notify-13" />
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen antialiased selection:bg-brand-500 selection:text-white font-sans transition-colors duration-200">
 
@@ -868,73 +871,101 @@
         </section>
 
         <!-- BACKUP & CONTINGÊNCIA PRO -->
-        <section id="view-data" class="view hidden space-y-6">
-          <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <section id="view-data" class="view hidden space-y-5">
+          <div class="bk-page-head">
             <div>
-              <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1">Shopee</div>
+              <div class="bk-eyebrow">Shopee / Proteção de ofertas</div>
               <h1 class="text-2xl font-extrabold text-slate-900" id="data-title">Backup</h1>
-              <p class="text-xs text-slate-500 mt-1" id="data-sub">Backup & Contingência Pro — proteja links e monitore reservas.</p>
+              <p class="text-xs text-slate-500 mt-1" id="data-sub">Gerencie produtos principais, reservas e oportunidades de substituição em um único lugar.</p>
+              <div class="bk-status" id="backup-live-status"><span class="bk-dot"></span>Aguardando sincronização</div>
             </div>
-            <button type="button" class="btn ghost sm" data-goto="dashboard">Voltar ao painel</button>
-          </div>
-
-          <div id="backup-root" class="bk-pro space-y-4 max-w-6xl">
-            <div class="bk-hero">
-              <div class="bk-hero-text">
-                <h2 class="bk-hero-title"><i class="fa-solid fa-briefcase"></i> Backup & Contingência Pro</h2>
-                <p class="bk-hero-desc">Proteja links, garimpe por histórico real e radar de recompra. Preço e comissão atualizam automaticamente 3x/dia (6h, 14h e 22h BRT).</p>
-              </div>
-              <button type="button" class="bk-hero-btn" id="btn-backup-varrer">
-                <i class="fa-solid fa-rotate"></i>
-                <span>Varrer todas as ofertas</span>
+            <div class="bk-head-actions">
+              <button type="button" class="btn ghost sm" data-goto="dashboard">Voltar ao painel</button>
+              <button type="button" class="btn brand sm js-backup-varrer" id="btn-backup-atualizar">
+                <i class="fa-solid fa-arrows-rotate"></i>
+                <span>Atualizar tudo</span>
               </button>
             </div>
+          </div>
+
+          <div id="backup-root" class="bk-pro space-y-4">
+            <section class="bk-summary">
+              <div>
+                <h2>Proteção operacional</h2>
+                <p>O sistema monitora disponibilidade, comissão e desempenho para indicar quando um backup deve assumir o lugar do produto principal.</p>
+              </div>
+              <div class="bk-summary-right">
+                <div class="bk-scan-info" id="backup-scan-info">
+                  <span>Último scan</span>
+                  <strong>—</strong>
+                </div>
+                <button type="button" class="bk-scan-btn js-backup-varrer" id="btn-backup-varrer">
+                  <i class="fa-solid fa-play"></i>
+                  <span>Executar scan</span>
+                </button>
+              </div>
+            </section>
 
             <div class="bk-kpi-grid" id="backup-kpi-grid">
-              <div class="bk-kpi" data-k="backups"><span class="bk-kpi-label">Backups</span><strong>—</strong><em>—</em></div>
-              <div class="bk-kpi" data-k="cobertura"><span class="bk-kpi-label">Cobertura API</span><strong>—</strong><em>—</em></div>
-              <div class="bk-kpi" data-k="fora"><span class="bk-kpi-label">Fora do afiliado</span><strong>—</strong><em>revisar link</em></div>
-              <div class="bk-kpi" data-k="sinais"><span class="bk-kpi-label">Sinais críticos</span><strong>—</strong><em>—</em></div>
-              <div class="bk-kpi" data-k="scan"><span class="bk-kpi-label">Scan mais antigo</span><strong>—</strong><em>—</em></div>
-              <div class="bk-kpi" data-k="comissao"><span class="bk-kpi-label">Comissão média</span><strong>—</strong><em>—</em></div>
-              <div class="bk-kpi bk-kpi--wide" data-k="trocar"><span class="bk-kpi-label">Trocar principal</span><strong>—</strong><em>—</em></div>
-              <div class="bk-kpi bk-kpi--wide" data-k="variantes"><span class="bk-kpi-label">Variantes com faixa</span><strong>—</strong><em>—</em></div>
-              <div class="bk-kpi bk-kpi--wide" data-k="loja"><span class="bk-kpi-label">Loja com mais backups</span><strong>—</strong><em>—</em></div>
+              <div class="bk-kpi" data-k="backups">
+                <div class="bk-kpi-top"><span class="bk-kpi-label">Backups ativos</span><i class="fa-solid fa-boxes-stacked"></i></div>
+                <strong>—</strong>
+                <em>—</em>
+              </div>
+              <div class="bk-kpi is-good" data-k="cobertura">
+                <div class="bk-kpi-top"><span class="bk-kpi-label">Cobertura da API</span><i class="fa-solid fa-circle-check"></i></div>
+                <strong>—</strong>
+                <em>—</em>
+              </div>
+              <div class="bk-kpi" data-k="sinais">
+                <div class="bk-kpi-top"><span class="bk-kpi-label">Precisam de atenção</span><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <strong>—</strong>
+                <em>—</em>
+              </div>
+              <div class="bk-kpi" data-k="comissao">
+                <div class="bk-kpi-top"><span class="bk-kpi-label">Comissão média</span><i class="fa-solid fa-chart-line"></i></div>
+                <strong>—</strong>
+                <em>—</em>
+              </div>
             </div>
 
+            <div class="bk-workspace">
             <div class="bk-tabs" id="backup-tabs">
-              <button type="button" class="backup-tab is-active" data-backup-tab="grupos">Ninhos/Grupos</button>
-              <button type="button" class="backup-tab" data-backup-tab="cadastrar">+ Cadastrar link</button>
-              <button type="button" class="backup-tab" data-backup-tab="listagem">Meus Backups</button>
-              <button type="button" class="backup-tab" data-backup-tab="garimpo">Garimpo inteligente</button>
-              <button type="button" class="backup-tab" data-backup-tab="recompra">Radar de recompra</button>
-              <button type="button" class="backup-tab" data-backup-tab="similar">Rastrear similares</button>
+              <button type="button" class="backup-tab is-active" data-backup-tab="grupos">Grupos <span class="count" data-tab-count="grupos">0</span></button>
+              <button type="button" class="backup-tab" data-backup-tab="listagem">Meus backups <span class="count" data-tab-count="listagem">0</span></button>
+              <button type="button" class="backup-tab" data-backup-tab="cadastrar">Adicionar</button>
+              <button type="button" class="backup-tab" data-backup-tab="garimpo">Descoberta</button>
+              <button type="button" class="backup-tab" data-backup-tab="recompra">Recompra <span class="count" data-tab-count="recompra">0</span></button>
+              <button type="button" class="backup-tab" data-backup-tab="similar">Similares</button>
               <button type="button" class="backup-tab" data-backup-tab="config">Configurações</button>
             </div>
 
-            <div id="backup-tab-grupos" class="space-y-4">
+            <div id="backup-tab-grupos" class="bk-tab-panel space-y-4">
               <div class="bk-toolbar">
                 <div class="bk-toolbar-search">
                   <i class="fa-solid fa-magnifying-glass"></i>
-                  <input type="search" id="backup-grupo-search" placeholder="Pesquisar por nicho, nome do grupo ou produto principal…" />
+                  <input type="search" id="backup-grupo-search" placeholder="Buscar grupo, produto ou loja" />
                 </div>
                 <div class="bk-toolbar-actions">
-                  <label class="bk-nicho-label">Nicho:</label>
                   <select id="backup-grupo-nicho" class="bk-nicho-select">
                     <option value="todas">Todos os nichos</option>
                   </select>
-                  <button type="button" class="bk-btn-dark" id="btn-backup-criar-grupo"><i class="fa-solid fa-plus"></i> Criar grupo</button>
+                  <button type="button" class="bk-btn-dark" id="btn-backup-criar-grupo"><i class="fa-solid fa-plus"></i> Novo grupo</button>
                 </div>
+              </div>
+              <div class="bk-section-head">
+                <span class="bk-section-title">Grupos de contingência</span>
+                <span class="bk-section-meta" id="backup-grupos-meta"></span>
               </div>
               <div id="backup-grupos-list" class="space-y-3"></div>
             </div>
 
-            <div id="backup-tab-cadastrar" class="hidden space-y-4">
+            <div id="backup-tab-cadastrar" class="bk-tab-panel hidden space-y-4">
               <section class="light-card rounded-2xl p-5 shadow-sm">
                 <label class="block text-sm font-semibold text-slate-800 mb-2">Cole o link Shopee</label>
                 <div class="flex flex-col sm:flex-row gap-2">
                   <input type="url" id="backup-url" class="search flex-1" placeholder="https://shopee.com.br/product/SHOP_ID/ITEM_ID" />
-                  <button type="button" class="btn brand sm" id="btn-backup-lookup">Buscar</button>
+                  <button type="button" class="btn brand sm" id="btn-backup-lookup">Consultar</button>
                 </div>
                 <p class="text-xs text-slate-500 mt-2">Aceita link completo (/product/SHOP/ITEM ou -i.SHOP.ITEM) e tenta resolver links curtos (s.shopee.com.br).</p>
                 <p class="form-status mt-2" id="backup-lookup-status"></p>
@@ -950,20 +981,23 @@
               <div id="backup-lookup-result"></div>
             </div>
 
-            <div id="backup-tab-listagem" class="hidden space-y-4">
-              <section class="light-card rounded-2xl p-5 shadow-sm space-y-3">
-                <input type="search" id="backup-search" class="search w-full" placeholder="Buscar por nome ou apelido…" />
+            <div id="backup-tab-listagem" class="bk-tab-panel hidden space-y-4">
+              <section class="bk-toolbar">
+                <div class="bk-toolbar-search">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input type="search" id="backup-search" placeholder="Buscar por produto, loja ou apelido" />
+                </div>
                 <div class="flex gap-2 flex-wrap" id="backup-filters">
                   <button type="button" class="bk-chip is-active" data-backup-filter="todos">Todos</button>
-                  <button type="button" class="bk-chip" data-backup-filter="alertas">Com alertas</button>
+                  <button type="button" class="bk-chip" data-backup-filter="alertas">Alertas</button>
                   <button type="button" class="bk-chip" data-backup-filter="principais">Principais</button>
                 </div>
-                <p class="text-xs text-slate-500" id="backup-list-meta">—</p>
               </section>
-              <div id="backup-list" class="space-y-3"></div>
+              <p class="text-xs text-slate-500" id="backup-list-meta">—</p>
+              <div id="backup-list" class="bk-table-wrap"></div>
             </div>
 
-            <div id="backup-tab-garimpo" class="hidden space-y-4">
+            <div id="backup-tab-garimpo" class="bk-tab-panel hidden space-y-4">
               <div class="bk-subtabs" id="backup-garimpo-subtabs">
                 <button type="button" class="bk-chip is-active" data-garimpo-aba="portfolio">Já vendi</button>
                 <button type="button" class="bk-chip" data-garimpo-aba="descoberta">Descoberta</button>
@@ -973,39 +1007,46 @@
               <div id="backup-garimpo-list" class="space-y-2"></div>
             </div>
 
-            <div id="backup-tab-recompra" class="hidden space-y-4">
+            <div id="backup-tab-recompra" class="bk-tab-panel hidden space-y-4">
               <input type="search" id="backup-recompra-search" class="search w-full" placeholder="Buscar produto para recompra…" />
               <p class="text-xs text-slate-500" id="backup-recompra-meta">—</p>
               <div id="backup-recompra-list" class="space-y-2"></div>
             </div>
 
-            <div id="backup-tab-similar" class="hidden space-y-4">
+            <div id="backup-tab-similar" class="bk-tab-panel hidden space-y-4">
               <section class="light-card rounded-2xl p-5 shadow-sm">
                 <label class="block text-sm font-semibold text-slate-800 mb-2">Escolha um produto principal</label>
+                <p class="text-xs text-slate-500 mb-3">Encontre outras ofertas da mesma loja para usar como reserva.</p>
                 <select id="backup-similar-select" class="search w-full"></select>
               </section>
               <div id="backup-similar-results"></div>
             </div>
 
-            <div id="backup-tab-config" class="hidden space-y-4">
-              <section class="light-card rounded-2xl p-5 shadow-sm space-y-4">
-                <h3 class="text-sm font-extrabold text-slate-900">Configurações do Contingência Pro</h3>
-                <p class="text-xs text-slate-500">Preferências locais deste navegador. A varredura em lote usa a API Shopee.</p>
-                <label class="bk-cfg-row">
-                  <span>Auto-abrir Ninhos/Grupos ao entrar</span>
-                  <input type="checkbox" id="bk-cfg-default-grupos" checked />
-                </label>
-                <label class="bk-cfg-row">
-                  <span>Confirmar antes de varrer todas as ofertas</span>
-                  <input type="checkbox" id="bk-cfg-confirm-varrer" checked />
-                </label>
-                <label class="bk-cfg-row">
-                  <span>Mostrar KPIs no topo</span>
-                  <input type="checkbox" id="bk-cfg-show-kpi" checked />
-                </label>
-                <button type="button" class="btn brand sm" id="btn-backup-cfg-save">Salvar preferências</button>
-                <p class="form-status" id="backup-cfg-status"></p>
-              </section>
+            <div id="backup-tab-config" class="bk-tab-panel hidden">
+              <div class="bk-settings">
+                <aside class="bk-settings-nav">
+                  <button type="button" class="is-active">Geral</button>
+                </aside>
+                <div class="bk-settings-body">
+                  <h3>Configurações do Backup</h3>
+                  <p>Preferências de operação e visualização. Ficam neste navegador.</p>
+                  <label class="bk-setting">
+                    <span><strong>Abrir Grupos automaticamente</strong><small>Entrar na tela já mostrando os grupos de contingência.</small></span>
+                    <input type="checkbox" id="bk-cfg-default-grupos" checked />
+                  </label>
+                  <label class="bk-setting">
+                    <span><strong>Confirmar varredura completa</strong><small>Evita iniciar um scan de todos os produtos por engano.</small></span>
+                    <input type="checkbox" id="bk-cfg-confirm-varrer" checked />
+                  </label>
+                  <label class="bk-setting">
+                    <span><strong>Mostrar indicadores no topo</strong><small>Exibe os principais números de operação.</small></span>
+                    <input type="checkbox" id="bk-cfg-show-kpi" checked />
+                  </label>
+                  <button type="button" class="btn brand sm mt-3" id="btn-backup-cfg-save">Salvar preferências</button>
+                  <p class="form-status" id="backup-cfg-status"></p>
+                </div>
+              </div>
+            </div>
             </div>
           </div>
         </section>
@@ -1014,6 +1055,6 @@
     </main>
   </div>
 
-  <script src="/app.js?v=campaign-kpi-fix-18"></script>
+  <script src="/app.js?v=push-22"></script>
 </body>
 </html>

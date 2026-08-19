@@ -62,6 +62,7 @@ const {
   radarSupercomissoes,
 } = require("./backup");
 const { runAutoSync, cronAuthorized, startLocalAutoSync } = require("./autoSync");
+const { saveSubscription, getPublicKey } = require("./pushNotify");
 const { latestJob, runUserDashboardSync } = require("./syncJobs");
 const {
   runWithUser,
@@ -646,6 +647,23 @@ async function requestHandler(req, res) {
         if (pathname === "/api/sync/status" && req.method === "GET") {
           try {
             sendJson(res, 200, { success: true, ...(await latestJob()) });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
+          return;
+        }
+
+        if (pathname === "/api/push/public-key" && req.method === "GET") {
+          sendJson(res, 200, { key: getPublicKey() });
+          return;
+        }
+
+        if (pathname === "/api/push/subscribe" && req.method === "POST") {
+          try {
+            const body = await readBody(req);
+            const userId = require("./auth").requireUserId();
+            await saveSubscription(userId, body);
+            sendJson(res, 200, { success: true });
           } catch (err) {
             sendJson(res, 400, { success: false, error: err.message });
           }

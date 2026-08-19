@@ -13,6 +13,7 @@ const { buildDashboard } = require("./metrics");
 const { syncMetaDaily, metaCredentialsPublic } = require("./meta");
 const { credentialsPublic } = require("./store");
 const { shopeeEndDate, brtSubtractDays } = require("./brtDates");
+const { sendToUser } = require("./pushNotify");
 
 const LOCAL_INTERVAL_MS = Number(process.env.AUTO_SYNC_INTERVAL_MS || 2 * 60 * 60 * 1000);
 const LOCAL_BOOT_DELAY_MS = Number(process.env.AUTO_SYNC_BOOT_DELAY_MS || 20_000);
@@ -106,6 +107,20 @@ async function runAutoSync({ mode = "daily" } = {}) {
       console.log(
         `[autoSync] ${user.email}: shopee nodes=${r.shopee?.nodes ?? "—"} meta=${r.meta?.gravados ?? r.meta?.error ?? "skip"}`,
       );
+      // Push notification — estilo "vendas do dia"
+      if (!r.error && r.shopee?.fat > 0) {
+        const fat = Number(r.shopee.fat || 0);
+        const com = Number(r.shopee.com || 0);
+        const pedidos = Number(r.shopee.pedidos || 0);
+        const fatStr = fat.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        const comStr = com.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        sendToUser(user.id, {
+          title: `💰 Vendeu ${fatStr} hoje!`,
+          body: `${pedidos} pedido${pedidos !== 1 ? "s" : ""} · Comissão: ${comStr}`,
+          tag: "vendas-dia",
+          url: "/",
+        }).catch(() => {});
+      }
     } catch (e) {
       const msg = e.message || String(e);
       results.push({ ok: false, email: user.email, error: msg });

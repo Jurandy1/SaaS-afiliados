@@ -319,4 +319,18 @@ alter table if exists subid_ops
   add constraint subid_ops_canal_check
   check (canal is null or canal in ('meta', 'pinterest', 'organico', 'indefinido'));
 
+-- Push notification subscriptions
+create table if not exists push_subscriptions (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  endpoint text not null unique,
+  subscription text not null,
+  created_at timestamptz default now()
+);
+create index if not exists idx_push_sub_user on push_subscriptions(user_id);
+
+alter table push_subscriptions enable row level security;
+create policy "Users manage own push subs" on push_subscriptions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 notify pgrst, 'reload schema';

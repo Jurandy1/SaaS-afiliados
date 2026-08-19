@@ -29,6 +29,15 @@ create table if not exists clique_daily (
 );
 create index if not exists idx_clique_daily_user_data on clique_daily (user_id, data);
 
+create table if not exists push_subscriptions (
+  id bigint generated always as identity primary key,
+  user_id uuid not null,
+  endpoint text not null unique,
+  subscription text not null,
+  created_at timestamptz default now()
+);
+create index if not exists idx_push_sub_user on push_subscriptions(user_id);
+
 notify pgrst, 'reload schema';
 `;
 

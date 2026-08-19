@@ -17,7 +17,8 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
-    "pg": "^8.14.1"
+    "pg": "^8.14.1",
+    "web-push": "^3.6.7"
   },
   "engines": {
     "node": ">=18"
