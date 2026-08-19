@@ -3,12 +3,16 @@
 const webpush = require("web-push");
 const { getSupabaseAdmin } = require("./auth");
 
-const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || "";
-const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || "";
-const VAPID_MAILTO = process.env.VAPID_MAILTO || "mailto:admin@example.com";
-
-if (VAPID_PUBLIC && VAPID_PRIVATE) {
-  webpush.setVapidDetails(VAPID_MAILTO, VAPID_PUBLIC, VAPID_PRIVATE);
+let _vapidReady = false;
+function ensureVapid() {
+  if (_vapidReady) return;
+  const pub = process.env.VAPID_PUBLIC_KEY || "";
+  const priv = process.env.VAPID_PRIVATE_KEY || "";
+  const mailto = process.env.VAPID_MAILTO || "mailto:admin@example.com";
+  if (pub && priv) {
+    webpush.setVapidDetails(mailto, pub, priv);
+    _vapidReady = true;
+  }
 }
 
 async function saveSubscription(userId, subscription) {
@@ -26,7 +30,8 @@ async function removeSubscription(endpoint) {
 }
 
 async function sendToUser(userId, payload) {
-  if (!VAPID_PUBLIC || !VAPID_PRIVATE) return;
+  ensureVapid();
+  if (!_vapidReady) return;
   const sb = getSupabaseAdmin();
   const { data: subs } = await sb
     .from("push_subscriptions")
@@ -51,7 +56,7 @@ async function sendToUser(userId, payload) {
 }
 
 function getPublicKey() {
-  return VAPID_PUBLIC;
+  return process.env.VAPID_PUBLIC_KEY || "";
 }
 
 module.exports = { saveSubscription, removeSubscription, sendToUser, getPublicKey };

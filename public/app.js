@@ -10,7 +10,31 @@
   const SyncNotify = (() => {
     let _lastSyncedAt = null;
 
-    async function registerPush() {
+    function _showPermBanner() {
+      if (!("Notification" in window)) return;
+      if (Notification.permission !== "default") return;
+      if (document.getElementById("push-perm-banner")) return;
+
+      const banner = document.createElement("div");
+      banner.id = "push-perm-banner";
+      banner.innerHTML = `
+        <div class="push-perm-banner">
+          <span>🔔 Ative as notificações para receber alertas de vendas no celular</span>
+          <button id="push-perm-allow">Ativar</button>
+          <button id="push-perm-dismiss" title="Fechar">✕</button>
+        </div>`;
+      document.body.prepend(banner);
+      document.getElementById("push-perm-allow").addEventListener("click", () => {
+        banner.remove();
+        _doRegister();
+      });
+      document.getElementById("push-perm-dismiss").addEventListener("click", () => {
+        banner.remove();
+        localStorage.setItem("push_perm_dismissed", "1");
+      });
+    }
+
+    async function _doRegister() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
       try {
         const reg = await navigator.serviceWorker.register("/sw.js");
@@ -40,6 +64,14 @@
         });
       } catch (e) {
         console.warn("[push] registro falhou:", e);
+      }
+    }
+
+    async function registerPush() {
+      if (Notification.permission === "granted") {
+        await _doRegister();
+      } else if (Notification.permission === "default" && !localStorage.getItem("push_perm_dismissed")) {
+        _showPermBanner();
       }
     }
 

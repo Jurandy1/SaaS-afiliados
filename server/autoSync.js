@@ -107,19 +107,31 @@ async function runAutoSync({ mode = "daily" } = {}) {
       console.log(
         `[autoSync] ${user.email}: shopee nodes=${r.shopee?.nodes ?? "—"} meta=${r.meta?.gravados ?? r.meta?.error ?? "skip"}`,
       );
-      // Push notification — estilo "vendas do dia"
-      if (!r.error && r.shopee?.fat > 0) {
-        const fat = Number(r.shopee.fat || 0);
-        const com = Number(r.shopee.com || 0);
-        const pedidos = Number(r.shopee.pedidos || 0);
-        const fatStr = fat.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-        const comStr = com.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-        sendToUser(user.id, {
-          title: `💰 Vendeu ${fatStr} hoje!`,
-          body: `${pedidos} pedido${pedidos !== 1 ? "s" : ""} · Comissão: ${comStr}`,
-          tag: "vendas-dia",
-          url: "/",
-        }).catch(() => {});
+      // Push notification — dados de ONTEM
+      if (!r.error) {
+        const yesterday = shopeeEndDate(); // ontem BRT
+        try {
+          await runWithUser({ id: user.id, email: user.email }, async () => {
+            const dashOntem = await buildDashboard({
+              startDate: yesterday,
+              endDate: yesterday,
+              persist: false,
+              persistSubIds: false,
+            });
+            const com = Number(dashOntem.kpis?.comissao || 0);
+            const lucro = Number(dashOntem.kpis?.lucro || 0);
+            const pedidos = Number(dashOntem.kpis?.pedidos || 0);
+            if (com <= 0) return;
+            const comStr = com.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+            const lucroStr = lucro.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+            sendToUser(user.id, {
+              title: `💰 Ontem: Comissão ${comStr}`,
+              body: `Lucro Líquido: ${lucroStr}\n${pedidos} pedido${pedidos !== 1 ? "s" : ""} validado${pedidos !== 1 ? "s" : ""}`,
+              tag: "vendas-dia",
+              url: "/",
+            }).catch(() => {});
+          });
+        } catch (_) {}
       }
     } catch (e) {
       const msg = e.message || String(e);

@@ -268,6 +268,11 @@ async function requestHandler(req, res) {
       return;
     }
 
+    if (pathname === "/api/push/public-key" && req.method === "GET") {
+      sendJson(res, 200, { key: getPublicKey() });
+      return;
+    }
+
     if (pathname === "/api/auth/register" && req.method === "POST") {
       const body = await readBody(req);
       try {
@@ -653,8 +658,29 @@ async function requestHandler(req, res) {
           return;
         }
 
-        if (pathname === "/api/push/public-key" && req.method === "GET") {
-          sendJson(res, 200, { key: getPublicKey() });
+        if (pathname === "/api/push/test" && req.method === "POST") {
+          try {
+            const userId = require("./auth").requireUserId();
+            const { sendToUser } = require("./pushNotify");
+            const { shopeeEndDate } = require("./brtDates");
+            const { buildDashboard } = require("./metrics");
+            const yesterday = shopeeEndDate();
+            const dash = await buildDashboard({ startDate: yesterday, endDate: yesterday, persist: false, persistSubIds: false });
+            const com = Number(dash.kpis?.comissao || 0);
+            const lucro = Number(dash.kpis?.lucro || 0);
+            const pedidos = Number(dash.kpis?.pedidos || 0);
+            const comStr = com.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+            const lucroStr = lucro.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+            await sendToUser(userId, {
+              title: `💰 Ontem (${yesterday}): Comissão ${comStr}`,
+              body: `Lucro Líquido: ${lucroStr}\n${pedidos} pedido${pedidos !== 1 ? "s" : ""} validado${pedidos !== 1 ? "s" : ""}`,
+              tag: "vendas-dia",
+              url: "/",
+            });
+            sendJson(res, 200, { success: true, yesterday, com, lucro, pedidos });
+          } catch (err) {
+            sendJson(res, 400, { success: false, error: err.message });
+          }
           return;
         }
 
@@ -662,9 +688,12 @@ async function requestHandler(req, res) {
           try {
             const body = await readBody(req);
             const userId = require("./auth").requireUserId();
+            console.log("[push] subscribe userId:", userId, "endpoint:", body?.endpoint?.slice(0, 60));
             await saveSubscription(userId, body);
+            console.log("[push] gravado com sucesso");
             sendJson(res, 200, { success: true });
           } catch (err) {
+            console.warn("[push] subscribe erro:", err.message);
             sendJson(res, 400, { success: false, error: err.message });
           }
           return;
@@ -1102,5 +1131,38 @@ if (!process.env.VERCEL) {
     console.log(`  Auth: login/registro por conta`);
     console.log(`  Cada usuário: Shopee + Meta + dados isolados\n`);
     startLocalAutoSync();
+
+    // ── TESTE TEMPORÁRIO: dispara push às 10:30 BRT de hoje ──
+    const { sendToUser } = require("./pushNotify");
+    const { getSupabaseAdmin } = require("./auth");
+    (function scheduleTestPush() {
+      const now = new Date();
+      const target = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+      target.setHours(10, 55, 0, 0);
+      const nowBrt = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+      let delayMs = target - nowBrt;
+      if (delayMs < 0) delayMs = 5000;
+      console.log(`[test-push] disparando em ${Math.round(delayMs / 1000)}s`);
+      setTimeout(async () => {
+        try {
+          const sb = getSupabaseAdmin();
+          const { data } = await sb.from("push_subscriptions").select("user_id");
+          const userIds = [...new Set((data || []).map((r) => r.user_id))];
+          for (const uid of userIds) {
+            await sendToUser(uid, {
+              title: "💰 Vendeu R$ 2.487,90 hoje!",
+              body: "12 pedidos · Comissão: R$ 248,79\nShopee atualizado agora.",
+              tag: "vendas-dia",
+              url: "/",
+            });
+          }
+          console.log(`[test-push] enviado para ${userIds.length} usuário(s)`);
+        } catch (e) {
+          console.warn("[test-push] erro:", e.message);
+        }
+      }, delayMs);
+    })();
+    // ── FIM TESTE TEMPORÁRIO ──
+
   });
 }
