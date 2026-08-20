@@ -163,14 +163,17 @@
     }
 
     async function registerPush() {
-      if (!("Notification" in window)) return;
-
       // iOS exige a PWA instalada na Tela de Início antes de conseguir pedir
-      // permissão de notificação. Fora do modo standalone, orienta a instalar.
+      // permissão de notificação. Fora do modo standalone, o objeto
+      // `Notification` normalmente nem existe ainda no Safari — por isso essa
+      // checagem tem que vir ANTES do "Notification" in window, senão a gente
+      // nunca chega a mostrar a tela de instalar.
       if (_isIOS() && !_isStandalone()) {
         if (!localStorage.getItem("ios_install_dismissed")) _showIosInstallScreen();
         return;
       }
+
+      if (!("Notification" in window)) return;
 
       if (Notification.permission === "granted") {
         await _doRegister();
