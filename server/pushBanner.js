@@ -2,14 +2,14 @@
 
 const fs = require("fs");
 const path = require("path");
+const satori = require("satori").default || require("satori");
 const { Resvg } = require("@resvg/resvg-js");
 const embeddedFonts = require("./pushFontsEmbedded");
 
 const ICON_PATH = path.join(__dirname, "..", "public", "assets", "push", "shopee-icon.png");
-const FONT_NAMES = ["Inter-ExtraBold.woff", "Inter-Medium.woff"];
 
 let _iconB64 = null;
-let _fontBuffers = null;
+let _satoriFonts = null;
 
 function loadFontBuffer(name) {
   const disk = path.join(__dirname, "fonts", name);
@@ -19,10 +19,16 @@ function loadFontBuffer(name) {
   return null;
 }
 
-function getFontBuffers() {
-  if (_fontBuffers) return _fontBuffers;
-  _fontBuffers = FONT_NAMES.map(loadFontBuffer).filter(Boolean);
-  return _fontBuffers;
+function getSatoriFonts() {
+  if (_satoriFonts) return _satoriFonts;
+  const bold = loadFontBuffer("Inter-ExtraBold.woff");
+  const medium = loadFontBuffer("Inter-Medium.woff");
+  if (!bold || !medium) throw new Error("Fontes Inter não carregadas");
+  _satoriFonts = [
+    { name: "Inter", data: bold, weight: 800, style: "normal" },
+    { name: "Inter", data: medium, weight: 500, style: "normal" },
+  ];
+  return _satoriFonts;
 }
 
 function getIconB64() {
@@ -39,79 +45,110 @@ function fmtMoney(n) {
   return Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function escapeXml(s) {
-  return String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function buildBannerSvg({ com = 0, lucro = 0, pedidos = 0, date = "" }) {
+function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
   const comFmt = fmtMoney(com);
   const lucroFmt = fmtMoney(lucro);
-  const iconB64 = getIconB64();
-  const iconImg = iconB64
-    ? `<image href="data:image/png;base64,${iconB64}" x="28" y="28" width="62" height="62" preserveAspectRatio="xMidYMid meet"/>`
-    : "";
-  const subtitle = pedidos > 0
-    ? `Lucro Líquido: R$ ${lucroFmt} · ${pedidos} pedido${pedidos !== 1 ? "s" : ""}`
+  const pedidosNum = Number(pedidos || 0);
+  const subtitle = pedidosNum > 0
+    ? `Lucro Líquido: R$ ${lucroFmt} · ${pedidosNum} pedido${pedidosNum !== 1 ? "s" : ""}`
     : `Lucro Líquido: R$ ${lucroFmt}`;
-  const dateLine = date ? escapeXml(date) : "";
+  const iconB64 = getIconB64();
 
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="900" height="210" viewBox="0 0 900 210">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FF9142"/>
-      <stop offset="22%" stop-color="#FF7620"/>
-      <stop offset="52%" stop-color="#F5540D"/>
-      <stop offset="74%" stop-color="#E23F0D"/>
-      <stop offset="100%" stop-color="#C9330A"/>
-    </linearGradient>
-    <radialGradient id="shine" cx="8%" cy="15%" r="60%">
-      <stop offset="0%" stop-color="#FFC478" stop-opacity="0.55"/>
-      <stop offset="38%" stop-color="#FFC478" stop-opacity="0"/>
-    </radialGradient>
-    <filter id="blurA"><feGaussianBlur stdDeviation="9"/></filter>
-    <filter id="blurB"><feGaussianBlur stdDeviation="3"/></filter>
-    <linearGradient id="fita1" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
-      <stop offset="0.5" stop-color="#fff" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
-    </linearGradient>
-    <radialGradient id="coin" cx="32%" cy="28%" r="70%">
-      <stop offset="0%" stop-color="#FF9E52"/>
-      <stop offset="42%" stop-color="#FF6E1E"/>
-      <stop offset="78%" stop-color="#D8420D"/>
-      <stop offset="100%" stop-color="#A82A07"/>
-    </radialGradient>
-  </defs>
-  <rect width="900" height="210" fill="url(#bg)"/>
-  <rect width="900" height="210" fill="url(#shine)"/>
-  <path d="M120,150 C300,60 420,230 620,110 C760,30 850,90 940,40" fill="none" stroke="#fff" stroke-opacity="0.16" stroke-width="46" filter="url(#blurA)"/>
-  <path d="M60,190 C260,270 400,60 640,170 C800,240 900,150 980,190" fill="none" stroke="#fff" stroke-opacity="0.10" stroke-width="60" filter="url(#blurA)"/>
-  <path d="M150,120 C330,40 450,200 660,80 C790,10 880,70 950,20" fill="none" stroke="url(#fita1)" stroke-width="5" filter="url(#blurB)"/>
-  <path d="M100,175 C290,250 430,80 660,180 C820,250 910,170 970,205" fill="none" stroke="url(#fita1)" stroke-width="4" filter="url(#blurB)"/>
-  <radialGradient id="vin" cx="100%" cy="120%" r="120%">
-    <stop offset="0%" stop-color="#000" stop-opacity="0.28"/>
-    <stop offset="55%" stop-color="#000" stop-opacity="0"/>
-  </radialGradient>
-  <rect width="900" height="210" fill="url(#vin)"/>
-  <g transform="translate(42,46)">
-    <circle cx="59" cy="59" r="59" fill="url(#coin)" stroke="rgba(0,0,0,0.15)" stroke-width="1"/>
-    <circle cx="59" cy="59" r="48" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2"/>
-    <circle cx="42" cy="38" r="8" fill="rgba(255,255,255,0.9)"/>
-    ${iconImg}
-  </g>
-  <g transform="translate(160,52)">
-    <rect x="0" y="0" width="178" height="32" rx="16" fill="#fff"/>
-    <text x="14" y="21" font-family="Inter" font-size="13" font-weight="800" fill="#E8460F">COMISSÃO TOTAL</text>
-    <text x="0" y="88" font-family="Inter" font-size="52" font-weight="800" fill="#ffffff">R$ ${escapeXml(comFmt)}</text>
-    <text x="0" y="118" font-family="Inter" font-size="14" font-weight="500" fill="rgba(255,255,255,0.78)">${escapeXml(subtitle)}</text>
-    ${dateLine ? `<text x="0" y="140" font-family="Inter" font-size="12" font-weight="500" fill="rgba(255,255,255,0.55)">${dateLine}</text>` : ""}
-  </g>
-</svg>`;
+  const coinChild = iconB64
+    ? {
+        type: "img",
+        props: {
+          src: `data:image/png;base64,${iconB64}`,
+          width: 66,
+          height: 66,
+        },
+      }
+    : { type: "div", props: { style: { width: 66, height: 66 } } };
+
+  return {
+    type: "div",
+    props: {
+      style: {
+        width: "900px",
+        height: "210px",
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+        padding: "0 42px",
+        gap: "28px",
+        background:
+          "radial-gradient(120% 160% at 8% 15%, rgba(255,196,120,0.55) 0%, rgba(255,196,120,0) 38%), linear-gradient(128deg, #FF9142 0%, #FF7620 22%, #F5540D 52%, #E23F0D 74%, #C9330A 100%)",
+        fontFamily: "Inter",
+      },
+      children: [
+        {
+          type: "div",
+          props: {
+            style: {
+              width: "118px",
+              height: "118px",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "radial-gradient(circle at 32% 28%, #FF9E52 0%, #FF6E1E 42%, #D8420D 78%, #A82A07 100%)",
+              flexShrink: 0,
+              boxShadow: "0 3px 0 rgba(0,0,0,0.25), 0 6px 14px rgba(0,0,0,0.35)",
+            },
+            children: coinChild,
+          },
+        },
+        {
+          type: "div",
+          props: {
+            style: { display: "flex", flexDirection: "column", gap: "10px", flex: 1 },
+            children: [
+              {
+                type: "div",
+                props: {
+                  style: {
+                    display: "flex",
+                    backgroundColor: "#ffffff",
+                    color: "#E8460F",
+                    fontWeight: 800,
+                    fontSize: "14px",
+                    padding: "8px 16px",
+                    borderRadius: "999px",
+                  },
+                  children: "COMISSÃO TOTAL",
+                },
+              },
+              {
+                type: "div",
+                props: {
+                  style: {
+                    fontSize: "52px",
+                    fontWeight: 800,
+                    color: "#ffffff",
+                    letterSpacing: "-1px",
+                    lineHeight: 1.05,
+                  },
+                  children: `R$ ${comFmt}`,
+                },
+              },
+              {
+                type: "div",
+                props: {
+                  style: {
+                    fontSize: "14px",
+                    fontWeight: 500,
+                    color: "rgba(255,255,255,0.78)",
+                    lineHeight: 1.35,
+                  },
+                  children: subtitle,
+                },
+              },
+            ],
+          },
+        },
+      ],
+    },
+  };
 }
 
 function buildCoinSvg(size) {
@@ -144,43 +181,38 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 
 function bannerCacheKey(params) {
   const { com, lucro, pedidos, date } = params;
-  return `${Number(com).toFixed(2)}|${Number(lucro).toFixed(2)}|${pedidos}|${date || ""}`;
+  return `${Number(com).toFixed(2)}|${Number(lucro).toFixed(2)}|${pedidos}|${date || ""}|satori`;
 }
 
-function renderSvgToPng(svg, width) {
-  const fonts = getFontBuffers();
-  if (!fonts.length) {
-    throw new Error("Fontes Inter não carregadas");
-  }
-  const resvg = new Resvg(svg, {
-    fitTo: width ? { mode: "width", value: width } : undefined,
-    font: {
-      loadSystemFonts: false,
-      fontBuffers: fonts,
-      defaultFontFamily: "Inter",
-    },
-  });
-  return resvg.render().asPng();
-}
-
-function renderCommissionBannerPng(params = {}) {
+async function renderCommissionBannerPng(params = {}) {
   const key = bannerCacheKey(params);
   const hit = _cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.buf;
 
-  const svg = buildBannerSvg(params);
-  const buf = renderSvgToPng(svg, 900);
+  const svg = await satori(buildBannerElement(params), {
+    width: 900,
+    height: 210,
+    fonts: getSatoriFonts(),
+  });
+
+  const buf = new Resvg(svg, {
+    fitTo: { mode: "width", value: 900 },
+    font: { loadSystemFonts: false },
+  }).render().asPng();
+
   _cache.set(key, { buf, at: Date.now() });
   return buf;
 }
 
 function renderCoinPng(size) {
   const svg = buildCoinSvg(size);
-  return renderSvgToPng(svg, size);
+  return new Resvg(svg, {
+    fitTo: { mode: "width", value: size },
+    font: { loadSystemFonts: false },
+  }).render().asPng();
 }
 
 module.exports = {
-  buildBannerSvg,
   renderCommissionBannerPng,
   renderCoinPng,
   bannerCacheKey,

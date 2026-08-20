@@ -281,7 +281,7 @@ async function requestHandler(req, res) {
         const lucro = Number(url.searchParams.get("lucro") || 0);
         const pedidos = Number(url.searchParams.get("pedidos") || 0);
         const date = String(url.searchParams.get("d") || "");
-        const buf = renderCommissionBannerPng({ com, lucro, pedidos, date });
+        const buf = await renderCommissionBannerPng({ com, lucro, pedidos, date });
         res.writeHead(200, {
           "Content-Type": "image/png",
           "Cache-Control": "public, max-age=300, stale-while-revalidate=3600",
