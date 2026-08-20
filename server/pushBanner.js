@@ -5,7 +5,18 @@ const path = require("path");
 const { Resvg } = require("@resvg/resvg-js");
 
 const ICON_PATH = path.join(__dirname, "..", "public", "assets", "push", "shopee-icon.png");
+const FONT_BOLD = path.join(__dirname, "fonts", "Inter-ExtraBold.woff");
+const FONT_MEDIUM = path.join(__dirname, "fonts", "Inter-Medium.woff");
 let _iconB64 = null;
+let _fontBuffers = null;
+
+function getFontBuffers() {
+  if (_fontBuffers) return _fontBuffers;
+  _fontBuffers = [FONT_BOLD, FONT_MEDIUM]
+    .filter((f) => fs.existsSync(f))
+    .map((f) => fs.readFileSync(f));
+  return _fontBuffers;
+}
 
 function getIconB64() {
   if (_iconB64) return _iconB64;
@@ -87,10 +98,10 @@ function buildBannerSvg({ com = 0, lucro = 0, pedidos = 0, date = "" }) {
   </g>
   <g transform="translate(160,52)">
     <rect x="0" y="0" width="178" height="32" rx="16" fill="#fff"/>
-    <text x="14" y="21" font-family="Inter,Segoe UI,Roboto,sans-serif" font-size="13" font-weight="800" fill="#E8460F" letter-spacing="0.5">COMISSÃO TOTAL</text>
-    <text x="0" y="88" font-family="Inter,Segoe UI,Roboto,sans-serif" font-size="52" font-weight="800" fill="#fff" letter-spacing="-1">R$ ${escapeXml(comFmt)}</text>
-    <text x="0" y="118" font-family="Inter,Segoe UI,Roboto,sans-serif" font-size="14" fill="rgba(255,255,255,0.78)">${escapeXml(subtitle)}</text>
-    ${dateLine ? `<text x="0" y="140" font-family="Inter,Segoe UI,Roboto,sans-serif" font-size="12" fill="rgba(255,255,255,0.55)">${dateLine}</text>` : ""}
+    <text x="14" y="21" font-family="Inter" font-size="13" font-weight="800" fill="#E8460F" letter-spacing="0.5">COMISSÃO TOTAL</text>
+    <text x="0" y="88" font-family="Inter" font-size="52" font-weight="800" fill="#fff" letter-spacing="-1">R$ ${escapeXml(comFmt)}</text>
+    <text x="0" y="118" font-family="Inter" font-size="14" font-weight="500" fill="rgba(255,255,255,0.78)">${escapeXml(subtitle)}</text>
+    ${dateLine ? `<text x="0" y="140" font-family="Inter" font-size="12" font-weight="500" fill="rgba(255,255,255,0.55)">${dateLine}</text>` : ""}
   </g>
 </svg>`;
 }
@@ -131,7 +142,11 @@ function bannerCacheKey(params) {
 function renderSvgToPng(svg, width) {
   const resvg = new Resvg(svg, {
     fitTo: width ? { mode: "width", value: width } : undefined,
-    font: { loadSystemFonts: true },
+    font: {
+      loadSystemFonts: false,
+      fontBuffers: getFontBuffers(),
+      defaultFontFamily: "Inter",
+    },
   });
   return resvg.render().asPng();
 }
