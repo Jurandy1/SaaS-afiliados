@@ -7,7 +7,7 @@ const fontsDir = path.join(__dirname, "..", "server", "fonts");
 const iconPath = path.join(__dirname, "..", "public", "assets", "push", "shopee-icon.png");
 const outFile = path.join(__dirname, "..", "server", "pushFontsEmbedded.js");
 
-const files = ["Inter-ExtraBold.woff", "Inter-Medium.woff"];
+const files = ["Inter-ExtraBold.ttf", "Inter-Medium.ttf"];
 const entries = files.map((name) => {
   const buf = fs.readFileSync(path.join(fontsDir, name));
   return `  ${JSON.stringify(name)}: ${JSON.stringify(buf.toString("base64"))},`;

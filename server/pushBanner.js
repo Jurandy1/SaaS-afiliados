@@ -21,8 +21,8 @@ function loadFontBuffer(name) {
 
 function getSatoriFonts() {
   if (_satoriFonts) return _satoriFonts;
-  const bold = loadFontBuffer("Inter-ExtraBold.woff");
-  const medium = loadFontBuffer("Inter-Medium.woff");
+  const bold = loadFontBuffer("Inter-ExtraBold.ttf");
+  const medium = loadFontBuffer("Inter-Medium.ttf");
   if (!bold || !medium) throw new Error("Fontes Inter não carregadas");
   _satoriFonts = [
     { name: "Inter", data: bold, weight: 800, style: "normal" },
