@@ -3240,7 +3240,8 @@ html, body { max-width: 100%; overflow-x: hidden; }
   z-index: 99999;
   box-shadow: 0 2px 12px rgba(0,0,0,.2);
 }
-.push-perm-banner span { flex: 1; }
+.push-perm-banner span { flex: 1; display: inline-flex; align-items: center; gap: 8px; }
+.push-perm-banner span i { color: #fb923c; }
 .push-perm-banner #push-perm-allow {
   background: #ee4d2d;
   color: #fff;
@@ -3326,9 +3327,17 @@ html, body { max-width: 100%; overflow-x: hidden; }
   gap: 14px;
 }
 .ios-install-screen__features li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: 14px;
   font-weight: 600;
   color: #e2e8f0;
+}
+.ios-install-screen__features li i {
+  width: 1.25rem;
+  text-align: center;
+  color: #ee4d2d;
 }
 .ios-install-screen__cta {
   width: 100%;
@@ -3342,6 +3351,10 @@ html, body { max-width: 100%; overflow-x: hidden; }
   letter-spacing: 0.3px;
   cursor: pointer;
   box-shadow: 0 10px 30px rgba(238,77,45,0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 .ios-install-screen__cta:hover { filter: brightness(1.05); }
 .ios-install-screen__note {
@@ -3432,7 +3445,12 @@ html, body { max-width: 100%; overflow-x: hidden; }
   font-size: 13px;
   font-weight: 600;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
+.ios-install-done i { color: #16a34a; }
 
 /* ─── Sync Toast Notifications ─── */
 #sync-toast-container {

@@ -22,11 +22,8 @@
     }
 
     // No iOS, o Web Push só funciona depois que o usuário instala a PWA na
-    // Tela de Início (senão Notification.requestPermission nem funciona
-    // direito dentro de uma aba comum do Safari). Por isso, em vez de mostrar
-    // o banner de "ativar notificações" (que falharia silenciosamente),
-    // mostramos uma tela cheia convidando a instalar primeiro. Só roda em
-    // iOS fora do modo standalone — Android nunca vê isso.
+    // Tela de Início. Fora do modo standalone, orientamos a instalar primeiro.
+    // Android nunca vê essa tela.
     function _showIosInstallScreen() {
       if (document.getElementById("ios-install-screen")) return;
 
@@ -35,21 +32,26 @@
       screen.className = "ios-install-screen";
       screen.innerHTML = `
         <div class="ios-install-screen__card">
-          <button class="ios-install-screen__skip" id="ios-install-skip" title="Agora não">✕</button>
+          <button type="button" class="ios-install-screen__skip" id="ios-install-skip" title="Agora não" aria-label="Fechar">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          </button>
           <div class="ios-install-screen__brand">
-            <img src="/assets/push/shopee-coin-192.png" alt="" width="56" height="56" />
+            <img src="/assets/SHOPLUTICS.png" alt="" width="56" height="56" />
             <span>Shopylitcs</span>
           </div>
           <h2>Instale o Shopylitcs<br />no seu iPhone</h2>
-          <p class="ios-install-screen__sub">Acompanhe suas comissões e lucro, e receba notificações importantes direto na Tela de Início — sem precisar abrir o Safari toda vez.</p>
+          <p class="ios-install-screen__sub">Acompanhe suas comissões e lucro, e receba notificações importantes direto na Tela de Início, sem precisar abrir o Safari toda vez.</p>
           <ul class="ios-install-screen__features">
-            <li>📊 Dashboard completo</li>
-            <li>💰 Acompanhe comissão e lucro</li>
-            <li>🔔 Receba notificações importantes</li>
-            <li>📈 Relatórios e indicadores</li>
+            <li><i class="fa-solid fa-gauge-high" aria-hidden="true"></i><span>Dashboard completo</span></li>
+            <li><i class="fa-solid fa-coins" aria-hidden="true"></i><span>Acompanhe comissão e lucro</span></li>
+            <li><i class="fa-solid fa-bell" aria-hidden="true"></i><span>Receba notificações importantes</span></li>
+            <li><i class="fa-solid fa-chart-column" aria-hidden="true"></i><span>Relatórios e indicadores</span></li>
           </ul>
-          <button class="ios-install-screen__cta" id="ios-install-cta">INSTALAR AGORA ⬆️</button>
-          <p class="ios-install-screen__note">É o mesmo sistema de sempre — só que como app, sem barra de endereço.</p>
+          <button type="button" class="ios-install-screen__cta" id="ios-install-cta">
+            <span>INSTALAR AGORA</span>
+            <i class="fa-solid fa-arrow-up" aria-hidden="true"></i>
+          </button>
+          <p class="ios-install-screen__note">É o mesmo sistema de sempre, só que como app, sem barra de endereço.</p>
         </div>`;
       document.body.appendChild(screen);
       document.getElementById("ios-install-cta").addEventListener("click", () => {
@@ -69,7 +71,9 @@
       overlay.className = "ios-install-overlay";
       overlay.innerHTML = `
         <div class="ios-install-modal">
-          <button class="ios-install-close" title="Fechar">✕</button>
+          <button type="button" class="ios-install-close" title="Fechar" aria-label="Fechar">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          </button>
           <h3>Como instalar</h3>
           <div class="ios-install-step">
             <div class="ios-install-step__num">1</div>
@@ -77,17 +81,20 @@
           </div>
           <div class="ios-install-step">
             <div class="ios-install-step__num">2</div>
-            <div class="ios-install-step__text">Toque no botão <strong>Compartilhar</strong> ⬆️</div>
+            <div class="ios-install-step__text">Toque no botão <strong>Compartilhar</strong></div>
           </div>
           <div class="ios-install-step">
             <div class="ios-install-step__num">3</div>
-            <div class="ios-install-step__text">Role para baixo e toque em <strong>➕ Adicionar à Tela de Início</strong></div>
+            <div class="ios-install-step__text">Role para baixo e toque em <strong>Adicionar à Tela de Início</strong></div>
           </div>
           <div class="ios-install-step">
             <div class="ios-install-step__num">4</div>
             <div class="ios-install-step__text">Toque em <strong>Adicionar</strong> no canto superior</div>
           </div>
-          <div class="ios-install-done">🎉 Pronto! Abra pelo ícone do Shopylitcs na Tela de Início.</div>
+          <div class="ios-install-done">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            <span>Pronto! Abra pelo ícone do Shopylitcs na Tela de Início.</span>
+          </div>
         </div>`;
       document.body.appendChild(overlay);
       const close = () => overlay.remove();
@@ -96,7 +103,7 @@
     }
 
     // Primeira abertura pelo ícone (modo standalone) sem permissão ainda
-    // concedida — convida a ativar notificações.
+    // concedida: convida a ativar notificações.
     function _showIosWelcomeIfNeeded() {
       if (!_isIOS() || !_isStandalone()) return;
       if (Notification.permission !== "default") return;
@@ -114,9 +121,9 @@
       banner.id = "push-perm-banner";
       banner.innerHTML = `
         <div class="push-perm-banner">
-          <span>🔔 Ative as notificações para receber alertas de vendas no celular</span>
+          <span><i class="fa-solid fa-bell" aria-hidden="true"></i> Ative as notificações para receber alertas de vendas no celular</span>
           <button id="push-perm-allow">Ativar</button>
-          <button id="push-perm-dismiss" title="Fechar">✕</button>
+          <button id="push-perm-dismiss" title="Fechar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
         </div>`;
       document.body.prepend(banner);
       document.getElementById("push-perm-allow").addEventListener("click", () => {
@@ -1640,7 +1647,7 @@
       <h2>Conecte sua API do Claude</h2>
       <p>Cada conta usa a própria key da Anthropic (igual Shopee e Meta). Não há key global no servidor.</p>
       <div class="ia-chat-suggestions" id="ia-chat-suggestions">
-        <button type="button" class="ia-chip" data-ia-goto-config="1">Abrir Configurações → Conexões</button>
+        <button type="button" class="ia-chip" data-ia-goto-config="1">Abrir Configurações, Conexões</button>
       </div>
     </div>`;
     }
@@ -1732,7 +1739,7 @@
       const st = $("#ia-chat-status");
       if (st) {
         st.className = "ia-chat-status is-err";
-        st.textContent = "Salve a sua API key do Claude em Configurações → Conexões (cada usuário configura a própria).";
+        st.textContent = "Salve a sua API key do Claude em Configurações, Conexões (cada usuário configura a própria).";
       }
       openConfig("conexoes");
       return;
