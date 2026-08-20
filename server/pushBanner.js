@@ -69,6 +69,19 @@ function getIconDataUri() {
   return `data:${getIconMime(b64)};base64,${b64}`;
 }
 
+function getCoinDataUri() {
+  const disk = path.join(__dirname, "..", "public", "assets", "push", "shopee-coin-118.png");
+  let b64 = "";
+  if (fs.existsSync(disk)) {
+    b64 = fs.readFileSync(disk).toString("base64");
+  } else if (embeddedFonts["shopee-coin-118.png"]) {
+    b64 = embeddedFonts["shopee-coin-118.png"];
+  } else {
+    b64 = renderCoinPng(118).toString("base64");
+  }
+  return b64 ? `data:image/png;base64,${b64}` : "";
+}
+
 function fmtMoney(n) {
   return Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -80,18 +93,29 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
   const subtitle = pedidosNum > 0
     ? `Lucro Líquido: R$ ${lucroFmt} · ${pedidosNum} pedido${pedidosNum !== 1 ? "s" : ""}`
     : `Lucro Líquido: R$ ${lucroFmt}`;
-  const iconUri = getIconDataUri();
+  const coinUri = getCoinDataUri();
 
-  const coinChild = iconUri
+  const coinNode = coinUri
     ? {
         type: "img",
         props: {
-          src: iconUri,
-          width: 66,
-          height: 66,
+          src: coinUri,
+          width: 118,
+          height: 118,
         },
       }
-    : { type: "div", props: { style: { width: 66, height: 66 } } };
+    : {
+        type: "div",
+        props: {
+          style: {
+            width: "118px",
+            height: "118px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle at 32% 28%, #FF9E52, #A82A07)",
+            flexShrink: 0,
+          },
+        },
+      };
 
   return {
     type: "div",
@@ -109,23 +133,7 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
         fontFamily: "Geist",
       },
       children: [
-        {
-          type: "div",
-          props: {
-            style: {
-              width: "118px",
-              height: "118px",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "radial-gradient(circle at 32% 28%, #FF9E52 0%, #FF6E1E 42%, #D8420D 78%, #A82A07 100%)",
-              flexShrink: 0,
-              boxShadow: "0 3px 0 rgba(0,0,0,0.25), 0 6px 14px rgba(0,0,0,0.35)",
-            },
-            children: coinChild,
-          },
-        },
+        coinNode,
         {
           type: "div",
           props: {

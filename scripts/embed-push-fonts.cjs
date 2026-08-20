@@ -12,8 +12,11 @@ const geistPath = fs.existsSync(path.join(fontsDir, "Geist-Regular.ttf"))
   ? path.join(fontsDir, "Geist-Regular.ttf")
   : geistSrc;
 
+const coinPath = path.join(__dirname, "..", "public", "assets", "push", "shopee-coin-118.png");
+
 const geistB64 = fs.readFileSync(geistPath).toString("base64");
 const iconB64 = fs.readFileSync(iconPath).toString("base64");
+const coinB64 = fs.existsSync(coinPath) ? fs.readFileSync(coinPath).toString("base64") : "";
 
 const src = `"use strict";
 
@@ -21,6 +24,7 @@ const src = `"use strict";
 module.exports = {
   "Geist-Regular.ttf": ${JSON.stringify(geistB64)},
   "shopee-icon.png": ${JSON.stringify(iconB64)},
+  "shopee-coin-118.png": ${JSON.stringify(coinB64)},
 };
 `;
 
