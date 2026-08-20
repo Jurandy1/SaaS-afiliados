@@ -38,6 +38,15 @@ create table if not exists push_subscriptions (
 );
 create index if not exists idx_push_sub_user on push_subscriptions(user_id);
 
+create table if not exists push_notify_state (
+  user_id uuid not null,
+  kind text not null default 'comissao-ontem',
+  date_key text not null,
+  fingerprint text not null,
+  notified_at timestamptz not null default now(),
+  primary key (user_id, kind, date_key)
+);
+
 notify pgrst, 'reload schema';
 `;
 

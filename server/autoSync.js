@@ -13,7 +13,7 @@ const { buildDashboard } = require("./metrics");
 const { syncMetaDaily, metaCredentialsPublic } = require("./meta");
 const { credentialsPublic } = require("./store");
 const { shopeeEndDate, brtSubtractDays } = require("./brtDates");
-const { sendToUser } = require("./pushNotify");
+const { notifyYesterdayCommission } = require("./pushCommission");
 
 const LOCAL_INTERVAL_MS = Number(process.env.AUTO_SYNC_INTERVAL_MS || 2 * 60 * 60 * 1000);
 const LOCAL_BOOT_DELAY_MS = Number(process.env.AUTO_SYNC_BOOT_DELAY_MS || 20_000);
@@ -107,32 +107,13 @@ async function runAutoSync({ mode = "daily" } = {}) {
       console.log(
         `[autoSync] ${user.email}: shopee nodes=${r.shopee?.nodes ?? "—"} meta=${r.meta?.gravados ?? r.meta?.error ?? "skip"}`,
       );
-      // Push notification — dados de ONTEM
+      // Push — quando comissão de ontem chega / muda
       if (!r.error) {
-        const yesterday = shopeeEndDate(); // ontem BRT
         try {
-          await runWithUser({ id: user.id, email: user.email }, async () => {
-            const dashOntem = await buildDashboard({
-              startDate: yesterday,
-              endDate: yesterday,
-              persist: false,
-              persistSubIds: false,
-            });
-            const com = Number(dashOntem.kpis?.comissao || 0);
-            const lucro = Number(dashOntem.kpis?.lucro || 0);
-            const pedidos = Number(dashOntem.kpis?.pedidos || 0);
-            if (com <= 0) return;
-            const { buildCommissionPush, getPushBaseUrl } = require("./pushPayload");
-            const payload = buildCommissionPush({
-              com,
-              lucro,
-              pedidos,
-              date: yesterday,
-              baseUrl: getPushBaseUrl(),
-            });
-            sendToUser(user.id, payload).catch(() => {});
-          });
-        } catch (_) {}
+          await notifyYesterdayCommission(user.id, { email: user.email });
+        } catch (e) {
+          console.warn(`[push] ${user.email}:`, e.message || e);
+        }
       }
     } catch (e) {
       const msg = e.message || String(e);

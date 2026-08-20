@@ -681,24 +681,14 @@ async function requestHandler(req, res) {
         if (pathname === "/api/push/test" && req.method === "POST") {
           try {
             const userId = require("./auth").requireUserId();
-            const { sendToUser } = require("./pushNotify");
-            const { shopeeEndDate } = require("./brtDates");
-            const { buildDashboard } = require("./metrics");
-            const { buildCommissionPush, getPushBaseUrl } = require("./pushPayload");
-            const yesterday = shopeeEndDate();
-            const dash = await buildDashboard({ startDate: yesterday, endDate: yesterday, persist: false, persistSubIds: false });
-            const com = Number(dash.kpis?.comissao || 0);
-            const lucro = Number(dash.kpis?.lucro || 0);
-            const pedidos = Number(dash.kpis?.pedidos || 0);
-            const payload = buildCommissionPush({
-              com,
-              lucro,
-              pedidos,
-              date: yesterday,
+            const { notifyYesterdayCommission } = require("./pushCommission");
+            const { getPushBaseUrl } = require("./pushPayload");
+            const result = await notifyYesterdayCommission(userId, {
+              force: true,
               baseUrl: getPushBaseUrl(req),
+              req,
             });
-            await sendToUser(userId, payload);
-            sendJson(res, 200, { success: true, yesterday, com, lucro, pedidos, payload });
+            sendJson(res, 200, { success: true, ...result });
           } catch (err) {
             sendJson(res, 400, { success: false, error: err.message });
           }

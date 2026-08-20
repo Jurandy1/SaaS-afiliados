@@ -36,12 +36,21 @@ Write-Host "Projeto: $ProjectId  região: $Region  serviço: $Service"
 gcloud config set project $ProjectId | Out-Null
 gcloud services enable run.googleapis.com cloudscheduler.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com --project $ProjectId
 
-$envVars = @(
+$envList = @(
   "SUPABASE_URL=$($envMap.SUPABASE_URL)",
   "SUPABASE_SERVICE_ROLE_KEY=$($envMap.SUPABASE_SERVICE_ROLE_KEY)",
   "CRON_SECRET=$($envMap.CRON_SECRET)",
   "AUTO_SYNC_DISABLE=1"
-) -join ","
+)
+if ($envMap.VAPID_PUBLIC_KEY) { $envList += "VAPID_PUBLIC_KEY=$($envMap.VAPID_PUBLIC_KEY)" }
+if ($envMap.VAPID_PRIVATE_KEY) { $envList += "VAPID_PRIVATE_KEY=$($envMap.VAPID_PRIVATE_KEY)" }
+if ($envMap.VAPID_MAILTO) { $envList += "VAPID_MAILTO=$($envMap.VAPID_MAILTO)" }
+$publicBase = if ($envMap.PUBLIC_BASE_URL) { $envMap.PUBLIC_BASE_URL } else { "https://saa-s-afiliados.vercel.app" }
+$envList += "PUBLIC_BASE_URL=$publicBase"
+if (-not $envMap.VAPID_PUBLIC_KEY -or -not $envMap.VAPID_PRIVATE_KEY) {
+  Write-Host "AVISO: VAPID_* ausente no .env — push de comissão NÃO vai funcionar no Cloud Run" -ForegroundColor Yellow
+}
+$envVars = $envList -join ","
 
 $Repo = "saas-afiliados"
 $Image = "$Region-docker.pkg.dev/$ProjectId/$Repo/$Service"

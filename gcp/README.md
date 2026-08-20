@@ -32,7 +32,9 @@ Na pasta do SaaS:
 O script:
 - sobe o worker em Cloud Run (`southamerica-east1`)
 - cria os 2 jobs do Cloud Scheduler
-- lê `SUPABASE_*` e `CRON_SECRET` do `.env` local (não grava secret no Git)
+- lê `SUPABASE_*`, `CRON_SECRET`, `VAPID_*` e `PUBLIC_BASE_URL` do `.env` local (não grava secret no Git)
+
+**Importante para push:** sem `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` no `.env` (iguais à Vercel), o sync roda mas **não envia notificação**.
 
 Timeout do Cloud Run: **15 min** (Shopee com várias contas).
 

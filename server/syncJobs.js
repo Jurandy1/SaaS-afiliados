@@ -6,6 +6,8 @@ const { buildDashboard } = require("./metrics");
 const { syncMetaDaily, metaCredentialsPublic } = require("./meta");
 const { attachMtdKpis } = require("./store");
 const { enrichDashboardWithAds } = require("./finance");
+const { notifyYesterdayCommission } = require("./pushCommission");
+const { getPushBaseUrl } = require("./pushPayload");
 
 async function markJob(userId, startDate, endDate, status, extra = {}) {
   const supabase = getSupabase();
@@ -69,7 +71,13 @@ async function runUserDashboardSync({ startDate, endDate }, userId = requireUser
       pages: dash.pages || 0,
       kpis: { metaError: metaSync?.error || null },
     });
-    return { success: true, metaSync, nodes: dash.nodes || 0 };
+    let push = null;
+    try {
+      push = await notifyYesterdayCommission(userId, { baseUrl: getPushBaseUrl() });
+    } catch (e) {
+      console.warn("[push] após sync manual:", e.message || e);
+    }
+    return { success: true, metaSync, nodes: dash.nodes || 0, push };
   } catch (err) {
     await markJob(userId, startDate, endDate, "error", { error: err.message || String(err) }).catch(() => {});
     throw err;

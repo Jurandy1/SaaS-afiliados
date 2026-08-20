@@ -27,6 +27,7 @@ function loadEnv() {
 loadEnv();
 
 const { runAutoSync, cronAuthorized } = require("../server/autoSync");
+const { ensureConfigSchema } = require("../server/ensureDb");
 
 const PORT = Number(process.env.PORT || 8080);
 
@@ -68,4 +69,9 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`[gcp-sync] Cloud Run worker na porta ${PORT}`);
+  ensureConfigSchema().then(() => {
+    console.log("[gcp-sync] schema ok");
+  }).catch((e) => {
+    console.warn("[gcp-sync] ensureDb:", e.message || e);
+  });
 });
