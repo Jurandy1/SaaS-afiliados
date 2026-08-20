@@ -272,10 +272,12 @@
   function applyTheme(mode) {
     const html = document.documentElement;
     const icon = $("#theme-icon");
+    const mIcon = $("#m-theme-icon");
     const dark = mode === "dark";
     html.classList.toggle("dark", dark);
     html.classList.toggle("light", !dark);
     if (icon) icon.className = dark ? "fa-solid fa-sun text-xs" : "fa-solid fa-moon text-xs";
+    if (mIcon) mIcon.className = dark ? "fa-solid fa-sun" : "fa-solid fa-moon";
     try { localStorage.setItem(THEME_KEY, dark ? "dark" : "light"); } catch (_) { /* ignore */ }
     if (state.chartInstance) {
       state.chartInstance.options.scales.y.grid.color = chartGridColor();
@@ -320,6 +322,10 @@
       adminLink.classList.toggle("hidden", !isAdmin);
       $("#btn-logout")?.classList.toggle("col-span-2", isAdmin ? false : true);
     }
+    const mAdmin = $("#m-admin-entry");
+    if (mAdmin) mAdmin.classList.toggle("hidden", !isAdmin);
+    MobileChrome.show(true);
+    MobileChrome.syncTabs();
   }
   function setSidebarOpen(open) {
     document.body.classList.toggle("sidebar-open", !!open);
@@ -331,8 +337,415 @@
     $("#btn-sidebar-open")?.setAttribute("aria-expanded", open ? "true" : "false");
   }
 
+  const MobileChrome = (() => {
+    const MQ = "(max-width: 767px)";
+    let openSheetId = null;
+    let keyboardWired = false;
+
+    function isMobile() {
+      return window.matchMedia(MQ).matches;
+    }
+
+    function setKeyboardOpen(on) {
+      document.body.classList.toggle("m-keyboard-open", !!on);
+    }
+
+    function syncKeyboard() {
+      if (!isMobile()) {
+        setKeyboardOpen(false);
+        return;
+      }
+      const vv = window.visualViewport;
+      if (!vv) return;
+      /* Teclado virtual reduz o visualViewport; margem evita falso positivo em barras do browser */
+      const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKeyboardOpen(covered > 120);
+    }
+
+    function show(on) {
+      const nav = $("#m-bottom-nav");
+      if (!nav) return;
+      if (on && isMobile()) nav.removeAttribute("hidden");
+      else nav.setAttribute("hidden", "");
+      if (!on) {
+        closeSheets();
+        setKeyboardOpen(false);
+      }
+    }
+
+    function closeSheets() {
+      const had = !!openSheetId;
+      closeSheetsQuiet();
+      if (had && history.state?.mSheet) {
+        history.replaceState(null, "");
+      }
+    }
+
+    function openSheet(id) {
+      if (!isMobile()) return;
+      closeSheetsQuiet();
+      const el = document.getElementById(id);
+      const bd = $("#m-sheet-backdrop");
+      if (!el) return;
+      if (id === "m-menu-sheet") {
+        const mail = $("#m-user-email");
+        const user = getStoredUser();
+        if (mail) mail.textContent = user?.email || "";
+      }
+      el.removeAttribute("hidden");
+      if (bd) bd.removeAttribute("hidden");
+      document.body.classList.add("m-sheet-open");
+      openSheetId = id;
+      if (history.state?.mSheet) history.replaceState({ mSheet: id }, "");
+      else history.pushState({ mSheet: id }, "");
+    }
+
+    function closeSheetsQuiet() {
+      ["m-menu-sheet", "m-campanhas-sheet", "m-info-sheet", "m-period-sheet", "m-ops-pick-sheet"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.setAttribute("hidden", "");
+      });
+      const bd = $("#m-sheet-backdrop");
+      if (bd) bd.setAttribute("hidden", "");
+      document.body.classList.remove("m-sheet-open");
+      openSheetId = null;
+    }
+
+    function openInfo(title, html) {
+      if (!isMobile()) return;
+      const el = $("#m-info-sheet");
+      if (!el) return;
+      const titleEl = $("#m-info-title");
+      const bodyEl = $("#m-info-body");
+      if (titleEl) titleEl.textContent = title || "Informação";
+      if (bodyEl) bodyEl.innerHTML = html || "";
+      openSheet("m-info-sheet");
+    }
+
+    function syncTabs() {
+      const navKey = state.navKey || state.view || "dashboard";
+      const channelKeys = ["campanhas-meta", "campanhas-pinterest", "campanhas-organicas"];
+      let tab = "dashboard";
+      if (channelKeys.includes(navKey)) tab = "campanhas";
+      else if (navKey === "supercomissoes") tab = "supercomissoes";
+      else if (navKey === "analise-ia") tab = "analise-ia";
+      else if (navKey === "dashboard") tab = "dashboard";
+      else tab = "menu";
+
+      $$("#m-bottom-nav .m-tab").forEach((btn) => {
+        const active = btn.dataset.mTab === tab;
+        btn.classList.toggle("is-active", active);
+        if (active) btn.setAttribute("aria-current", "page");
+        else btn.removeAttribute("aria-current");
+      });
+    }
+
+    function onTabClick(tab) {
+      if (tab === "menu") {
+        openSheet("m-menu-sheet");
+        return;
+      }
+      if (tab === "campanhas") {
+        openSheet("m-campanhas-sheet");
+        return;
+      }
+      closeSheetsQuiet();
+      setView(tab);
+    }
+
+    function wire() {
+      const nav = $("#m-bottom-nav");
+      if (!nav) return;
+      nav.querySelectorAll(".m-tab").forEach((btn) => {
+        btn.addEventListener("click", () => onTabClick(btn.dataset.mTab));
+      });
+      $("#m-sheet-backdrop")?.addEventListener("click", () => closeSheets());
+      document.querySelectorAll("[data-m-close]").forEach((btn) => {
+        btn.addEventListener("click", () => closeSheets());
+      });
+      document.querySelectorAll("[data-m-view]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const view = btn.dataset.mView;
+          closeSheetsQuiet();
+          if (view) setView(view);
+        });
+      });
+      $("#m-btn-logout")?.addEventListener("click", () => {
+        closeSheetsQuiet();
+        $("#btn-logout")?.click();
+      });
+      $("#m-btn-theme")?.addEventListener("click", () => {
+        $("#theme-toggle")?.click();
+      });
+      window.addEventListener("popstate", () => {
+        if (openSheetId) closeSheetsQuiet();
+      });
+      window.addEventListener("resize", () => {
+        const shell = $("#app-shell");
+        const visible = shell && !shell.classList.contains("hidden");
+        show(!!visible);
+        if (!isMobile()) closeSheetsQuiet();
+        syncKeyboard();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && openSheetId) {
+          e.preventDefault();
+          closeSheets();
+        }
+      });
+      if (!keyboardWired) {
+        keyboardWired = true;
+        const vv = window.visualViewport;
+        if (vv) {
+          vv.addEventListener("resize", syncKeyboard);
+          vv.addEventListener("scroll", syncKeyboard);
+        }
+        document.addEventListener("focusin", (e) => {
+          if (!isMobile()) return;
+          const t = e.target;
+          if (t && (t.matches("input, textarea, select") || t.isContentEditable)) {
+            /* iOS pode atrasar o visualViewport — recheca após abrir teclado */
+            setTimeout(syncKeyboard, 300);
+          }
+        });
+        document.addEventListener("focusout", () => {
+          setTimeout(syncKeyboard, 300);
+        });
+      }
+    }
+
+    return { show, syncTabs, openSheet, openInfo, closeSheets, closeSheetsQuiet, wire, isMobile };
+  })();
+
+  const MobilePeriod = (() => {
+    const MONTHS = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    let wired = false;
+    let viewYM = null; // "YYYY-MM"
+    let draftStart = "";
+    let draftEnd = "";
+    let pickingCustom = false;
+    let touchX = null;
+
+    function maxISO() {
+      return yesterdayISO();
+    }
+
+    function parseISO(iso) {
+      if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+      const [y, m, d] = iso.split("-").map(Number);
+      return { y, m, d, iso };
+    }
+
+    function daysInMonth(y, m) {
+      return new Date(Date.UTC(y, m, 0)).getUTCDate();
+    }
+
+    function pad2(n) {
+      return String(n).padStart(2, "0");
+    }
+
+    function toISO(y, m, d) {
+      return `${y}-${pad2(m)}-${pad2(d)}`;
+    }
+
+    function cmp(a, b) {
+      return a < b ? -1 : a > b ? 1 : 0;
+    }
+
+    function syncLabel() {
+      const label = $("#m-period-label");
+      if (!label) return;
+      const key = state.periodPreset || "custom";
+      const start = $("#start-date")?.value;
+      const end = $("#end-date")?.value;
+      if (key === "custom" && start && end) {
+        label.textContent = start === end
+          ? brPeriodLabel(start)
+          : `${brPeriodLabel(start)} — ${brPeriodLabel(end)}`;
+      } else {
+        label.textContent = PRESET_SUBTITLES[key] || PRESET_SUBTITLES.custom;
+      }
+    }
+
+    function updateSummary() {
+      const el = $("#m-period-summary-range");
+      const hint = $("#m-period-summary-hint");
+      if (el) {
+        if (draftStart && draftEnd) {
+          el.textContent = draftStart === draftEnd
+            ? brShortDateFull(draftStart)
+            : `${brShortDateFull(draftStart)} → ${brShortDateFull(draftEnd)}`;
+        } else if (draftStart) {
+          el.textContent = `${brShortDateFull(draftStart)} → …`;
+        } else {
+          el.textContent = "Selecione as datas";
+        }
+      }
+      if (hint) hint.textContent = `Dados até ${brShortDateFull(maxISO())}`;
+    }
+
+    function syncChips() {
+      const key = pickingCustom ? "custom" : (state.periodPreset || "custom");
+      $$("#m-period-chips .m-period-chip").forEach((btn) => {
+        btn.classList.toggle("is-active", btn.dataset.mRange === key);
+      });
+    }
+
+    function shiftMonth(delta) {
+      const [y, m] = viewYM.split("-").map(Number);
+      let ny = y;
+      let nm = m + delta;
+      if (nm < 1) { nm = 12; ny -= 1; }
+      if (nm > 12) { nm = 1; ny += 1; }
+      const next = `${ny}-${pad2(nm)}`;
+      if (delta > 0 && next > maxISO().slice(0, 7)) return;
+      viewYM = next;
+      paintCalendar();
+    }
+
+    function paintCalendar() {
+      const grid = $("#m-cal-grid");
+      const monthEl = $("#m-cal-month");
+      if (!grid || !viewYM) return;
+      const [y, m] = viewYM.split("-").map(Number);
+      if (monthEl) monthEl.textContent = `${MONTHS[m - 1]} ${y}`;
+
+      const max = maxISO();
+      const firstDow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(); // 0=Sun
+      const dim = daysInMonth(y, m);
+      const cells = [];
+      for (let i = 0; i < firstDow; i++) cells.push(`<button type="button" class="m-cal-day is-empty" disabled tabindex="-1"></button>`);
+      for (let d = 1; d <= dim; d++) {
+        const iso = toISO(y, m, d);
+        const disabled = cmp(iso, max) > 0;
+        const classes = ["m-cal-day"];
+        if (disabled) classes.push("is-disabled");
+        if (draftStart && draftEnd) {
+          if (iso === draftStart) classes.push("is-start");
+          if (iso === draftEnd) classes.push("is-end");
+          if (cmp(iso, draftStart) >= 0 && cmp(iso, draftEnd) <= 0) classes.push("is-in-range");
+          if (iso === draftStart && iso === draftEnd) classes.push("is-single");
+        } else if (draftStart && iso === draftStart) {
+          classes.push("is-start", "is-single");
+        }
+        if (iso === max) classes.push("is-max");
+        cells.push(`<button type="button" class="${classes.join(" ")}" data-iso="${iso}" ${disabled ? "disabled" : ""} aria-label="${brShortDateFull(iso)}">${d}</button>`);
+      }
+      grid.innerHTML = cells.join("");
+      const maxYM = maxISO().slice(0, 7);
+      const nextBtn = $("#m-cal-next");
+      const prevBtn = $("#m-cal-prev");
+      if (nextBtn) nextBtn.disabled = viewYM >= maxYM;
+      if (prevBtn) prevBtn.disabled = false;
+      updateSummary();
+      syncChips();
+    }
+
+    function onDayPick(iso) {
+      pickingCustom = true;
+      if (!draftStart || (draftStart && draftEnd)) {
+        draftStart = iso;
+        draftEnd = "";
+      } else if (cmp(iso, draftStart) < 0) {
+        draftEnd = draftStart;
+        draftStart = iso;
+      } else {
+        draftEnd = iso;
+      }
+      paintCalendar();
+    }
+
+    function open() {
+      if (!MobileChrome.isMobile()) return;
+      draftStart = $("#start-date")?.value || "";
+      draftEnd = $("#end-date")?.value || "";
+      pickingCustom = (state.periodPreset || "") === "custom";
+      const base = draftEnd || draftStart || maxISO();
+      viewYM = String(base).slice(0, 7);
+      MobileChrome.openSheet("m-period-sheet");
+      paintCalendar();
+    }
+
+    function applyCustom() {
+      if (!draftStart) return;
+      const end = draftEnd || draftStart;
+      const max = maxISO();
+      let s = draftStart;
+      let e = end;
+      if (cmp(e, max) > 0) e = max;
+      if (cmp(s, max) > 0) s = max;
+      if (cmp(s, e) > 0) { const t = s; s = e; e = t; }
+      if ($("#start-date")) $("#start-date").value = s;
+      if ($("#end-date")) $("#end-date").value = e;
+      state.periodPreset = "custom";
+      clearPeriodPresets();
+      syncTopbarRange();
+      MobileChrome.closeSheets();
+      loadDashboard({ force: false });
+    }
+
+    function pickPreset(kind) {
+      if (kind === "custom") {
+        pickingCustom = true;
+        draftStart = $("#start-date")?.value || "";
+        draftEnd = $("#end-date")?.value || "";
+        if (!draftStart) {
+          draftStart = daysAgoFromShopeeEnd(6);
+          draftEnd = maxISO();
+        }
+        const base = draftEnd || draftStart || maxISO();
+        viewYM = String(base).slice(0, 7);
+        paintCalendar();
+        return;
+      }
+      pickingCustom = false;
+      MobileChrome.closeSheets();
+      setRange(kind);
+    }
+
+    function wire() {
+      if (wired) return;
+      wired = true;
+      $("#m-period-open")?.addEventListener("click", () => open());
+      $("#m-period-refresh")?.addEventListener("click", () => {
+        $("#btn-period-refresh")?.click();
+      });
+      $("#m-period-apply")?.addEventListener("click", () => applyCustom());
+      $("#m-period-chips")?.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-m-range]");
+        if (!btn) return;
+        pickPreset(btn.dataset.mRange);
+      });
+      $("#m-cal-prev")?.addEventListener("click", () => shiftMonth(-1));
+      $("#m-cal-next")?.addEventListener("click", () => shiftMonth(1));
+      $("#m-cal-grid")?.addEventListener("click", (e) => {
+        const day = e.target.closest(".m-cal-day[data-iso]:not(:disabled)");
+        if (!day) return;
+        onDayPick(day.dataset.iso);
+      });
+      const cal = $("#m-cal");
+      if (cal) {
+        cal.addEventListener("touchstart", (e) => {
+          touchX = e.changedTouches?.[0]?.clientX ?? null;
+        }, { passive: true });
+        cal.addEventListener("touchend", (e) => {
+          if (touchX == null) return;
+          const x = e.changedTouches?.[0]?.clientX;
+          const dx = x - touchX;
+          touchX = null;
+          if (Math.abs(dx) < 56) return;
+          shiftMonth(dx < 0 ? 1 : -1);
+        }, { passive: true });
+      }
+    }
+
+    return { wire, syncLabel, open };
+  })();
+
   function showAuth() {
     setSidebarOpen(false);
+    MobileChrome.closeSheetsQuiet();
+    MobileChrome.show(false);
     $("#auth-gate").classList.remove("hidden");
     const shell = $("#app-shell");
     shell.classList.add("hidden");
@@ -410,8 +823,14 @@
     cfgTab: "conexoes",
     subidPage: 1,
     subidVisible: 40,
+    subidMobileExpanded: false,
+    subidCardDetails: {},
+    dailyMobileExpanded: false,
+    channelMoreOpen: false,
     opsPage: 1,
     opsVisible: 40,
+    opsMobileExpanded: false,
+    opsSaveFlash: null,
     opsPageSize: 25,
     expandedSubIds: {},
     pageSize: 40,
@@ -424,7 +843,7 @@
     dataSort: { key: null, dir: "asc" },
     subidSort: { key: null, dir: "asc" },
     opsSort: { key: "status", dir: "asc" },
-    dailySort: { key: null, dir: "asc" },
+    dailySort: { key: "data", dir: "desc" },
     dailyRows: [],
     chartMode: "profit",
     chartInstance: null,
@@ -729,6 +1148,8 @@
     const label = VIEW_LABELS[state.navKey] || VIEW_LABELS[navKey] || VIEW_LABELS[view] || view;
     $("#crumb-label").textContent = label;
     setSidebarOpen(false);
+    MobileChrome.syncTabs();
+    MobileChrome.closeSheetsQuiet();
 
     if (view === "dashboard") applyChannelView();
     if (view === "supercomissoes") mountRadarPage();
@@ -1200,7 +1621,7 @@
     },
   };
 
-  function channelMetricCard(label, value, tone, iconKey, hint) {
+  function channelMetricCard(label, value, tone, iconKey, hint, opts = {}) {
     const theme = CHANNEL_HERO[tone] || CHANNEL_HERO.orange;
     const isMoney = String(value).startsWith("R$");
     let currency = "";
@@ -1209,16 +1630,21 @@
       currency = "R$";
       amount = String(value).replace(/^R\$\s*/, "");
     }
-    return `<article class="channel-hero relative overflow-hidden bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
+    const infoBtn = opts.infoKey
+      ? `<button type="button" class="m-kpi-info" data-m-info="${escapeHtml(opts.infoKey)}" aria-label="Sobre ${escapeHtml(label)}"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>`
+      : "";
+    const tier = opts.tier ? ` channel-hero--${opts.tier}` : "";
+    return `<article class="channel-hero${tier} relative overflow-hidden bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
       <div class="absolute -right-5 -bottom-5 w-20 h-20 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
-      <div class="relative mb-2.5 min-w-0">
-        <span class="text-[10px] font-bold uppercase tracking-wider ${theme.label}">${escapeHtml(label)}</span>
+      <div class="relative mb-2.5 min-w-0 flex items-center gap-1.5">
+        <span class="channel-hero-label text-[10px] font-bold uppercase tracking-wider ${theme.label}">${escapeHtml(label)}</span>
+        ${infoBtn}
       </div>
       <div class="relative min-w-0">
         ${isMoney
           ? `<div class="kpi-hero-value text-white channel-hero-value"><span class="text-base font-bold ${theme.currency} shrink-0">${currency}</span><span>${amount}</span></div>`
           : `<p class="channel-hero-value text-white font-black tracking-tight">${value}</p>`}
-        ${hint ? `<p class="channel-hero-hint">${escapeHtml(hint)}</p>` : ""}
+        ${hint && !opts.hideHint ? `<p class="channel-hero-hint">${escapeHtml(hint)}</p>` : ""}
       </div>
     </article>`;
   }
@@ -1227,6 +1653,7 @@
     const el = $("#channel-kpi-grid");
     if (!el) return;
     const hasData = Boolean(state.dash);
+    const mobile = isMobileLayout();
     const money = (v) => (!hasData || v == null || Number.isNaN(Number(v)) ? "—" : fmt(v));
     const num = (v) => (!hasData || v == null ? "—" : fmtNum(v));
     const pct = (v) => (!hasData ? "—" : fmtPct(v));
@@ -1271,15 +1698,86 @@
 
     const cancelados = Number(k?.cancelados || 0);
     const unpaid = Number(k?.unpaid || 0);
+    const hasPedidosNote = hasData && (cancelados > 0 || unpaid > 0);
     let alertHtml = "";
-    if (hasData && (cancelados > 0 || unpaid > 0)) {
+    let pedidosInfoText = "";
+    if (hasPedidosNote) {
       const bits = [];
       if (cancelados > 0) bits.push(`<strong>${fmtNum(cancelados)}</strong> cancelado${cancelados === 1 ? "" : "s"}`);
       if (unpaid > 0) bits.push(`<strong>${fmtNum(unpaid)}</strong> não pago${unpaid === 1 ? "" : "s"}`);
-      alertHtml = `<p class="channel-kpi-alert" role="status"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>O card Pedidos conta só os <strong>validados</strong> (concluídos + pendentes). ${bits.join(" e ")} ficam de fora — não entram em faturamento nem comissão.</span></p>`;
+      pedidosInfoText = `O card Pedidos conta só os <strong>validados</strong> (concluídos + pendentes). ${bits.join(" e ")} ficam de fora — não entram em faturamento nem comissão.`;
+      if (!mobile) {
+        alertHtml = `<p class="channel-kpi-alert" role="status"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>${pedidosInfoText}</span></p>`;
+      } else {
+        state._pedidosHintHtml = pedidosInfoText;
+      }
+    } else {
+      state._pedidosHintHtml = "";
     }
 
-    el.innerHTML = `<div class="channel-kpi-metrics channel-kpi-metrics--${cards.length}">${cards.map(([lab, val, tone, icon, hint]) => channelMetricCard(lab, val, tone, icon, hint)).join("")}</div>${alertHtml}`;
+    const cardOpts = (icon, hint) => {
+      const opts = {};
+      if (mobile && icon === "pedidos" && hasPedidosNote) {
+        opts.infoKey = "pedidos";
+        opts.hideHint = true;
+      }
+      return opts;
+    };
+
+    if (!mobile) {
+      el.innerHTML = `<div class="channel-kpi-metrics channel-kpi-metrics--${cards.length}">${cards.map(([lab, val, tone, icon, hint]) =>
+        channelMetricCard(lab, val, tone, icon, hint, cardOpts(icon, hint))
+      ).join("")}</div>${alertHtml}`;
+      return;
+    }
+
+    const PRIMARY_KEYS = new Set(["faturamento", "comissao", "lucro", "roi"]);
+    const primaryOrder = ["faturamento", "comissao", "lucro", "roi"];
+    const byKey = new Map(cards.map((c) => [c[3], c]));
+    const primary = primaryOrder.map((key) => byKey.get(key)).filter(Boolean);
+    const secondary = cards.filter((c) => !PRIMARY_KEYS.has(c[3]));
+    const moreOpen = Boolean(state.channelMoreOpen);
+
+    const renderCard = ([lab, val, tone, icon, hint], tier) =>
+      channelMetricCard(lab, val, tone, icon, hint, { ...cardOpts(icon, hint), tier });
+
+    let moreHtml = "";
+    if (secondary.length) {
+      moreHtml = `<details class="channel-kpi-more"${moreOpen ? " open" : ""}>
+        <summary class="channel-kpi-more-summary">
+          <span>Mais métricas</span>
+          <span class="channel-kpi-more-count">${secondary.length}</span>
+        </summary>
+        <div class="channel-kpi-secondary">${secondary.map((c) => renderCard(c, "secondary")).join("")}</div>
+      </details>`;
+    }
+
+    const noteHtml = hasPedidosNote
+      ? `<button type="button" class="m-pedidos-note" data-m-info="pedidos">
+          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+          <span>Pedidos validados</span>
+        </button>`
+      : "";
+
+    el.innerHTML = `<div class="channel-kpi-mobile">
+      <div class="channel-kpi-primary">${primary.map((c) => renderCard(c, "primary")).join("")}</div>
+      ${moreHtml}
+      ${noteHtml}
+    </div>`;
+
+    const more = el.querySelector(".channel-kpi-more");
+    if (more) {
+      more.addEventListener("toggle", () => {
+        state.channelMoreOpen = more.open;
+      });
+    }
+    el.querySelectorAll("[data-m-info='pedidos']").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        MobileChrome.openInfo("Pedidos", state._pedidosHintHtml || pedidosInfoText);
+      });
+    });
   }
 
   function chartGridColor() {
@@ -1332,13 +1830,13 @@
     if (!document.querySelector("link[data-backup-css]")) {
       const l = document.createElement("link");
       l.rel = "stylesheet";
-      l.href = "/backup.css?v=pro-3";
+      l.href = "/backup.css?v=mobile-1";
       l.dataset.backupCss = "1";
       document.head.appendChild(l);
     }
     await new Promise((resolve, reject) => {
       const s = document.createElement("script");
-      s.src = "/backup.js?v=pro-2";
+      s.src = "/backup.js?v=mobile-1";
       s.async = true;
       s.onload = resolve;
       s.onerror = () => reject(new Error("backup.js"));
@@ -1351,7 +1849,7 @@
     if (window.RadarUI) return window.RadarUI;
     await new Promise((resolve, reject) => {
       const s = document.createElement("script");
-      s.src = "/radar.js?v=4";
+      s.src = "/radar.js?v=6";
       s.async = true;
       s.onload = resolve;
       s.onerror = () => reject(new Error("radar.js"));
@@ -1378,7 +1876,7 @@
   }
 
   function isMobileLayout() {
-    return window.matchMedia("(max-width: 640px)").matches;
+    return window.matchMedia("(max-width: 767px)").matches;
   }
 
   function setDashLoading(on) {
@@ -1889,6 +2387,9 @@
 
   function renderDailyTable(daily, k) {
     state.dailyRows = Array.isArray(daily) ? daily : [];
+    if (!state.dailySort?.key) {
+      state.dailySort = { key: "data", dir: "desc" };
+    }
     const sorted = sortRows(state.dailyRows, state.dailySort.key, state.dailySort.dir, (d) => {
       if (state.dailySort.key === "abatimento") {
         const fat = Number(d.faturamento || 0);
@@ -1901,6 +2402,79 @@
       return d[state.dailySort.key];
     });
     paintSortHeaders("#daily-table thead", state.dailySort);
+
+    const mobile = isMobileLayout();
+    const table = $("#daily-table");
+    const cardList = $("#daily-card-list");
+    if (table) table.classList.toggle("is-mobile-hidden", mobile);
+    if (cardList) cardList.classList.toggle("hidden", !mobile);
+
+    if (mobile && cardList) {
+      $("#daily-tbody").innerHTML = "";
+      $("#daily-tfoot").innerHTML = "";
+      const DAILY_PREVIEW = 5;
+      const totalDays = sorted.length;
+      const visibleDays = state.dailyMobileExpanded ? sorted : sorted.slice(0, DAILY_PREVIEW);
+      const dayCard = (d, isTotal) => {
+        const fat = Number(d.faturamento || 0);
+        const com = Number(d.comissao || 0);
+        const abat = isTotal ? Number(d.abatimento || 0) : (fat > 0 ? (com / fat) * 100 : 0);
+        const lucro = isTotal
+          ? d.lucro
+          : (d.lucro != null ? d.lucro : com - Number(d.inv_total || 0));
+        const dayLabel = isTotal ? "TOTAL" : escapeHtml(shortDay(d.data));
+        return `<article class="daily-card${isTotal ? " daily-card--total" : ""}" role="listitem">
+          <header class="daily-card-head">
+            <span class="daily-card-day">${dayLabel}</span>
+            <span class="daily-card-roi ${roiTierClass(d.roi)}">${fmtPct(d.roi)}</span>
+          </header>
+          <div class="daily-card-essentials">
+            <div class="daily-card-essential"><span class="lab">Comissão</span><span class="val cell-emerald">${fmt(com)}</span></div>
+            <div class="daily-card-essential"><span class="lab">Lucro</span><span class="val ${lucroCellClass(lucro)}">${fmt(lucro)}</span></div>
+            <div class="daily-card-essential"><span class="lab">Fat.</span><span class="val cell-emerald">${fmt(fat)}</span></div>
+          </div>
+          <details class="daily-card-more">
+            <summary>Ver detalhes</summary>
+            <div class="daily-card-grid">
+              <div class="daily-card-cell"><span class="lab">Inv. Meta</span><span class="val cell-gasto">${fmt(d.inv_meta)}</span></div>
+              <div class="daily-card-cell"><span class="lab">Inv. Pin</span><span class="val cell-gasto">${fmt(d.inv_pin)}</span></div>
+              <div class="daily-card-cell"><span class="lab">Inv. Total</span><span class="val cell-gasto">${fmt(d.inv_total)}</span></div>
+              <div class="daily-card-cell"><span class="lab">Abat.</span><span class="val muted">${fmtPct(abat)}</span></div>
+            </div>
+          </details>
+        </article>`;
+      };
+      const cards = visibleDays.map((d) => dayCard(d, false));
+      if (state.dailyRows.length && k && (state.dailyMobileExpanded || totalDays <= DAILY_PREVIEW)) {
+        cards.push(dayCard(k, true));
+      }
+      let pagerHtml = "";
+      if (totalDays > DAILY_PREVIEW) {
+        const shown = visibleDays.length;
+        pagerHtml = `<div class="m-list-pager" id="daily-mobile-pager">
+          <div class="m-list-pager-meta"><span>${fmtNum(shown)} de ${fmtNum(totalDays)} dias</span></div>
+          <div class="m-list-pager-actions">
+            ${state.dailyMobileExpanded
+              ? `<button type="button" class="btn ghost sm" data-daily-collapse>Recolher lista</button>`
+              : `<button type="button" class="btn primary sm" data-daily-expand>Ver mais ${fmtNum(totalDays - DAILY_PREVIEW)} dias</button>`}
+          </div>
+        </div>`;
+      }
+      cardList.innerHTML = (cards.join("") || `<div class="daily-card-empty">Sem dias no período.</div>`) + pagerHtml;
+      cardList.querySelector("[data-daily-expand]")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        state.dailyMobileExpanded = true;
+        renderDailyTable(state.dailyRows, k);
+      });
+      cardList.querySelector("[data-daily-collapse]")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        state.dailyMobileExpanded = false;
+        renderDailyTable(state.dailyRows, k);
+      });
+      return;
+    }
+
+    if (cardList) cardList.innerHTML = "";
     $("#daily-tbody").innerHTML = sorted.map((d) => {
       const fat = Number(d.faturamento || 0);
       const com = Number(d.comissao || 0);
@@ -2205,23 +2779,78 @@
   }
 
   async function saveSubidOp(subid, partial) {
-    await api("/api/subid-ops", {
-      method: "POST",
-      body: JSON.stringify({ subid, ...partial }),
-    });
-    const list = state.dash?.subIds || [];
-    const key = String(subid).toLowerCase();
-    for (const r of list) {
-      if (String(r.subid || "").toLowerCase() === key) {
-        if (partial.canal != null) r.canal = partial.canal;
-        if (partial.status != null) r.status = partial.status;
-        if (partial.produto != null) r.produto = partial.produto;
-      }
+    const sid = String(subid || "");
+    if (isMobileLayout() && state.view === "canais") {
+      state.opsSaveFlash = { subid: sid, phase: "saving" };
+      paintOpsSaveFlash();
     }
-    paintChannelCounts();
-    if (state.view === "canais") renderOpsTable();
-    else if (state.view === "config" && state.cfgTab === "indefinidos") renderIndefinidos();
-    else if (state.view === "dashboard" && state.channel !== "geral") renderSubIdsDash();
+    try {
+      await api("/api/subid-ops", {
+        method: "POST",
+        body: JSON.stringify({ subid, ...partial }),
+      });
+      const list = state.dash?.subIds || [];
+      const key = sid.toLowerCase();
+      for (const r of list) {
+        if (String(r.subid || "").toLowerCase() === key) {
+          if (partial.canal != null) r.canal = partial.canal;
+          if (partial.status != null) r.status = partial.status;
+          if (partial.produto != null) r.produto = partial.produto;
+        }
+      }
+      if (isMobileLayout() && state.view === "canais") {
+        state.opsSaveFlash = { subid: sid, phase: "saved" };
+      }
+      paintChannelCounts();
+      if (state.view === "canais") renderOpsTable();
+      else if (state.view === "config" && state.cfgTab === "indefinidos") renderIndefinidos();
+      else if (state.view === "dashboard" && state.channel !== "geral") renderSubIdsDash();
+      if (state.opsSaveFlash?.phase === "saved") {
+        clearTimeout(state._opsFlashTimer);
+        state._opsFlashTimer = setTimeout(() => {
+          if (state.opsSaveFlash?.phase === "saved") {
+            state.opsSaveFlash = null;
+            paintOpsSaveFlash();
+          }
+        }, 1400);
+      }
+    } catch (err) {
+      if (isMobileLayout() && state.view === "canais") {
+        state.opsSaveFlash = { subid: sid, phase: "error" };
+        paintOpsSaveFlash();
+        clearTimeout(state._opsFlashTimer);
+        state._opsFlashTimer = setTimeout(() => {
+          state.opsSaveFlash = null;
+          paintOpsSaveFlash();
+        }, 2000);
+      }
+      throw err;
+    }
+  }
+
+  function paintOpsSaveFlash() {
+    const flash = state.opsSaveFlash;
+    $$("#ops-card-list .ops-card-flash").forEach((el) => {
+      const card = el.closest(".ops-card");
+      const sid = card?.dataset?.subid || "";
+      if (!flash || sid !== flash.subid) {
+        el.hidden = true;
+        el.textContent = "";
+        el.className = "ops-card-flash";
+        return;
+      }
+      el.hidden = false;
+      if (flash.phase === "saving") {
+        el.className = "ops-card-flash is-saving";
+        el.textContent = "Salvando…";
+      } else if (flash.phase === "saved") {
+        el.className = "ops-card-flash is-saved";
+        el.textContent = "✓ Salvo";
+      } else {
+        el.className = "ops-card-flash is-error";
+        el.textContent = "Erro";
+      }
+    });
   }
 
   function wireOpsSelects(root) {
@@ -2782,15 +3411,21 @@
   }
 
   function wireInfiniteScroll(scrollSel, onMore) {
-    const el = $(scrollSel);
-    if (!el || el.dataset.infiniteWired === "1") return;
+    const el = typeof scrollSel === "string" ? $(scrollSel) : scrollSel;
+    if (!el) return;
+    const key = el.id || el.className || "scroll";
+    if (!wireInfiniteScroll._fns) wireInfiniteScroll._fns = new Map();
+    wireInfiniteScroll._fns.set(key, onMore);
+    if (el.dataset.infiniteWired === "1") return;
     el.dataset.infiniteWired = "1";
     let last = 0;
     el.addEventListener("scroll", () => {
       const now = Date.now();
       if (now - last < 160) return;
       last = now;
-      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) onMore();
+      const fn = wireInfiniteScroll._fns.get(key);
+      if (typeof fn !== "function") return;
+      if (el.scrollTop + el.clientHeight >= el.scrollHeight - 120) fn();
     }, { passive: true });
   }
 
@@ -2814,14 +3449,60 @@
     }
   }
 
+  function renderOpsCard(r) {
+    const id = String(r.subid || "");
+    const canal = r.canal || "indefinido";
+    const status = normalizeStatus(r.status);
+    const off = status === "desativada" ? " is-desativada" : "";
+    const flash = state.opsSaveFlash;
+    let flashHtml = `<span class="ops-card-flash" hidden></span>`;
+    if (flash && flash.subid === id) {
+      if (flash.phase === "saving") flashHtml = `<span class="ops-card-flash is-saving">Salvando…</span>`;
+      else if (flash.phase === "saved") flashHtml = `<span class="ops-card-flash is-saved">✓ Salvo</span>`;
+      else if (flash.phase === "error") flashHtml = `<span class="ops-card-flash is-error">Erro</span>`;
+    }
+    return `<article class="ops-card${off}" data-subid="${escapeHtml(id)}" role="listitem">
+      <div class="ops-card-top">
+        <div class="ops-card-name" title="${escapeHtml(id)}">${escapeHtml(id)}</div>
+        ${flashHtml}
+      </div>
+      <div class="ops-card-fields">
+        <button type="button" class="ops-field-btn ops-field-btn--canal ch-${escapeHtml(canal)}" data-ops-pick="canal" data-subid="${escapeHtml(id)}" data-value="${escapeHtml(canal)}" aria-haspopup="dialog">
+          <span class="ops-field-lab">Canal</span>
+          <span class="ops-field-val">${CHANNEL_ICONS[canal] || ""}${escapeHtml(canalLabel(canal))}</span>
+          <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="ops-field-btn ops-field-btn--status st-${escapeHtml(status)}" data-ops-pick="status" data-subid="${escapeHtml(id)}" data-value="${escapeHtml(status)}" aria-haspopup="dialog">
+          <span class="ops-field-lab">Status</span>
+          <span class="ops-field-val">${escapeHtml(statusLabel(status))}</span>
+          <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+        </button>
+      </div>
+    </article>`;
+  }
+
+  function opsSortLabel() {
+    const key = state.opsSort?.key || "status";
+    const dir = state.opsSort?.dir || "asc";
+    const names = { subid: "SubID", canal: "Canal", status: "Status" };
+    const arrow = dir === "desc" ? "↓" : "↑";
+    return `${names[key] || "Ordenar"} ${arrow}`;
+  }
+
   function renderOpsTable() {
     const tb = $("#ops-tbody");
-    if (!tb) return;
+    const cardList = $("#ops-card-list");
+    const table = $("#ops-table");
+    const sortBtn = $("#m-ops-sort");
+    if (!tb && !cardList) return;
+
+    const mobile = isMobileLayout();
     const statusRank = { ativa: 0, teste: 1, desativada: 2 };
     const sortKey = state.opsSort?.key || "status";
     const sortDir = state.opsSort?.dir || "asc";
+    const search = $("#ops-search")?.value || "";
 
-    let list = filteredSubIds(state.dash?.subIds || [], $("#ops-search")?.value, "geral");
+    let list = filteredSubIds(state.dash?.subIds || [], search, "geral");
 
     list = sortRows(list, sortKey, sortDir, (r) => {
       if (sortKey === "subid") return r.subid;
@@ -2832,26 +3513,213 @@
 
     const total = list.length;
     state.opsTotal = total;
-    const slice = list;
+    const OPS_PREVIEW = 20;
+    const OPS_PAGE = 30;
+    const filterKey = `${search}|${sortKey}|${sortDir}`;
+    if (state._opsFilterKey !== filterKey) {
+      state._opsFilterKey = filterKey;
+      state.opsVisible = mobile ? Math.min(OPS_PREVIEW, total || OPS_PREVIEW) : total || 40;
+    }
+
+    let slice;
+    if (mobile) {
+      if (!state.opsVisible || state.opsVisible < 1) {
+        state.opsVisible = Math.min(OPS_PREVIEW, total || OPS_PREVIEW);
+      }
+      state.opsVisible = Math.min(Math.max(state.opsVisible, 1), total || state.opsVisible);
+      slice = list.slice(0, state.opsVisible);
+    } else {
+      slice = list;
+    }
 
     const countPill = $("#ops-count-pill");
     if (countPill) countPill.textContent = fmtNum(total);
     paintSortHeaders("#ops-thead", state.opsSort);
 
-    tb.innerHTML = slice.map((r) => {
-      const id = String(r.subid || "");
-      const canal = r.canal || "indefinido";
-      const status = normalizeStatus(r.status);
-      const off = status === "desativada" ? " is-desativada" : "";
-      return `<tr class="subid-row${off}">
-        <td class="subid">${escapeHtml(id)}</td>
-        <td>${canalSelectHtml(id, canal)}</td>
-        <td>${statusSelectHtml(id, status)}</td>
-      </tr>`;
-    }).join("") || `<tr><td colspan="3" class="cell-muted">${state.dash ? "Nenhum SubID encontrado." : "Carregue o painel para listar SubIDs."}</td></tr>`;
-    wireOpsSelects("#ops-tbody");
-    renderInfiniteHint($("#ops-pager"), slice.length, total);
+    const sortLabel = $("#m-ops-sort-label");
+    if (sortLabel) sortLabel.textContent = opsSortLabel();
+    if (sortBtn) {
+      if (mobile) sortBtn.removeAttribute("hidden");
+      else sortBtn.setAttribute("hidden", "");
+    }
+
+    if (mobile) {
+      if (table) table.classList.add("is-mobile-hidden");
+      if (tb) tb.innerHTML = "";
+      if (cardList) {
+        cardList.classList.remove("hidden");
+        cardList.innerHTML = slice.map((r) => renderOpsCard(r)).join("")
+          || `<div class="ops-card-empty">${state.dash ? "Nenhum SubID encontrado." : "Carregue o painel para listar SubIDs."}</div>`;
+        MobileOps.wireList(cardList);
+      }
+    } else {
+      if (cardList) {
+        cardList.classList.add("hidden");
+        cardList.innerHTML = "";
+      }
+      if (table) table.classList.remove("is-mobile-hidden");
+      if (!tb) return;
+      tb.innerHTML = slice.map((r) => {
+        const id = String(r.subid || "");
+        const canal = r.canal || "indefinido";
+        const status = normalizeStatus(r.status);
+        const off = status === "desativada" ? " is-desativada" : "";
+        return `<tr class="subid-row${off}">
+          <td class="subid">${escapeHtml(id)}</td>
+          <td>${canalSelectHtml(id, canal)}</td>
+          <td>${statusSelectHtml(id, status)}</td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="3" class="cell-muted">${state.dash ? "Nenhum SubID encontrado." : "Carregue o painel para listar SubIDs."}</td></tr>`;
+      wireOpsSelects("#ops-tbody");
+    }
+
+    const pager = $("#ops-pager");
+    const loadMore = () => {
+      if (!mobile) return;
+      if (state.opsVisible >= state.opsTotal) return;
+      const next = Math.min(state.opsVisible + OPS_PAGE, state.opsTotal);
+      if (next === state.opsVisible) return;
+      state.opsVisible = next;
+      renderOpsTable();
+    };
+    if (mobile) {
+      renderInfiniteHint(pager, slice.length, total, loadMore);
+      wireInfiniteScroll("#ops-scroll", loadMore);
+      wireInfiniteScroll("main.page-main", () => {
+        if (state.view !== "canais" || !isMobileLayout()) return;
+        loadMore();
+      });
+      /* Se a tela ainda não encheu, carrega o próximo lote sem esperar scroll */
+      if (slice.length < total) {
+        requestAnimationFrame(() => {
+          if (state.view !== "canais" || !isMobileLayout()) return;
+          if (state.opsVisible !== slice.length) return;
+          const main = $("main.page-main");
+          if (!main) return;
+          if (main.scrollHeight <= main.clientHeight + 160) loadMore();
+        });
+      }
+    } else {
+      renderInfiniteHint(pager, slice.length, total);
+    }
   }
+
+  const MobileOps = (() => {
+    let listWired = false;
+    let pickWired = false;
+    let pickCtx = null; // { mode: 'canal'|'status'|'sort', subid?, value? }
+
+    const CANAL_OPTS = [
+      { value: "meta", label: "Meta" },
+      { value: "pinterest", label: "Pinterest" },
+      { value: "organico", label: "Orgânico" },
+      { value: "indefinido", label: "Indefinido" },
+    ];
+    const STATUS_OPTS = [
+      { value: "ativa", label: "Ativa" },
+      { value: "teste", label: "Teste" },
+      { value: "desativada", label: "Desativada" },
+    ];
+    const SORT_OPTS = [
+      { value: "subid", label: "SubID" },
+      { value: "canal", label: "Canal" },
+      { value: "status", label: "Status" },
+    ];
+
+    function openPick(ctx) {
+      if (!MobileChrome.isMobile()) return;
+      pickCtx = ctx;
+      const title = $("#m-ops-pick-title");
+      const body = $("#m-ops-pick-body");
+      if (!body) return;
+      let opts = [];
+      let heading = "Selecionar";
+      if (ctx.mode === "canal") {
+        heading = "Canal";
+        opts = CANAL_OPTS;
+      } else if (ctx.mode === "status") {
+        heading = "Status";
+        opts = STATUS_OPTS;
+      } else {
+        heading = "Ordenar por";
+        opts = SORT_OPTS;
+      }
+      if (title) title.textContent = heading;
+      const current = ctx.value || (ctx.mode === "sort" ? (state.opsSort?.key || "status") : "");
+      body.innerHTML = opts.map((o) => {
+        const active = o.value === current ? " is-active" : "";
+        const extra = ctx.mode === "sort" && o.value === current
+          ? ` <span class="m-ops-sort-dir">${(state.opsSort?.dir || "asc") === "desc" ? "↓" : "↑"}</span>`
+          : "";
+        const icon = ctx.mode === "canal" ? (CHANNEL_ICONS[o.value] || "") : "";
+        return `<button type="button" class="m-sheet__item${active}" data-ops-opt="${escapeHtml(o.value)}">
+          ${icon}<span>${escapeHtml(o.label)}${extra}</span>
+          ${active ? '<i class="fa-solid fa-check" aria-hidden="true"></i>' : '<i class="fa-solid fa-chevron-right" aria-hidden="true"></i>'}
+        </button>`;
+      }).join("");
+      MobileChrome.openSheet("m-ops-pick-sheet");
+    }
+
+    async function onPick(value) {
+      if (!pickCtx) return;
+      const ctx = pickCtx;
+      if (ctx.mode === "sort") {
+        const st = state.opsSort || { key: "status", dir: "asc" };
+        if (st.key === value) st.dir = st.dir === "asc" ? "desc" : "asc";
+        else {
+          st.key = value;
+          st.dir = value === "subid" ? "asc" : "asc";
+        }
+        state.opsSort = st;
+        MobileChrome.closeSheets();
+        renderOpsTable();
+        return;
+      }
+      if (ctx.value === value) {
+        MobileChrome.closeSheets();
+        return;
+      }
+      MobileChrome.closeSheets();
+      try {
+        await saveSubidOp(ctx.subid, { [ctx.mode]: value });
+      } catch (err) {
+        alert(err.message || String(err));
+      }
+    }
+
+    function wireList(root) {
+      if (!root) return;
+      if (!listWired) {
+        listWired = true;
+        document.addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-ops-pick]");
+          if (!btn || !document.getElementById("ops-card-list")?.contains(btn)) return;
+          e.preventDefault();
+          openPick({
+            mode: btn.dataset.opsPick,
+            subid: btn.dataset.subid,
+            value: btn.dataset.value,
+          });
+        });
+      }
+    }
+
+    function wire() {
+      if (pickWired) return;
+      pickWired = true;
+      $("#m-ops-sort")?.addEventListener("click", () => {
+        openPick({ mode: "sort", value: state.opsSort?.key || "status" });
+      });
+      $("#m-ops-pick-body")?.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-ops-opt]");
+        if (!btn) return;
+        e.preventDefault();
+        onPick(btn.dataset.opsOpt);
+      });
+    }
+
+    return { wire, wireList, openPick };
+  })();
 
   function renderIndefinidos() {
     const tb = $("#indef-tbody");
@@ -3023,13 +3891,20 @@
     paintSortHeaders("#subid-thead", state.subidSort);
     const total = all.length;
     state.subidTotal = total;
-    // Reseta janela de visíveis quando muda canal/busca/ordenação
+    const MOBILE_PREVIEW = 3;
+    const MOBILE_PAGE = 20;
     const filterKey = `${ch}|${search}|${state.subidSort.key || "status"}|${state.subidSort.dir || "asc"}`;
     if (state._subidFilterKey !== filterKey) {
       state._subidFilterKey = filterKey;
+      state.subidVisible = mobile ? MOBILE_PREVIEW : 40;
+      state.subidMobileExpanded = false;
+    }
+    if (mobile) {
+      if (!state.subidMobileExpanded) state.subidVisible = Math.min(MOBILE_PREVIEW, total || MOBILE_PREVIEW);
+      else if (!state.subidVisible || state.subidVisible < MOBILE_PREVIEW) state.subidVisible = Math.min(MOBILE_PAGE, total || MOBILE_PAGE);
+    } else if (!state.subidVisible || state.subidVisible < 40) {
       state.subidVisible = 40;
     }
-    if (!state.subidVisible || state.subidVisible < 40) state.subidVisible = 40;
     const slice = all.slice(0, state.subidVisible);
     const pill = $("#subid-count-pill");
     if (pill) pill.textContent = fmtNum(total);
@@ -3041,8 +3916,9 @@
       if (table) table.classList.add("is-mobile-hidden");
       if (cardList) {
         cardList.classList.remove("hidden");
-        cardList.innerHTML = slice.map((r) => renderSubIdCard(r, ch)).join("")
+        const cardsHtml = slice.map((r) => renderSubIdCard(r, ch)).join("")
           || `<div class="subid-card-empty">Nenhum SubID neste canal no período.</div>`;
+        cardList.innerHTML = cardsHtml;
         wireOpsSelects("#subid-card-list");
         wireSubIdCardExpand(cardList, renderSubIdsDash);
       }
@@ -3074,19 +3950,71 @@
       wireSubIdExpand("#subid-tbody", renderSubIdsDash);
     }
 
-    const loadMore = () => {
-      if (state.subidVisible >= state.subidTotal) return;
-      state.subidVisible = Math.min(state.subidVisible + 40, state.subidTotal);
-      renderSubIdsDash();
-    };
-    renderInfiniteHint($("#subid-pager"), slice.length, total, loadMore);
-    wireInfiniteScroll("#subid-scroll", loadMore);
+    const pager = $("#subid-pager");
+    if (mobile) {
+      renderMobileListPager(pager, {
+        shown: slice.length,
+        total,
+        expanded: state.subidMobileExpanded,
+        unit: "SubIDs",
+        preview: MOBILE_PREVIEW,
+        onExpand: () => {
+          state.subidMobileExpanded = true;
+          state.subidVisible = Math.min(MOBILE_PAGE, total);
+          renderSubIdsDash();
+        },
+        onMore: () => {
+          state.subidVisible = Math.min(state.subidVisible + MOBILE_PAGE, total);
+          renderSubIdsDash();
+        },
+        onCollapse: () => {
+          state.subidMobileExpanded = false;
+          state.subidVisible = MOBILE_PREVIEW;
+          renderSubIdsDash();
+        },
+      });
+    } else {
+      const loadMore = () => {
+        if (state.subidVisible >= state.subidTotal) return;
+        state.subidVisible = Math.min(state.subidVisible + 40, state.subidTotal);
+        renderSubIdsDash();
+      };
+      renderInfiniteHint(pager, slice.length, total, loadMore);
+      wireInfiniteScroll("#subid-scroll", loadMore);
+    }
     refreshCampaignKpisFromFilter();
+  }
+
+  function renderMobileListPager(el, opts) {
+    if (!el) return;
+    const { shown, total, expanded, unit, preview, onExpand, onMore, onCollapse } = opts;
+    if (!total) {
+      el.innerHTML = "";
+      return;
+    }
+    const rest = Math.max(0, total - shown);
+    const parts = [];
+    parts.push(`<div class="m-list-pager-meta"><span>${fmtNum(shown)} de ${fmtNum(total)} ${unit || "itens"}</span></div>`);
+    parts.push(`<div class="m-list-pager-actions">`);
+    if (!expanded && total > preview) {
+      parts.push(`<button type="button" class="btn primary sm m-list-more" data-m-list="expand">Ver mais ${fmtNum(total - preview)} ${unit || ""}</button>`);
+    } else if (expanded) {
+      if (shown < total) {
+        parts.push(`<button type="button" class="btn primary sm m-list-more" data-m-list="more">Carregar mais (${fmtNum(rest)})</button>`);
+      }
+      parts.push(`<button type="button" class="btn ghost sm m-list-collapse" data-m-list="collapse">Recolher lista</button>`);
+    }
+    parts.push(`</div>`);
+    el.innerHTML = `<div class="m-list-pager">${parts.join("")}</div>`;
+    el.querySelector("[data-m-list='expand']")?.addEventListener("click", (e) => { e.preventDefault(); onExpand?.(); });
+    el.querySelector("[data-m-list='more']")?.addEventListener("click", (e) => { e.preventDefault(); onMore?.(); });
+    el.querySelector("[data-m-list='collapse']")?.addEventListener("click", (e) => { e.preventDefault(); onCollapse?.(); });
   }
 
   function renderSubIdCard(r, ch) {
     const id = String(r.subid || "");
     const open = Boolean(state.expandedSubIds[id]);
+    const details = Boolean(state.subidCardDetails[id]);
     const fat = Number(r.faturamento || 0);
     const com = Number(r.comissao || 0);
     const inv = investForRoi(r);
@@ -3108,7 +4036,7 @@
     const showInvest = ch !== "organico";
     const showAds = ch === "meta" || ch === "pinterest";
 
-    return `<article class="subid-card${open ? " is-open" : ""}" data-subid="${escapeHtml(id)}" role="listitem">
+    return `<article class="subid-card${open ? " is-open" : ""}${details ? " is-details" : ""}" data-subid="${escapeHtml(id)}" role="listitem">
       <header class="subid-card-head">
         <button type="button" class="subid-card-toggle" data-subid-toggle="${escapeHtml(id)}" aria-expanded="${open ? "true" : "false"}" title="Ver histórico diário">
           <span class="subid-card-caret" aria-hidden="true"></span>
@@ -3116,6 +4044,13 @@
         </button>
         <div class="subid-card-status">${statusSelectHtml(id, r.status)}</div>
       </header>
+      <div class="subid-card-essentials">
+        <div class="subid-card-essential"><span class="lab">Comissão</span><span class="val cell-emerald">${fmt(com)}</span></div>
+        <div class="subid-card-essential"><span class="lab">Lucro</span><span class="val ${lucroCellClass(lucro)}">${fmt(lucro)}</span></div>
+        <div class="subid-card-essential"><span class="lab">ROI</span><span class="val ${roiTierClass(roi)}">${fmtPct(roi)}</span></div>
+        <div class="subid-card-essential"><span class="lab">Pedidos</span><span class="val">${fmtNum(pedidos)}</span></div>
+      </div>
+      ${details ? `
       <div class="subid-card-grid">
         <div class="subid-card-cell"><span class="lab">Faturamento</span><span class="val">${fmt(fat)}</span></div>
         <div class="subid-card-cell"><span class="lab">Comissão</span><span class="val cell-emerald">${fmt(com)}</span></div>
@@ -3129,7 +4064,10 @@
         ${showAds ? `<span class="subid-card-chip">🖱 Ads <b>${fmtNum(cliquesAds)}</b></span>` : ""}
         <span class="subid-card-chip">Abat. <b>${fmtPct(showAds ? abatCli : abatFat)}</b></span>
         ${trendChip}
-      </div>
+      </div>` : ""}
+      <button type="button" class="subid-card-details-btn" data-subid-details="${escapeHtml(id)}" aria-expanded="${details ? "true" : "false"}">
+        ${details ? "Recolher detalhes" : "Ver detalhes"}
+      </button>
       ${open ? subIdDailyHistoryCards(r) : ""}
     </article>`;
   }
@@ -3172,6 +4110,15 @@
     root.dataset.expandWired = "1";
     root.addEventListener("click", async (e) => {
       if (e.target.closest("select, .op-select")) return;
+      const detailsBtn = e.target.closest("[data-subid-details]");
+      if (detailsBtn) {
+        e.preventDefault();
+        const did = detailsBtn.dataset.subidDetails;
+        if (!did) return;
+        state.subidCardDetails[did] = !state.subidCardDetails[did];
+        renderFn();
+        return;
+      }
       const btn = e.target.closest("[data-subid-toggle]");
       if (!btn) return;
       e.preventDefault();
@@ -3530,6 +4477,8 @@
 
     const applyBtn = $("#btn-period-apply");
     if (applyBtn) applyBtn.disabled = !(start && end);
+
+    if (typeof MobilePeriod !== "undefined") MobilePeriod.syncLabel();
   }
 
   async function loadCredentials() {
@@ -3984,16 +4933,26 @@
     $("#btn-sidebar-open")?.addEventListener("click", () => setSidebarOpen(true));
     $("#btn-sidebar-close")?.addEventListener("click", () => setSidebarOpen(false));
     $("#sidebar-backdrop")?.addEventListener("click", () => setSidebarOpen(false));
+    MobileChrome.wire();
+    MobilePeriod.wire();
+    MobileOps.wire();
     window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") setSidebarOpen(false);
+      if (e.key === "Escape") {
+        if (document.body.classList.contains("m-sheet-open")) MobileChrome.closeSheets();
+        else setSidebarOpen(false);
+      }
     });
     window.addEventListener("resize", () => {
       if (window.innerWidth > 1023) setSidebarOpen(false);
     });
 
-    const mqMobile = window.matchMedia("(max-width: 640px)");
+    const mqMobile = window.matchMedia("(max-width: 767px)");
     const onMobileChange = () => {
-      if (state.view === "dashboard" && state.channel !== "geral") renderSubIdsDash();
+      if (state.view === "dashboard") {
+        if (state.channel !== "geral") renderSubIdsDash();
+        else if (state.dash) renderDailyTable(state.dash.daily || state.chartDaily || [], state.dash.kpis || {});
+      }
+      if (state.view === "canais") renderOpsTable();
     };
     if (mqMobile.addEventListener) mqMobile.addEventListener("change", onMobileChange);
     else if (mqMobile.addListener) mqMobile.addListener(onMobileChange);

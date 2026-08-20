@@ -7,6 +7,7 @@
   <meta name="theme-color" content="#f8fafc" />
   <title>Sistema de Afiliados</title>
   <link rel="manifest" href="/manifest.json" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Shopylitcs" />
@@ -17,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="/tailwind.css" />
-  <link rel="stylesheet" href="/gemini-app.css?v=notify-15" />
+  <link rel="stylesheet" href="/gemini-app.css?v=mobile-canais-2" />
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen antialiased selection:bg-brand-500 selection:text-white font-sans transition-colors duration-200">
 
@@ -264,6 +265,22 @@
 
             <section class="surface-card overflow-hidden p-0" id="period-bar" lang="pt-BR">
               <div class="period-bar-inner px-4 py-3 space-y-2.5">
+                <!-- Mobile: trigger compacto (desktop oculto via CSS ≥768) -->
+                <div class="m-period-bar" id="m-period-bar">
+                  <button type="button" class="m-period-trigger" id="m-period-open" aria-haspopup="dialog" aria-controls="m-period-sheet">
+                    <span class="m-period-trigger-ico" aria-hidden="true"><i class="fa-regular fa-calendar"></i></span>
+                    <span class="m-period-trigger-text">
+                      <span class="m-period-trigger-kicker">Período</span>
+                      <span class="m-period-trigger-label" id="m-period-label">Últimos 7 dias</span>
+                    </span>
+                    <i class="fa-solid fa-chevron-down m-period-trigger-caret" aria-hidden="true"></i>
+                  </button>
+                  <button type="button" class="m-period-refresh" id="m-period-refresh" title="Atualizar dados" aria-label="Atualizar dados">
+                    <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+                  </button>
+                </div>
+
+                <div class="period-bar-desktop">
                 <div class="flex flex-col lg:flex-row lg:items-center gap-2.5 lg:gap-4">
                   <div class="flex items-center gap-3 min-w-0 shrink-0 lg:w-[220px] xl:w-[240px]">
                     <div class="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
@@ -296,6 +313,7 @@
                       </button>
                     </div>
                   </div>
+                </div>
                 </div>
                 <div class="period-custom-panel hidden" id="period-custom-panel">
                   <div class="flex flex-wrap items-end gap-3">
@@ -392,6 +410,7 @@
                   <tbody id="daily-tbody"></tbody>
                   <tfoot id="daily-tfoot"></tfoot>
                 </table>
+                <div id="daily-card-list" class="daily-card-list hidden" role="list" aria-label="Resumo diário"></div>
               </div>
             </section>
           </div>
@@ -502,6 +521,7 @@
                   <tr><td colspan="7" class="radar-empty">Clique em Minerar para varrer a Shopee.</td></tr>
                 </tbody>
               </table>
+              <div id="radar-card-list" class="radar-card-list hidden" role="list" aria-label="Produtos do Radar"></div>
             </div>
           </div>
         </section>
@@ -563,10 +583,10 @@
 
         <!-- CANAIS -->
         <section id="view-canais" class="view hidden space-y-6">
-          <div>
-            <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1">Operação</div>
-            <h1 class="text-2xl font-extrabold text-slate-900">Canais e status</h1>
-            <p class="text-xs text-slate-500 mt-1">Classifique cada SubID por canal e estágio da campanha.</p>
+          <div class="canais-page-head">
+            <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1 canais-eyebrow">Operação</div>
+            <h1 class="text-2xl font-extrabold text-slate-900" id="canais-title">Canais e status</h1>
+            <p class="text-xs text-slate-500 mt-1 canais-page-sub">Classifique cada SubID por canal e estágio da campanha.</p>
             <div class="chan-counts" aria-label="Contagem por canal">
               <span class="chan-count"><img src="/assets/meta.png" alt="" /> Meta <b id="canais-count-meta">0</b></span>
               <span class="chan-count"><img class="is-square" src="/assets/pinterest.png" alt="" /> Pin <b id="canais-count-pin">0</b></span>
@@ -576,16 +596,24 @@
           </div>
           <section class="surface-card overflow-hidden" id="canais-ops-panel">
             <div class="panel-head px-4 sm:px-5 py-4 border-b border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
+              <div class="ops-panel-intro">
                 <h3 class="panel-title flex items-center gap-2">
                   <i class="fa-solid fa-table-list"></i>
                   SubIDs
                   <span class="count-pill" id="ops-count-pill">0</span>
                 </h3>
-                <p class="dashboard-section-desc">Alterações salvam automaticamente · clique para classificar canal e status</p>
+                <p class="dashboard-section-desc" id="ops-auto-hint">
+                  <span class="ops-hint-full">Alterações salvam automaticamente · clique para classificar canal e status</span>
+                  <span class="ops-hint-mobile">Alterações salvas automaticamente</span>
+                </p>
               </div>
-              <div class="flex flex-wrap items-center gap-2 justify-end w-full md:w-auto">
-                <input type="search" id="ops-search" class="search max-w-xs w-full sm:w-auto" placeholder="Filtrar por SubID…" />
+              <div class="ops-panel-tools flex flex-wrap items-center gap-2 justify-end w-full md:w-auto">
+                <button type="button" class="btn ghost sm m-ops-sort-btn" id="m-ops-sort" aria-haspopup="dialog" aria-controls="m-ops-pick-sheet" hidden>
+                  <i class="fa-solid fa-arrow-down-a-z" aria-hidden="true"></i>
+                  <span id="m-ops-sort-label">Ordenar</span>
+                  <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                </button>
+                <input type="search" id="ops-search" class="search max-w-xs w-full sm:w-auto" placeholder="Filtrar por SubID…" enterkeyhint="search" autocomplete="off" />
               </div>
             </div>
             <div class="table-scroll table-scroll--dark table-scroll--infinite" id="ops-scroll">
@@ -599,6 +627,7 @@
                 </thead>
                 <tbody id="ops-tbody"></tbody>
               </table>
+              <div id="ops-card-list" class="ops-card-list hidden" role="list" aria-label="SubIDs por canal e status"></div>
             </div>
             <div class="pager" id="ops-pager"></div>
           </section>
@@ -1056,8 +1085,198 @@
 
       </div>
     </main>
+
+    <!-- Mobile chrome (visível só ≤767px; desktop intacto) -->
+    <nav id="m-bottom-nav" class="m-bottom-nav" aria-label="Navegação principal" hidden>
+      <button type="button" class="m-tab is-active" data-m-tab="dashboard" aria-current="page">
+        <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
+        <span>Dashboard</span>
+      </button>
+      <button type="button" class="m-tab" data-m-tab="campanhas">
+        <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
+        <span>Campanhas</span>
+      </button>
+      <button type="button" class="m-tab" data-m-tab="supercomissoes">
+        <i class="fa-solid fa-satellite-dish" aria-hidden="true"></i>
+        <span>Radar</span>
+      </button>
+      <button type="button" class="m-tab" data-m-tab="analise-ia">
+        <i class="fa-solid fa-brain" aria-hidden="true"></i>
+        <span>IA</span>
+      </button>
+      <button type="button" class="m-tab" data-m-tab="menu" aria-haspopup="dialog">
+        <i class="fa-solid fa-bars" aria-hidden="true"></i>
+        <span>Menu</span>
+      </button>
+    </nav>
+
+    <div id="m-sheet-backdrop" class="m-sheet-backdrop" hidden></div>
+
+    <div id="m-campanhas-sheet" class="m-sheet" role="dialog" aria-modal="true" aria-labelledby="m-campanhas-title" hidden>
+      <div class="m-sheet__handle" aria-hidden="true"></div>
+      <div class="m-sheet__head">
+        <h2 id="m-campanhas-title">Campanhas</h2>
+        <button type="button" class="m-sheet__close" data-m-close aria-label="Fechar">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="m-sheet__body">
+        <button type="button" class="m-sheet__item" data-m-view="campanhas-meta">
+          <img src="/assets/meta.png" alt="" width="22" height="22" />
+          <span>Campanhas Meta</span>
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="campanhas-pinterest">
+          <img class="is-square" src="/assets/pinterest.png" alt="" width="22" height="22" />
+          <span>Campanhas Pinterest</span>
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="campanhas-organicas">
+          <img class="is-square" src="/assets/shopee.png" alt="" width="22" height="22" />
+          <span>Campanhas Orgânicas</span>
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="m-menu-sheet" class="m-sheet m-sheet--tall" role="dialog" aria-modal="true" aria-labelledby="m-menu-title" hidden>
+      <div class="m-sheet__handle" aria-hidden="true"></div>
+      <div class="m-sheet__head">
+        <div>
+          <h2 id="m-menu-title">Menu</h2>
+          <p class="m-sheet__email" id="m-user-email"></p>
+        </div>
+        <button type="button" class="m-sheet__close" data-m-close aria-label="Fechar">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="m-sheet__body m-sheet__body--scroll">
+        <div class="m-sheet__sec">Operação</div>
+        <button type="button" class="m-sheet__item" data-m-view="dashboard">
+          <img class="is-square" src="/assets/dashboard.png" alt="" width="22" height="22" />
+          <span>Dashboard</span>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="campanhas-meta">
+          <img src="/assets/meta.png" alt="" width="22" height="22" />
+          <span>Campanhas Meta</span>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="campanhas-pinterest">
+          <img class="is-square" src="/assets/pinterest.png" alt="" width="22" height="22" />
+          <span>Campanhas Pinterest</span>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="campanhas-organicas">
+          <img class="is-square" src="/assets/shopee.png" alt="" width="22" height="22" />
+          <span>Campanhas Orgânicas</span>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="produtos">
+          <img class="is-square" src="/assets/produtos.png" alt="" width="22" height="22" />
+          <span>Backup</span>
+        </button>
+
+        <div class="m-sheet__sec">Mineração</div>
+        <button type="button" class="m-sheet__item" data-m-view="supercomissoes">
+          <img class="is-square" src="/assets/radar.png?v=2" alt="" width="22" height="22" />
+          <span>Radar de Supercomissões</span>
+        </button>
+
+        <div class="m-sheet__sec">Inteligência</div>
+        <button type="button" class="m-sheet__item" data-m-view="analise-ia">
+          <img class="is-square" src="/assets/ia.png?v=3" alt="" width="22" height="22" />
+          <span>Análise IA</span>
+        </button>
+
+        <div class="m-sheet__sec">Sistema</div>
+        <button type="button" class="m-sheet__item" data-m-view="canais">
+          <img class="is-square" src="/assets/tag.png" alt="" width="22" height="22" />
+          <span>Canais e Status</span>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="config">
+          <img class="is-square" src="/assets/configuracao.png" alt="" width="22" height="22" />
+          <span>Configurações</span>
+        </button>
+        <button type="button" class="m-sheet__item" id="m-btn-theme" aria-label="Alternar modo claro ou escuro">
+          <i class="fa-solid fa-moon" id="m-theme-icon" aria-hidden="true"></i>
+          <span>Modo claro / escuro</span>
+        </button>
+
+        <div class="m-sheet__sec">Conta</div>
+        <a href="/admin" id="m-admin-entry" class="m-sheet__item hidden">
+          <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+          <span>Admin</span>
+        </a>
+        <button type="button" class="m-sheet__item m-sheet__item--danger" id="m-btn-logout">
+          <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+          <span>Sair</span>
+        </button>
+      </div>
+    </div>
+    <div id="m-info-sheet" class="m-sheet" role="dialog" aria-modal="true" aria-labelledby="m-info-title" hidden>
+      <div class="m-sheet__handle" aria-hidden="true"></div>
+      <div class="m-sheet__head">
+        <h2 id="m-info-title">Informação</h2>
+        <button type="button" class="m-sheet__close" data-m-close aria-label="Fechar">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="m-sheet__body m-sheet__body--scroll">
+        <div id="m-info-body" class="m-info-body"></div>
+      </div>
+    </div>
+
+    <div id="m-ops-pick-sheet" class="m-sheet" role="dialog" aria-modal="true" aria-labelledby="m-ops-pick-title" hidden>
+      <div class="m-sheet__handle" aria-hidden="true"></div>
+      <div class="m-sheet__head">
+        <h2 id="m-ops-pick-title">Selecionar</h2>
+        <button type="button" class="m-sheet__close" data-m-close aria-label="Fechar">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="m-sheet__body" id="m-ops-pick-body"></div>
+    </div>
+
+    <div id="m-period-sheet" class="m-sheet m-sheet--period" role="dialog" aria-modal="true" aria-labelledby="m-period-title" hidden>
+      <div class="m-sheet__handle" aria-hidden="true"></div>
+      <div class="m-sheet__head">
+        <h2 id="m-period-title">Selecionar período</h2>
+        <button type="button" class="m-sheet__close" data-m-close aria-label="Fechar">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="m-period-sheet-body">
+        <div class="m-period-summary">
+          <span class="m-period-summary-kicker">Período selecionado</span>
+          <strong id="m-period-summary-range">—</strong>
+          <span class="m-period-summary-hint" id="m-period-summary-hint">Dados até —</span>
+        </div>
+        <div class="m-period-chips" role="group" aria-label="Atalhos de período" id="m-period-chips">
+          <button type="button" class="m-period-chip" data-m-range="yesterday">Ontem</button>
+          <button type="button" class="m-period-chip" data-m-range="7d">7 dias</button>
+          <button type="button" class="m-period-chip" data-m-range="14d">14 dias</button>
+          <button type="button" class="m-period-chip" data-m-range="30d">30 dias</button>
+          <button type="button" class="m-period-chip" data-m-range="month">Este mês</button>
+          <button type="button" class="m-period-chip" data-m-range="prev_month">Mês anterior</button>
+          <button type="button" class="m-period-chip" data-m-range="all">Todo período</button>
+          <button type="button" class="m-period-chip" data-m-range="custom">Personalizado</button>
+        </div>
+        <div class="m-cal" id="m-cal">
+          <div class="m-cal-head">
+            <button type="button" class="m-cal-nav" id="m-cal-prev" aria-label="Mês anterior"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+            <div class="m-cal-month" id="m-cal-month">—</div>
+            <button type="button" class="m-cal-nav" id="m-cal-next" aria-label="Próximo mês"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+          </div>
+          <div class="m-cal-dows" aria-hidden="true">
+            <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+          </div>
+          <div class="m-cal-grid" id="m-cal-grid" role="grid" aria-label="Calendário"></div>
+        </div>
+      </div>
+      <div class="m-period-sheet-foot">
+        <button type="button" class="btn ghost m-period-cancel" data-m-close>Cancelar</button>
+        <button type="button" class="btn primary m-period-apply" id="m-period-apply">Aplicar período</button>
+      </div>
+    </div>
   </div>
 
-  <script src="/app.js?v=push-27"></script>
+  <script src="/app.js?v=mobile-canais-2"></script>
 </body>
 </html>

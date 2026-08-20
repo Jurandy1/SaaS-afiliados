@@ -19,6 +19,8 @@
     lookupProduto: null,
     lookupHistorico: null,
     grupoExpandido: null,
+    grupoReservasExpanded: {},
+    reservaDetailOpen: {},
     criterio: "comissao",
     buscaGrupo: "",
     filtroNicho: "todas",
@@ -361,12 +363,23 @@
     });
   }
 
+  function isMobileBk() {
+    return window.matchMedia("(max-width: 767px)").matches;
+  }
+
+  function produtoStatusLabel(p) {
+    const alerts = p?.alertas || [];
+    if (alerts.some((a) => a.nivel === "critico")) return { cls: "is-danger", text: "Fora da API" };
+    if (alerts.length) return { cls: "is-warn", text: "Atenção" };
+    return { cls: "is-ok", text: "Estável" };
+  }
+
   function produtoTile(p, badge, isPrincipal, grupoId, sugestao) {
     if (!p) return "";
     const comR = comissaoBRL(p);
     return `<div class="bk-tile ${isPrincipal ? "is-main" : ""}">
       <div class="bk-tile-badge ${sugestao ? "is-sug" : ""}">${escapeHtml(badge)}</div>
-      ${p.imagem ? `<img src="${escapeHtml(p.imagem)}" alt="" />` : `<div class="bk-tile-ph"><i class="fa-solid fa-box"></i></div>`}
+      ${p.imagem ? `<img src="${escapeHtml(p.imagem)}" alt="" loading="lazy" />` : `<div class="bk-tile-ph"><i class="fa-solid fa-box"></i></div>`}
       <div class="bk-tile-body">
         <div class="bk-tile-name">${escapeHtml(p.apelido || p.nome || "")}</div>
         <div class="bk-tile-price">${fmt(p.preco)}</div>
@@ -379,6 +392,86 @@
         </div>
         ${isPrincipal ? `<button type="button" class="bk-btn-vinc mt-1 w-full" data-act="swap" data-gid="${escapeHtml(grupoId || "")}" style="width:100%">Pausar e trocar</button>` : ""}
       </div>
+    </div>`;
+  }
+
+  function reservaCompactHtml(p, grupoId, sugestao) {
+    if (!p) return "";
+    const key = `${grupoId}:${p.itemId}`;
+    const open = Boolean(state.reservaDetailOpen[key]);
+    const st = produtoStatusLabel(p);
+    const comR = comissaoBRL(p);
+    const pct = Number(p.comissao_pct || 0);
+    return `<article class="bk-reserva-row${sugestao ? " is-sug" : ""}${open ? " is-open" : ""}">
+      <button type="button" class="bk-reserva-hit" data-act="toggle-reserva" data-gid="${escapeHtml(grupoId)}" data-id="${escapeHtml(p.itemId)}" aria-expanded="${open ? "true" : "false"}">
+        <div class="bk-reserva-thumb">
+          ${p.imagem
+            ? `<img src="${escapeHtml(p.imagem)}" alt="" width="48" height="48" loading="lazy" />`
+            : `<span class="bk-reserva-ph"><i class="fa-solid fa-box" aria-hidden="true"></i></span>`}
+        </div>
+        <div class="bk-reserva-meta min-w-0">
+          <div class="bk-reserva-name">${escapeHtml(p.apelido || p.nome || "")}</div>
+          <div class="bk-reserva-loja">${escapeHtml(p.loja || "Shopee")}${sugestao ? " · sugerido" : ""}</div>
+          <div class="bk-reserva-nums">${fmt(p.preco)} · ${pct}% comissão${comR > 0 ? ` · +${fmt(comR)}` : ""}</div>
+          <span class="bk-reserva-st ${st.cls}">${escapeHtml(st.text)}</span>
+        </div>
+        <i class="fa-solid fa-chevron-${open ? "down" : "right"} bk-reserva-chev" aria-hidden="true"></i>
+      </button>
+      ${open ? `<div class="bk-reserva-detail">
+        ${p.vendas_shopee ? `<div class="bk-meta">${fmtNum(p.vendas_shopee)} vendidos</div>` : ""}
+        <div class="bk-reserva-acts">
+          <button type="button" class="bk-btn-ghost" data-act="copy-tile" data-link="${escapeHtml(p.linkAfiliado || p.linkProduto || "")}">Obter link</button>
+          <button type="button" class="bk-btn-ghost" data-act="swap" data-gid="${escapeHtml(grupoId)}" data-id="${escapeHtml(p.itemId)}">Trocar principal</button>
+          <button type="button" class="bk-btn-ghost is-danger" data-act="remove-from-group" data-gid="${escapeHtml(grupoId)}" data-id="${escapeHtml(p.itemId)}">Remover</button>
+        </div>
+      </div>` : ""}
+    </article>`;
+  }
+
+  function grupoTilesHtml(g, principal, sorted, sugestao) {
+    if (!isMobileBk()) {
+      const tiles = [
+        principal ? produtoTile(principal, "Principal", true, g.docId, false) : "",
+        ...sorted.map((p, i) => produtoTile(
+          p,
+          `Backup ${i + 1}${sugestao && p.itemId === sugestao.itemId ? " · sugerido" : ""}`,
+          false,
+          g.docId,
+          sugestao && p.itemId === sugestao.itemId,
+        )),
+        `<button type="button" class="bk-add-tile" data-act="add-to-group" data-gid="${escapeHtml(g.docId)}"><i class="fa-solid fa-plus"></i><span>Adicionar reserva</span></button>`,
+      ].join("");
+      return `<div class="bk-tiles">${tiles}</div>`;
+    }
+
+    const PREVIEW = 3;
+    const total = sorted.length;
+    const expanded = Boolean(state.grupoReservasExpanded[g.docId]);
+    const visible = expanded ? sorted : sorted.slice(0, PREVIEW);
+    const hidden = Math.max(0, total - visible.length);
+
+    return `<div class="bk-mobile-tiles">
+      ${principal ? produtoTile(principal, "Principal", true, g.docId, false) : `<div class="bk-reservas-empty">Sem produto principal</div>`}
+      <section class="bk-reservas-sec">
+        <header class="bk-reservas-head">
+          <h5>Backups disponíveis · ${total}</h5>
+        </header>
+        ${total
+          ? `<div class="bk-reservas-list">${visible.map((p) =>
+              reservaCompactHtml(p, g.docId, sugestao && p.itemId === sugestao.itemId)
+            ).join("")}</div>`
+          : `<div class="bk-reservas-empty">Nenhum backup cadastrado</div>`}
+        ${!expanded && hidden > 0
+          ? `<button type="button" class="bk-reservas-more" data-act="expand-reservas" data-gid="${escapeHtml(g.docId)}">+ Ver mais ${hidden} backup${hidden === 1 ? "" : "s"}</button>`
+          : ""}
+        ${expanded && total > PREVIEW
+          ? `<button type="button" class="bk-reservas-more is-collapse" data-act="collapse-reservas" data-gid="${escapeHtml(g.docId)}">Recolher</button>`
+          : ""}
+        <button type="button" class="bk-add-btn" data-act="add-to-group" data-gid="${escapeHtml(g.docId)}">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          <span>Adicionar reserva</span>
+        </button>
+      </section>
     </div>`;
   }
 
@@ -409,17 +502,6 @@
       : insights.length
         ? `<span class="bk-badge is-warn">${insights.length} alerta${insights.length !== 1 ? "s" : ""}</span>`
         : `<span class="bk-badge is-ok">Estável</span>`;
-    const tiles = [
-      principal ? produtoTile(principal, "Principal", true, g.docId, false) : "",
-      ...sorted.map((p, i) => produtoTile(
-        p,
-        `Backup ${i + 1}${sugestao && p.itemId === sugestao.itemId ? " · sugerido" : ""}`,
-        false,
-        g.docId,
-        sugestao && p.itemId === sugestao.itemId,
-      )),
-      `<button type="button" class="bk-add-tile" data-act="add-to-group" data-gid="${escapeHtml(g.docId)}"><i class="fa-solid fa-plus"></i><span>Adicionar reserva</span></button>`,
-    ].join("");
 
     return `<article class="bk-gcard" data-gid="${escapeHtml(g.docId)}">
       <div class="bk-gcard-row">
@@ -472,7 +554,7 @@
             `<button type="button" class="bk-chip ${state.criterio === id ? "is-active" : ""}" data-act="criterio" data-c="${id}">${lab}</button>`
           ).join("")}
         </div>` : ""}
-        <div class="bk-tiles">${tiles}</div>
+        ${grupoTilesHtml(g, principal, sorted, sugestao)}
         ${(g.historico || []).length ? `<div class="bk-hist-block"><div class="bk-meta font-semibold mb-1">Histórico de trocas (${g.historico.length})</div>
           ${[...g.historico].reverse().slice(0, 8).map((h) =>
             `<div class="bk-hist is-muted">${escapeHtml(new Date(h.data).toLocaleString("pt-BR"))} · ${escapeHtml(h.motivo || "")}</div>`
@@ -941,6 +1023,13 @@
     if (state.wired) return;
     state.wired = true;
 
+    const mqBk = window.matchMedia("(max-width: 767px)");
+    const onBkMq = () => {
+      if (state.tab === "grupos") renderGrupos();
+    };
+    if (mqBk.addEventListener) mqBk.addEventListener("change", onBkMq);
+    else if (mqBk.addListener) mqBk.addListener(onBkMq);
+
     $$("#backup-tabs [data-backup-tab]").forEach((btn) => {
       btn.addEventListener("click", () => setTab(btn.dataset.backupTab));
     });
@@ -1120,6 +1209,16 @@
       try {
         if (act === "toggle-group") {
           state.grupoExpandido = state.grupoExpandido === btn.dataset.gid ? null : btn.dataset.gid;
+          await renderGrupos();
+        } else if (act === "expand-reservas") {
+          state.grupoReservasExpanded[btn.dataset.gid] = true;
+          await renderGrupos();
+        } else if (act === "collapse-reservas") {
+          state.grupoReservasExpanded[btn.dataset.gid] = false;
+          await renderGrupos();
+        } else if (act === "toggle-reserva") {
+          const key = `${btn.dataset.gid}:${btn.dataset.id}`;
+          state.reservaDetailOpen[key] = !state.reservaDetailOpen[key];
           await renderGrupos();
         } else if (act === "criterio") {
           state.criterio = btn.dataset.c;
