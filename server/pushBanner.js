@@ -2,7 +2,6 @@
 
 const fs = require("fs");
 const path = require("path");
-const { ImageResponse } = require("@vercel/og");
 const { Resvg } = require("@resvg/resvg-js");
 const embeddedFonts = require("./pushFontsEmbedded");
 
@@ -11,6 +10,12 @@ const FONT_NAME = "Geist-Regular.ttf";
 
 let _iconB64 = null;
 let _fonts = null;
+let _ogModule = null;
+
+async function getImageResponse() {
+  if (!_ogModule) _ogModule = await import("@vercel/og");
+  return _ogModule.ImageResponse;
+}
 
 function toArrayBuffer(buf) {
   return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
@@ -198,6 +203,7 @@ async function renderCommissionBannerPng(params = {}) {
   const hit = _cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.buf;
 
+  const ImageResponse = await getImageResponse();
   const response = new ImageResponse(buildBannerElement(params), {
     width: 900,
     height: 210,
