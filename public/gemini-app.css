@@ -2837,10 +2837,19 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .subid-card-history {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding-top: 0.5rem;
+    gap: 8px;
+    padding-top: 0.55rem;
     margin-top: 0.15rem;
     border-top: 1px dashed #1e293b;
+    width: 100%;
+    min-width: 0;
+  }
+  .subid-card-history-title {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #94a3b8;
   }
   .subid-card-history--empty {
     color: #64748b;
@@ -2850,32 +2859,55 @@ html, body { max-width: 100%; overflow-x: hidden; }
     font-style: italic;
   }
   .subid-card-history-row {
-    display: grid;
-    grid-template-columns: 62px repeat(2, minmax(0, 1fr));
-    gap: 6px;
-    padding: 8px;
-    border-radius: 0.5rem;
-    background: rgba(15, 23, 42, 0.5);
-    align-items: start;
-  }
-  @media (min-width: 390px) {
-    .subid-card-history-row { grid-template-columns: 62px repeat(4, minmax(0, 1fr)); }
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 0.65rem;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(51, 65, 85, 0.55);
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
   .subid-card-history-row.is-total {
     background: rgba(52, 211, 153, 0.12);
-    border: 1px solid rgba(52, 211, 153, 0.28);
+    border-color: rgba(52, 211, 153, 0.28);
   }
   .subid-card-history-row .hday {
-    font-size: 11px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    width: 100%;
+  }
+  .subid-card-history-row .hday-num {
+    font-size: 15px;
     font-weight: 800;
-    color: #cbd5e1;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+    color: #f8fafc;
+    letter-spacing: -0.02em;
+    flex-shrink: 0;
+  }
+  .subid-card-history-row .hday-txt {
+    font-size: 12px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: lowercase;
+  }
+  .subid-card-history-row .hcells {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+  @media (min-width: 390px) {
+    .subid-card-history-row .hcells { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
   .subid-card-history-row .hcell {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
     min-width: 0;
   }
   .subid-card-history-row .hcell .lab {
@@ -2886,7 +2918,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
     letter-spacing: 0.03em;
   }
   .subid-card-history-row .hcell .val {
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 700;
     color: #f1f5f9;
     font-variant-numeric: tabular-nums;
@@ -4571,10 +4603,34 @@ html, body { max-width: 100%; overflow-x: hidden; }
     font-size: 10px;
     color: #94a3b8;
   }
-  #ops-pager .m-list-pager {
+  #ops-pager .m-list-pager,
+  #ops-pager .ops-infinite {
     padding-left: 12px;
     padding-right: 12px;
     padding-bottom: 12px;
+  }
+  #ops-pager .ops-infinite {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+  #ops-pager .ops-infinite .m-list-pager-meta {
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #94a3b8;
+  }
+  #ops-pager .ops-load-more {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+    font-weight: 700;
+  }
+  #ops-pager .ops-infinite-sentinel {
+    height: 1px;
+    width: 100%;
+    pointer-events: none;
   }
   #m-ops-pick-body .m-sheet__item img {
     width: 18px;

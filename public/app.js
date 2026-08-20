@@ -831,6 +831,9 @@
     opsVisible: 40,
     opsMobileExpanded: false,
     opsSaveFlash: null,
+    _opsDomCount: 0,
+    _opsLoading: false,
+    _opsObserver: null,
     opsPageSize: 25,
     expandedSubIds: {},
     pageSize: 40,
@@ -3449,6 +3452,48 @@
     }
   }
 
+  function renderOpsMobilePager(el, shown, total, onMore) {
+    if (!el) return;
+    if (!total) {
+      el.innerHTML = "";
+      return;
+    }
+    if (shown >= total) {
+      el.innerHTML = `<div class="ops-infinite"><span class="infinite-hint">${fmtNum(total)} SubIDs</span></div>`;
+      return;
+    }
+    const rest = total - shown;
+    el.innerHTML = `<div class="ops-infinite">
+      <div class="m-list-pager-meta">${fmtNum(shown)} de ${fmtNum(total)} SubIDs</div>
+      <button type="button" class="btn primary sm ops-load-more" id="ops-load-more">Carregar mais (${fmtNum(rest)})</button>
+      <div id="ops-infinite-sentinel" class="ops-infinite-sentinel" aria-hidden="true"></div>
+    </div>`;
+    $("#ops-load-more")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      onMore();
+    });
+  }
+
+  function wireOpsInfiniteObserver(onMore) {
+    const sentinel = $("#ops-infinite-sentinel");
+    if (state._opsObserver) {
+      try { state._opsObserver.disconnect(); } catch (_) { /* ignore */ }
+      state._opsObserver = null;
+    }
+    if (!sentinel || typeof IntersectionObserver !== "function") return;
+    const root = $("main.page-main");
+    const obs = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      onMore();
+    }, {
+      root: root || null,
+      rootMargin: "240px 0px",
+      threshold: 0,
+    });
+    obs.observe(sentinel);
+    state._opsObserver = obs;
+  }
+
   function renderOpsCard(r) {
     const id = String(r.subid || "");
     const canal = r.canal || "indefinido";
@@ -3489,7 +3534,7 @@
     return `${names[key] || "Ordenar"} ${arrow}`;
   }
 
-  function renderOpsTable() {
+  function renderOpsTable(opts = {}) {
     const tb = $("#ops-tbody");
     const cardList = $("#ops-card-list");
     const table = $("#ops-table");
@@ -3513,12 +3558,14 @@
 
     const total = list.length;
     state.opsTotal = total;
-    const OPS_PREVIEW = 20;
-    const OPS_PAGE = 30;
+    const OPS_PREVIEW = 15;
+    const OPS_PAGE = 25;
     const filterKey = `${search}|${sortKey}|${sortDir}`;
-    if (state._opsFilterKey !== filterKey) {
+    const filterChanged = state._opsFilterKey !== filterKey;
+    if (filterChanged) {
       state._opsFilterKey = filterKey;
       state.opsVisible = mobile ? Math.min(OPS_PREVIEW, total || OPS_PREVIEW) : total || 40;
+      state._opsDomCount = 0;
     }
 
     let slice;
@@ -3526,7 +3573,7 @@
       if (!state.opsVisible || state.opsVisible < 1) {
         state.opsVisible = Math.min(OPS_PREVIEW, total || OPS_PREVIEW);
       }
-      state.opsVisible = Math.min(Math.max(state.opsVisible, 1), total || state.opsVisible);
+      state.opsVisible = Math.min(Math.max(Number(state.opsVisible) || OPS_PREVIEW, 1), total || 1);
       slice = list.slice(0, state.opsVisible);
     } else {
       slice = list;
@@ -3548,8 +3595,24 @@
       if (tb) tb.innerHTML = "";
       if (cardList) {
         cardList.classList.remove("hidden");
-        cardList.innerHTML = slice.map((r) => renderOpsCard(r)).join("")
-          || `<div class="ops-card-empty">${state.dash ? "Nenhum SubID encontrado." : "Carregue o painel para listar SubIDs."}</div>`;
+        const emptyMsg = state.dash ? "Nenhum SubID encontrado." : "Carregue o painel para listar SubIDs.";
+        const canAppend = Boolean(opts.appendOnly)
+          && !filterChanged
+          && state._opsDomCount > 0
+          && state._opsDomCount < slice.length
+          && cardList.querySelector(".ops-card");
+
+        if (!slice.length) {
+          cardList.innerHTML = `<div class="ops-card-empty">${emptyMsg}</div>`;
+          state._opsDomCount = 0;
+        } else if (canAppend) {
+          const moreHtml = list.slice(state._opsDomCount, slice.length).map((r) => renderOpsCard(r)).join("");
+          cardList.insertAdjacentHTML("beforeend", moreHtml);
+          state._opsDomCount = slice.length;
+        } else {
+          cardList.innerHTML = slice.map((r) => renderOpsCard(r)).join("");
+          state._opsDomCount = slice.length;
+        }
         MobileOps.wireList(cardList);
       }
     } else {
@@ -3575,30 +3638,24 @@
 
     const pager = $("#ops-pager");
     const loadMore = () => {
-      if (!mobile) return;
+      if (!isMobileLayout() || state.view !== "canais") return;
+      if (state._opsLoading) return;
       if (state.opsVisible >= state.opsTotal) return;
       const next = Math.min(state.opsVisible + OPS_PAGE, state.opsTotal);
-      if (next === state.opsVisible) return;
+      if (next <= state.opsVisible) return;
+      state._opsLoading = true;
       state.opsVisible = next;
-      renderOpsTable();
-    };
-    if (mobile) {
-      renderInfiniteHint(pager, slice.length, total, loadMore);
-      wireInfiniteScroll("#ops-scroll", loadMore);
-      wireInfiniteScroll("main.page-main", () => {
-        if (state.view !== "canais" || !isMobileLayout()) return;
-        loadMore();
-      });
-      /* Se a tela ainda não encheu, carrega o próximo lote sem esperar scroll */
-      if (slice.length < total) {
-        requestAnimationFrame(() => {
-          if (state.view !== "canais" || !isMobileLayout()) return;
-          if (state.opsVisible !== slice.length) return;
-          const main = $("main.page-main");
-          if (!main) return;
-          if (main.scrollHeight <= main.clientHeight + 160) loadMore();
-        });
+      try {
+        renderOpsTable({ appendOnly: true });
+      } finally {
+        /* libera após o paint para o observer não disparar em loop travando a UI */
+        setTimeout(() => { state._opsLoading = false; }, 280);
       }
+    };
+
+    if (mobile) {
+      renderOpsMobilePager(pager, slice.length, total, loadMore);
+      wireOpsInfiniteObserver(loadMore);
     } else {
       renderInfiniteHint(pager, slice.length, total);
     }
@@ -3770,10 +3827,21 @@
 
   function shortDayLabel(iso) {
     if (!iso) return "—";
-    const [y, m, d] = String(iso).split("-");
+    const raw = String(iso).trim();
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return raw.slice(0, 10) || "—";
     const months = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-    const mi = Number(m) - 1;
-    return `${d} ${months[mi] || m}`;
+    const day = Number(m[3]);
+    const mi = Number(m[2]) - 1;
+    return `${day} ${months[mi] || m[2]}`;
+  }
+
+  function dayLabelMobile(iso) {
+    if (!iso) return "—";
+    const raw = String(iso).trim();
+    const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return raw.slice(0, 10) || "—";
+    return `${m[3]}/${m[2]}`;
   }
 
   function subIdDailyHistoryHtml(r, colSpan) {
@@ -4015,6 +4083,7 @@
     const id = String(r.subid || "");
     const open = Boolean(state.expandedSubIds[id]);
     const details = Boolean(state.subidCardDetails[id]);
+    const showHistory = open || details;
     const fat = Number(r.faturamento || 0);
     const com = Number(r.comissao || 0);
     const inv = investForRoi(r);
@@ -4035,10 +4104,11 @@
           : "";
     const showInvest = ch !== "organico";
     const showAds = ch === "meta" || ch === "pinterest";
+    const loadingDaily = showHistory && !Array.isArray(r.daily);
 
-    return `<article class="subid-card${open ? " is-open" : ""}${details ? " is-details" : ""}" data-subid="${escapeHtml(id)}" role="listitem">
+    return `<article class="subid-card${open || details ? " is-open" : ""}${details ? " is-details" : ""}" data-subid="${escapeHtml(id)}" role="listitem">
       <header class="subid-card-head">
-        <button type="button" class="subid-card-toggle" data-subid-toggle="${escapeHtml(id)}" aria-expanded="${open ? "true" : "false"}" title="Ver histórico diário">
+        <button type="button" class="subid-card-toggle" data-subid-toggle="${escapeHtml(id)}" aria-expanded="${showHistory ? "true" : "false"}" title="Ver histórico diário">
           <span class="subid-card-caret" aria-hidden="true"></span>
           <span class="subid-card-name">${escapeHtml(id)}</span>
         </button>
@@ -4065,10 +4135,12 @@
         <span class="subid-card-chip">Abat. <b>${fmtPct(showAds ? abatCli : abatFat)}</b></span>
         ${trendChip}
       </div>` : ""}
+      ${showHistory ? (loadingDaily
+        ? `<div class="subid-card-history subid-card-history--empty">Carregando histórico diário…</div>`
+        : subIdDailyHistoryCards(r)) : ""}
       <button type="button" class="subid-card-details-btn" data-subid-details="${escapeHtml(id)}" aria-expanded="${details ? "true" : "false"}">
-        ${details ? "Recolher detalhes" : "Ver detalhes"}
+        ${details ? "Recolher detalhes" : "Ver detalhes e histórico"}
       </button>
-      ${open ? subIdDailyHistoryCards(r) : ""}
     </article>`;
   }
 
@@ -4081,12 +4153,19 @@
       const inv = investForRoi(d);
       const lucro = d.lucro != null ? Number(d.lucro) : Number(d.comissao || 0) - inv;
       const roi = displayRoi(d);
+      const label = dayLabelMobile(d.data || d.date || d.dia);
+      const labelFull = shortDayLabel(d.data || d.date || d.dia);
       return `<div class="subid-card-history-row">
-        <span class="hday">${escapeHtml(shortDayLabel(d.data))}</span>
-        <span class="hcell"><span class="lab">Com.</span><span class="val cell-emerald">${fmt(d.comissao)}</span></span>
-        <span class="hcell"><span class="lab">Inv.</span><span class="val cell-gasto">${fmt(inv)}</span></span>
-        <span class="hcell"><span class="lab">Lucro</span><span class="val ${lucroCellClass(lucro)}">${fmt(lucro)}</span></span>
-        <span class="hcell"><span class="lab">ROI</span><span class="val ${roiTierClass(roi)}">${fmtPct(roi)}</span></span>
+        <div class="hday" title="${escapeHtml(String(d.data || d.date || ""))}">
+          <span class="hday-num">${escapeHtml(label)}</span>
+          <span class="hday-txt">${escapeHtml(labelFull)}</span>
+        </div>
+        <div class="hcells">
+          <span class="hcell"><span class="lab">Comissão</span><span class="val cell-emerald">${fmt(d.comissao)}</span></span>
+          <span class="hcell"><span class="lab">Invest.</span><span class="val cell-gasto">${fmt(inv)}</span></span>
+          <span class="hcell"><span class="lab">Lucro</span><span class="val ${lucroCellClass(lucro)}">${fmt(lucro)}</span></span>
+          <span class="hcell"><span class="lab">ROI</span><span class="val ${roiTierClass(roi)}">${fmtPct(roi)}</span></span>
+        </div>
       </div>`;
     }).join("");
     const totCom = days.reduce((a, d) => a + Number(d.comissao || 0), 0);
@@ -4094,15 +4173,37 @@
     const totLucro = days.reduce((a, d) => a + (d.lucro != null ? Number(d.lucro) : Number(d.comissao || 0) - investForRoi(d)), 0);
     const totRoi = totInv > 0 ? (totLucro / totInv) * 100 : null;
     return `<div class="subid-card-history">
+      <div class="subid-card-history-title">Histórico diário · ${days.length} dia(s)</div>
       ${rows}
       <div class="subid-card-history-row is-total">
-        <span class="hday">Total ${days.length}d</span>
-        <span class="hcell"><span class="lab">Com.</span><span class="val cell-emerald">${fmt(totCom)}</span></span>
-        <span class="hcell"><span class="lab">Inv.</span><span class="val cell-gasto">${fmt(totInv)}</span></span>
-        <span class="hcell"><span class="lab">Lucro</span><span class="val ${lucroCellClass(totLucro)}">${fmt(totLucro)}</span></span>
-        <span class="hcell"><span class="lab">ROI</span><span class="val ${roiTierClass(totRoi)}">${fmtPct(totRoi)}</span></span>
+        <div class="hday">
+          <span class="hday-num">Total</span>
+          <span class="hday-txt">${days.length}d</span>
+        </div>
+        <div class="hcells">
+          <span class="hcell"><span class="lab">Comissão</span><span class="val cell-emerald">${fmt(totCom)}</span></span>
+          <span class="hcell"><span class="lab">Invest.</span><span class="val cell-gasto">${fmt(totInv)}</span></span>
+          <span class="hcell"><span class="lab">Lucro</span><span class="val ${lucroCellClass(totLucro)}">${fmt(totLucro)}</span></span>
+          <span class="hcell"><span class="lab">ROI</span><span class="val ${roiTierClass(totRoi)}">${fmtPct(totRoi)}</span></span>
+        </div>
       </div>
     </div>`;
+  }
+
+  async function ensureSubidDaily(row) {
+    if (!row) return [];
+    if (Array.isArray(row.daily)) return row.daily;
+    row.daily = [];
+    try {
+      const start = $("#start-date")?.value || "";
+      const end = $("#end-date")?.value || "";
+      const id = String(row.subid || "");
+      const dRes = await api(`/api/subid-daily?subid=${encodeURIComponent(id)}&start=${start}&end=${end}`);
+      row.daily = Array.isArray(dRes.daily) ? dRes.daily : [];
+    } catch (_) {
+      row.daily = [];
+    }
+    return row.daily;
   }
 
   function wireSubIdCardExpand(root, renderFn) {
@@ -4115,7 +4216,17 @@
         e.preventDefault();
         const did = detailsBtn.dataset.subidDetails;
         if (!did) return;
-        state.subidCardDetails[did] = !state.subidCardDetails[did];
+        const opening = !state.subidCardDetails[did];
+        state.subidCardDetails[did] = opening;
+        if (opening) state.expandedSubIds[did] = true;
+        else {
+          state.expandedSubIds[did] = false;
+        }
+        const row = (state.dash?.subIds || []).find((r) => String(r.subid || "") === did);
+        if (opening && row && !Array.isArray(row.daily)) {
+          renderFn();
+          await ensureSubidDaily(row);
+        }
         renderFn();
         return;
       }
@@ -4126,18 +4237,12 @@
       if (!id) return;
       const opening = !state.expandedSubIds[id];
       state.expandedSubIds[id] = opening;
+      if (opening) state.subidCardDetails[id] = true;
+      else state.subidCardDetails[id] = false;
       const row = (state.dash?.subIds || []).find((r) => String(r.subid || "") === id);
       if (opening && row && !Array.isArray(row.daily)) {
-        row.daily = [];
         renderFn();
-        try {
-          const start = $("#start-date")?.value || "";
-          const end = $("#end-date")?.value || "";
-          const dRes = await api(`/api/subid-daily?subid=${encodeURIComponent(id)}&start=${start}&end=${end}`);
-          row.daily = dRes.daily || [];
-        } catch (_) {
-          row.daily = [];
-        }
+        await ensureSubidDaily(row);
       }
       renderFn();
     });
