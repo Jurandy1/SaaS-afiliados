@@ -5,7 +5,10 @@ const path = require("path");
 const { Resvg } = require("@resvg/resvg-js");
 const embeddedFonts = require("./pushFontsEmbedded");
 
-const ICON_PATH = path.join(__dirname, "..", "public", "assets", "push", "shopee-icon.png");
+const ICON_CANDIDATES = [
+  path.join(__dirname, "..", "public", "assets", "shopee.png"),
+  path.join(__dirname, "..", "public", "assets", "push", "shopee-icon.png"),
+];
 const FONT_NAME = "Geist-Regular.ttf";
 
 let _iconB64 = null;
@@ -47,9 +50,13 @@ function getOgFonts() {
 
 function getIconB64() {
   if (_iconB64) return _iconB64;
-  if (fs.existsSync(ICON_PATH)) {
-    _iconB64 = fs.readFileSync(ICON_PATH).toString("base64");
-  } else if (embeddedFonts["shopee-icon.png"]) {
+  for (const p of ICON_CANDIDATES) {
+    if (fs.existsSync(p)) {
+      _iconB64 = fs.readFileSync(p).toString("base64");
+      break;
+    }
+  }
+  if (!_iconB64 && embeddedFonts["shopee-icon.png"]) {
     _iconB64 = embeddedFonts["shopee-icon.png"];
   }
   return _iconB64 || "";
@@ -102,6 +109,7 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
           src: coinUri,
           width: 118,
           height: 118,
+          style: { flexShrink: 0 },
         },
       }
     : {
@@ -126,8 +134,8 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
         display: "flex",
         flexDirection: "row",
         alignItems: "center",
-        padding: "0 42px",
-        gap: "28px",
+        padding: "34px 42px",
+        gap: "30px",
         background:
           "radial-gradient(120% 160% at 8% 15%, rgba(255,196,120,0.55) 0%, rgba(255,196,120,0) 38%), linear-gradient(128deg, #FF9142 0%, #FF7620 22%, #F5540D 52%, #E23F0D 74%, #C9330A 100%)",
         fontFamily: "Geist",
@@ -137,7 +145,12 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
         {
           type: "div",
           props: {
-            style: { display: "flex", flexDirection: "column", gap: "10px", flex: 1 },
+            style: {
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              gap: "12px",
+            },
             children: [
               {
                 type: "div",
@@ -146,10 +159,12 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
                     display: "flex",
                     backgroundColor: "#ffffff",
                     color: "#E8460F",
-                    fontWeight: 700,
-                    fontSize: "14px",
-                    padding: "8px 16px",
+                    fontWeight: 800,
+                    fontSize: "15px",
+                    letterSpacing: "0.4px",
+                    padding: "9px 18px",
                     borderRadius: "999px",
+                    boxShadow: "0 4px 10px rgba(0,0,0,0.18)",
                   },
                   children: "COMISSÃO TOTAL",
                 },
@@ -158,11 +173,13 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
                 type: "div",
                 props: {
                   style: {
+                    display: "flex",
                     fontSize: "52px",
-                    fontWeight: 700,
+                    fontWeight: 800,
                     color: "#ffffff",
                     letterSpacing: "-1px",
                     lineHeight: 1.05,
+                    textShadow: "0 2px 10px rgba(0,0,0,0.15)",
                   },
                   children: `R$ ${comFmt}`,
                 },
@@ -171,9 +188,10 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
                 type: "div",
                 props: {
                   style: {
+                    display: "flex",
                     fontSize: "14px",
-                    fontWeight: 400,
-                    color: "rgba(255,255,255,0.78)",
+                    fontWeight: 500,
+                    color: "rgba(255,255,255,0.75)",
                     lineHeight: 1.35,
                   },
                   children: subtitle,
@@ -189,12 +207,14 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
 
 function buildCoinSvg(size) {
   const iconUri = getIconDataUri();
-  const iconSize = Math.round(size * 0.56);
-  const iconOffset = Math.round((size - iconSize) / 2);
-  const iconImg = iconUri
-    ? `<image href="${iconUri}" x="${iconOffset}" y="${iconOffset}" width="${iconSize}" height="${iconSize}" preserveAspectRatio="xMidYMid meet"/>`
-    : "";
   const r = size / 2;
+  const clipR = Math.round(r * 0.36);
+  const iconSize = Math.round(clipR * 2.15);
+  const iconOffset = Math.round(r - iconSize / 2);
+  const iconImg = iconUri
+    ? `<defs><clipPath id="ic"><circle cx="${r}" cy="${r}" r="${clipR}"/></clipPath></defs>
+    <image href="${iconUri}" x="${iconOffset}" y="${iconOffset}" width="${iconSize}" height="${iconSize}" clip-path="url(#ic)" preserveAspectRatio="xMidYMid slice"/>`
+    : "";
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
   <defs>
@@ -207,7 +227,7 @@ function buildCoinSvg(size) {
   </defs>
   <circle cx="${r}" cy="${r}" r="${r - 1}" fill="url(#coin)"/>
   <circle cx="${r}" cy="${r}" r="${r * 0.82}" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="${Math.max(1, size * 0.02)}"/>
-  <circle cx="${r * 0.7}" cy="${r * 0.55}" r="${size * 0.08}" fill="rgba(255,255,255,0.9)"/>
+  <circle cx="${r * 0.68}" cy="${r * 0.52}" r="${size * 0.07}" fill="rgba(255,255,255,0.85)"/>
   ${iconImg}
 </svg>`;
 }
@@ -217,7 +237,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 
 function bannerCacheKey(params) {
   const { com, lucro, pedidos, date } = params;
-  return `${Number(com).toFixed(2)}|${Number(lucro).toFixed(2)}|${pedidos}|${date || ""}|og`;
+  return `${Number(com).toFixed(2)}|${Number(lucro).toFixed(2)}|${pedidos}|${date || ""}|og2`;
 }
 
 async function renderCommissionBannerPng(params = {}) {
