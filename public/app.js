@@ -84,6 +84,48 @@
       return arr;
     }
 
+    function _toastCommission({ com, lucro, pedidos }) {
+      let container = document.getElementById("sync-toast-container");
+      if (!container) {
+        container = document.createElement("div");
+        container.id = "sync-toast-container";
+        document.body.appendChild(container);
+      }
+      const comStr = Number(com || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const lucroStr = Number(lucro || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const pedidosNum = Number(pedidos || 0);
+      const pedidosTxt = pedidosNum > 0
+        ? `${pedidosNum} pedido${pedidosNum !== 1 ? "s" : ""} validado${pedidosNum !== 1 ? "s" : ""}`
+        : "";
+      const legenda = pedidosTxt
+        ? `Lucro Líquido: R$ ${lucroStr} · ${pedidosTxt}`
+        : `Lucro Líquido: R$ ${lucroStr}`;
+
+      const el = document.createElement("div");
+      el.className = "sync-toast sync-toast--comissao";
+      el.innerHTML = `
+        <div class="sync-toast__card onda-bg">
+          <svg class="onda-svg" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0,80 C80,20 160,110 280,50 C340,20 380,60 420,30" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="28"/>
+            <path d="M-20,110 C100,150 200,40 320,100 C380,130 420,80 460,110" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="36"/>
+          </svg>
+          <div class="vinheta"></div>
+          <div class="sync-toast__inner">
+            <div class="sync-toast__moeda">
+              <span class="brilho"></span>
+              <img src="/assets/push/shopee-icon.png" alt="" width="28" height="28">
+            </div>
+            <div class="sync-toast__body">
+              <div class="sync-toast__pill">COMISSÃO TOTAL</div>
+              <div class="sync-toast__valor">R$ ${comStr}</div>
+              <div class="sync-toast__legenda">${legenda}</div>
+            </div>
+          </div>
+        </div>`;
+      container.appendChild(el);
+      setTimeout(() => { el.classList.add("sync-toast--hide"); setTimeout(() => el.remove(), 400); }, 8000);
+    }
+
     function _toast(msg, type = "ok") {
       let container = document.getElementById("sync-toast-container");
       if (!container) {
@@ -108,17 +150,12 @@
       _lastSyncedAt = syncedAt;
       if (userTriggered) return;
 
-      const fat = Number(dash.kpis?.faturamento || 0);
       const com = Number(dash.kpis?.comissao || 0);
+      const lucro = Number(dash.kpis?.lucro || 0);
       const pedidos = Number(dash.kpis?.pedidos || 0);
-      if (fat <= 0) return;
+      if (com <= 0) return;
 
-      const fatStr = fat.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-      const comStr = com.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-      const title = `💰 Vendeu ${fatStr} hoje!`;
-      const body = `${pedidos} pedido${pedidos !== 1 ? "s" : ""} · Comissão: ${comStr}`;
-
-      _toast(`<strong>${title}</strong><br><span style="font-size:12px">${body}</span>`);
+      _toastCommission({ com, lucro, pedidos });
     }
 
     return { registerPush, notify };
@@ -4127,7 +4164,12 @@
         });
         status.className = "form-status ok";
         const periodo = r.range?.since && r.range?.until ? ` · ${r.range.since} a ${r.range.until}` : "";
-        status.textContent = `Cliques Shopee: ${Number(r.cliques || 0).toLocaleString("pt-BR")} cliques · ${r.subids || 0} SubIDs${periodo}. Recarregue Campanhas Meta.`;
+        if (r.skipped) {
+          status.textContent = `${r.message || "CSV já importado."}${periodo}`;
+        } else {
+          const extra = r.message ? ` ${r.message}.` : "";
+          status.textContent = `Cliques Shopee: ${Number(r.cliques || 0).toLocaleString("pt-BR")} cliques · ${r.subids || 0} SubIDs${periodo}.${extra} Recarregue Campanhas Meta.`;
+        }
         await loadDashboard({ force: false });
       } catch (err) {
         status.className = "form-status err";

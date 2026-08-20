@@ -122,14 +122,15 @@ async function runAutoSync({ mode = "daily" } = {}) {
             const lucro = Number(dashOntem.kpis?.lucro || 0);
             const pedidos = Number(dashOntem.kpis?.pedidos || 0);
             if (com <= 0) return;
-            const comStr = com.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-            const lucroStr = lucro.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-            sendToUser(user.id, {
-              title: `💰 Ontem: Comissão ${comStr}`,
-              body: `Lucro Líquido: ${lucroStr}\n${pedidos} pedido${pedidos !== 1 ? "s" : ""} validado${pedidos !== 1 ? "s" : ""}`,
-              tag: "vendas-dia",
-              url: "/",
-            }).catch(() => {});
+            const { buildCommissionPush, getPushBaseUrl } = require("./pushPayload");
+            const payload = buildCommissionPush({
+              com,
+              lucro,
+              pedidos,
+              date: yesterday,
+              baseUrl: getPushBaseUrl(),
+            });
+            sendToUser(user.id, payload).catch(() => {});
           });
         } catch (_) {}
       }

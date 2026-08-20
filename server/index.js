@@ -227,6 +227,7 @@ const PUBLIC_API = new Set([
   "/api/auth/login",
   "/api/auth/register",
   "/api/cron/sync",
+  "/api/push/banner.png",
 ]);
 
 async function requestHandler(req, res) {
@@ -270,6 +271,25 @@ async function requestHandler(req, res) {
 
     if (pathname === "/api/push/public-key" && req.method === "GET") {
       sendJson(res, 200, { key: getPublicKey() });
+      return;
+    }
+
+    if (pathname === "/api/push/banner.png" && req.method === "GET") {
+      try {
+        const { renderCommissionBannerPng } = require("./pushBanner");
+        const com = Number(url.searchParams.get("com") || 0);
+        const lucro = Number(url.searchParams.get("lucro") || 0);
+        const pedidos = Number(url.searchParams.get("pedidos") || 0);
+        const date = String(url.searchParams.get("d") || "");
+        const buf = renderCommissionBannerPng({ com, lucro, pedidos, date });
+        res.writeHead(200, {
+          "Content-Type": "image/png",
+          "Cache-Control": "public, max-age=86400",
+        });
+        res.end(buf);
+      } catch (err) {
+        sendJson(res, 500, { error: err.message || String(err) });
+      }
       return;
     }
 
@@ -664,20 +684,21 @@ async function requestHandler(req, res) {
             const { sendToUser } = require("./pushNotify");
             const { shopeeEndDate } = require("./brtDates");
             const { buildDashboard } = require("./metrics");
+            const { buildCommissionPush, getPushBaseUrl } = require("./pushPayload");
             const yesterday = shopeeEndDate();
             const dash = await buildDashboard({ startDate: yesterday, endDate: yesterday, persist: false, persistSubIds: false });
             const com = Number(dash.kpis?.comissao || 0);
             const lucro = Number(dash.kpis?.lucro || 0);
             const pedidos = Number(dash.kpis?.pedidos || 0);
-            const comStr = com.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-            const lucroStr = lucro.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-            await sendToUser(userId, {
-              title: `💰 Ontem (${yesterday}): Comissão ${comStr}`,
-              body: `Lucro Líquido: ${lucroStr}\n${pedidos} pedido${pedidos !== 1 ? "s" : ""} validado${pedidos !== 1 ? "s" : ""}`,
-              tag: "vendas-dia",
-              url: "/",
+            const payload = buildCommissionPush({
+              com,
+              lucro,
+              pedidos,
+              date: yesterday,
+              baseUrl: getPushBaseUrl(req),
             });
-            sendJson(res, 200, { success: true, yesterday, com, lucro, pedidos });
+            await sendToUser(userId, payload);
+            sendJson(res, 200, { success: true, yesterday, com, lucro, pedidos, payload });
           } catch (err) {
             sendJson(res, 400, { success: false, error: err.message });
           }
@@ -1131,37 +1152,6 @@ if (!process.env.VERCEL) {
     console.log(`  Auth: login/registro por conta`);
     console.log(`  Cada usuário: Shopee + Meta + dados isolados\n`);
     startLocalAutoSync();
-
-    // ── TESTE TEMPORÁRIO: dispara push às 10:30 BRT de hoje ──
-    const { sendToUser } = require("./pushNotify");
-    const { getSupabaseAdmin } = require("./auth");
-    (function scheduleTestPush() {
-      const now = new Date();
-      const target = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-      target.setHours(10, 55, 0, 0);
-      const nowBrt = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-      let delayMs = target - nowBrt;
-      if (delayMs < 0) delayMs = 5000;
-      console.log(`[test-push] disparando em ${Math.round(delayMs / 1000)}s`);
-      setTimeout(async () => {
-        try {
-          const sb = getSupabaseAdmin();
-          const { data } = await sb.from("push_subscriptions").select("user_id");
-          const userIds = [...new Set((data || []).map((r) => r.user_id))];
-          for (const uid of userIds) {
-            await sendToUser(uid, {
-              title: "💰 Vendeu R$ 2.487,90 hoje!",
-              body: "12 pedidos · Comissão: R$ 248,79\nShopee atualizado agora.",
-              tag: "vendas-dia",
-              url: "/",
-            });
-          }
-          console.log(`[test-push] enviado para ${userIds.length} usuário(s)`);
-        } catch (e) {
-          console.warn("[test-push] erro:", e.message);
-        }
-      }, delayMs);
-    })();
     // ── FIM TESTE TEMPORÁRIO ──
 
   });

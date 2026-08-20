@@ -89,11 +89,59 @@ function parseShopeeClicksCsv(text) {
   return { rows: out, processed };
 }
 
+async function loadExistingClickMap(userId, rows) {
+  const dates = [...new Set(rows.map((r) => r.data))].sort();
+  if (!dates.length) return new Map();
+  const existing = await loadShopeeClicksByDay(dates[0], dates[dates.length - 1], userId);
+  const map = new Map();
+  for (const r of existing) {
+    map.set(`${r.data}|${r.subid}`, Number(r.cliques || 0));
+  }
+  return map;
+}
+
 async function importShopeeClicksCsv(text, userId = requireUserId()) {
   const parsed = parseShopeeClicksCsv(text);
   if (!parsed.rows.length) {
     throw new Error("Nenhum clique com SubID e data no CSV. Exporte o Relatório de cliques da Shopee.");
   }
+
+  const existingMap = await loadExistingClickMap(userId, parsed.rows);
+  let novos = 0;
+  let atualizados = 0;
+  let inalterados = 0;
+  for (const r of parsed.rows) {
+    const key = `${r.data}|${r.subid}`;
+    const prev = existingMap.get(key);
+    if (prev == null) novos += 1;
+    else if (prev === Number(r.cliques || 0)) inalterados += 1;
+    else atualizados += 1;
+  }
+
+  const datas = parsed.rows.map((r) => r.data).sort();
+  const cliques = parsed.rows.reduce((a, r) => a + Number(r.cliques || 0), 0);
+  const subids = new Set(parsed.rows.map((r) => r.subid));
+  const range = { since: datas[0] || null, until: datas[datas.length - 1] || null };
+  const base = {
+    linhas: parsed.processed,
+    cliques,
+    subids: subids.size,
+    range,
+    novos,
+    atualizados,
+    inalterados,
+  };
+
+  // Mesmo CSV importado de novo: nada muda, não grava de novo
+  if (novos === 0 && atualizados === 0 && inalterados > 0) {
+    return {
+      ...base,
+      skipped: true,
+      gravados: 0,
+      message: "Este CSV já estava importado — cliques não foram duplicados.",
+    };
+  }
+
   const supabase = getSupabase();
   const now = new Date().toISOString();
   let gravados = 0;
@@ -105,19 +153,22 @@ async function importShopeeClicksCsv(text, userId = requireUserId()) {
       cliques: r.cliques,
       updated_at: now,
     }));
-    const { error } = await supabase.from("clique_daily").upsert(chunk, { onConflict: "user_id,data,subid" });
+    // Substitui registro existente (user_id + data + subid) — nunca soma em cima
+    const { error } = await supabase.from("clique_daily").upsert(chunk, {
+      onConflict: "user_id,data,subid",
+      ignoreDuplicates: false,
+    });
     if (error) throw new Error(error.message);
     gravados += chunk.length;
   }
-  const datas = parsed.rows.map((r) => r.data).sort();
-  const cliques = parsed.rows.reduce((a, r) => a + Number(r.cliques || 0), 0);
-  const subids = new Set(parsed.rows.map((r) => r.subid));
+
   return {
-    linhas: parsed.processed,
+    ...base,
+    skipped: false,
     gravados,
-    cliques,
-    subids: subids.size,
-    range: { since: datas[0] || null, until: datas[datas.length - 1] || null },
+    message: atualizados > 0
+      ? `${atualizados} dia(s)/SubID atualizados · ${novos} novos · sem duplicar cliques`
+      : `${novos} registro(s) novos · reimportação segura (não duplica)`,
   };
 }
 

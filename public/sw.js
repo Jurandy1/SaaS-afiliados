@@ -1,13 +1,21 @@
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || "Metricly — Vendas atualizadas";
+  const title = data.title || "COMISSÃO TOTAL";
   const options = {
     body: data.body || "Seus dados foram atualizados.",
-    icon: "/assets/radar.png",
-    badge: "/assets/radar.png",
-    tag: data.tag || "vendas-dia",
+    icon: data.icon || "/assets/push/shopee-coin-192.png",
+    badge: data.badge || "/assets/push/shopee-coin-72.png",
+    image: data.image || undefined,
+    tag: data.tag || "comissao-ontem",
     renotify: true,
-    data: { url: data.url || "/" },
+    requireInteraction: false,
+    data: {
+      url: data.url || "/",
+      com: data.com,
+      lucro: data.lucro,
+      pedidos: data.pedidos,
+      date: data.date,
+    },
     vibrate: [200, 100, 200],
     actions: [{ action: "open", title: "Ver dashboard" }],
   };
