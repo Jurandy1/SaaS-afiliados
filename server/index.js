@@ -284,7 +284,8 @@ async function requestHandler(req, res) {
         const buf = await renderCommissionBannerPng({ com, lucro, pedidos, date });
         res.writeHead(200, {
           "Content-Type": "image/png",
-          "Cache-Control": "public, max-age=300, stale-while-revalidate=3600",
+          "Cache-Control": "public, max-age=600, s-maxage=600, stale-while-revalidate=86400",
+          "Access-Control-Allow-Origin": "*",
         });
         res.end(buf);
       } catch (err) {

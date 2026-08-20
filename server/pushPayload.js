@@ -34,12 +34,12 @@ function buildCommissionPush({ com, lucro, pedidos, date, baseUrl }) {
     pedidos: String(pedidosNum),
   });
   if (date) qs.set("d", date);
-  qs.set("v", "12");
+  qs.set("v", "13");
 
   return {
     title: "Lucro Líquido",
     body: `R$ ${lucroFmt}`,
-    icon: `${origin}/assets/push/shopee-bag-150.png`,
+    icon: `${origin}/assets/shopee.png`,
     badge: `${origin}/assets/push/shopee-coin-72.png`,
     image: `${origin}/api/push/banner.png?${qs.toString()}`,
     tag: "comissao-ontem",

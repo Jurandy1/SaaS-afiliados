@@ -92,6 +92,19 @@ async function notifyYesterdayCommission(userId, opts = {}) {
     baseUrl,
   });
 
+  // Aquece o banner na Vercel antes do celular tentar baixar
+  if (payload.image) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 15000);
+      await fetch(payload.image, { signal: ctrl.signal, cache: "no-cache" });
+      clearTimeout(t);
+      console.log("[push] banner aquecido");
+    } catch (e) {
+      console.warn("[push] banner warm falhou:", e.message || e);
+    }
+  }
+
   const results = await sendToUser(userId, payload);
   const subCount = Array.isArray(results) ? results.length : 0;
   if (!results) {
