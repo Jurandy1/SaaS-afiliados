@@ -55,6 +55,20 @@ function getIconB64() {
   return _iconB64 || "";
 }
 
+function getIconMime(b64) {
+  if (!b64) return "image/png";
+  const buf = Buffer.from(b64, "base64");
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xd8) return "image/jpeg";
+  if (buf.length >= 8 && buf.toString("ascii", 0, 8) === "\x89PNG\r\n\x1a\n") return "image/png";
+  return "image/png";
+}
+
+function getIconDataUri() {
+  const b64 = getIconB64();
+  if (!b64) return "";
+  return `data:${getIconMime(b64)};base64,${b64}`;
+}
+
 function fmtMoney(n) {
   return Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -66,13 +80,13 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
   const subtitle = pedidosNum > 0
     ? `Lucro Líquido: R$ ${lucroFmt} · ${pedidosNum} pedido${pedidosNum !== 1 ? "s" : ""}`
     : `Lucro Líquido: R$ ${lucroFmt}`;
-  const iconB64 = getIconB64();
+  const iconUri = getIconDataUri();
 
-  const coinChild = iconB64
+  const coinChild = iconUri
     ? {
         type: "img",
         props: {
-          src: `data:image/png;base64,${iconB64}`,
+          src: iconUri,
           width: 66,
           height: 66,
         },
@@ -166,11 +180,11 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
 }
 
 function buildCoinSvg(size) {
-  const iconB64 = getIconB64();
+  const iconUri = getIconDataUri();
   const iconSize = Math.round(size * 0.56);
   const iconOffset = Math.round((size - iconSize) / 2);
-  const iconImg = iconB64
-    ? `<image href="data:image/png;base64,${iconB64}" x="${iconOffset}" y="${iconOffset}" width="${iconSize}" height="${iconSize}" preserveAspectRatio="xMidYMid meet"/>`
+  const iconImg = iconUri
+    ? `<image href="${iconUri}" x="${iconOffset}" y="${iconOffset}" width="${iconSize}" height="${iconSize}" preserveAspectRatio="xMidYMid meet"/>`
     : "";
   const r = size / 2;
   return `<?xml version="1.0" encoding="UTF-8"?>
