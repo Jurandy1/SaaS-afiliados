@@ -3,18 +3,25 @@
 const fs = require("fs");
 const path = require("path");
 const { Resvg } = require("@resvg/resvg-js");
+const embeddedFonts = require("./pushFontsEmbedded");
 
 const ICON_PATH = path.join(__dirname, "..", "public", "assets", "push", "shopee-icon.png");
-const FONT_BOLD = path.join(__dirname, "fonts", "Inter-ExtraBold.woff");
-const FONT_MEDIUM = path.join(__dirname, "fonts", "Inter-Medium.woff");
+const FONT_NAMES = ["Inter-ExtraBold.woff", "Inter-Medium.woff"];
+
 let _iconB64 = null;
 let _fontBuffers = null;
 
+function loadFontBuffer(name) {
+  const disk = path.join(__dirname, "fonts", name);
+  if (fs.existsSync(disk)) return fs.readFileSync(disk);
+  const b64 = embeddedFonts[name];
+  if (b64) return Buffer.from(b64, "base64");
+  return null;
+}
+
 function getFontBuffers() {
   if (_fontBuffers) return _fontBuffers;
-  _fontBuffers = [FONT_BOLD, FONT_MEDIUM]
-    .filter((f) => fs.existsSync(f))
-    .map((f) => fs.readFileSync(f));
+  _fontBuffers = FONT_NAMES.map(loadFontBuffer).filter(Boolean);
   return _fontBuffers;
 }
 
@@ -22,6 +29,8 @@ function getIconB64() {
   if (_iconB64) return _iconB64;
   if (fs.existsSync(ICON_PATH)) {
     _iconB64 = fs.readFileSync(ICON_PATH).toString("base64");
+  } else if (embeddedFonts["shopee-icon.png"]) {
+    _iconB64 = embeddedFonts["shopee-icon.png"];
   }
   return _iconB64 || "";
 }
@@ -84,7 +93,6 @@ function buildBannerSvg({ com = 0, lucro = 0, pedidos = 0, date = "" }) {
   <path d="M60,190 C260,270 400,60 640,170 C800,240 900,150 980,190" fill="none" stroke="#fff" stroke-opacity="0.10" stroke-width="60" filter="url(#blurA)"/>
   <path d="M150,120 C330,40 450,200 660,80 C790,10 880,70 950,20" fill="none" stroke="url(#fita1)" stroke-width="5" filter="url(#blurB)"/>
   <path d="M100,175 C290,250 430,80 660,180 C820,250 910,170 970,205" fill="none" stroke="url(#fita1)" stroke-width="4" filter="url(#blurB)"/>
-  <rect width="900" height="210" fill="url(#bg)" fill-opacity="0" style="mix-blend-mode:multiply"/>
   <radialGradient id="vin" cx="100%" cy="120%" r="120%">
     <stop offset="0%" stop-color="#000" stop-opacity="0.28"/>
     <stop offset="55%" stop-color="#000" stop-opacity="0"/>
@@ -98,8 +106,8 @@ function buildBannerSvg({ com = 0, lucro = 0, pedidos = 0, date = "" }) {
   </g>
   <g transform="translate(160,52)">
     <rect x="0" y="0" width="178" height="32" rx="16" fill="#fff"/>
-    <text x="14" y="21" font-family="Inter" font-size="13" font-weight="800" fill="#E8460F" letter-spacing="0.5">COMISSÃO TOTAL</text>
-    <text x="0" y="88" font-family="Inter" font-size="52" font-weight="800" fill="#fff" letter-spacing="-1">R$ ${escapeXml(comFmt)}</text>
+    <text x="14" y="21" font-family="Inter" font-size="13" font-weight="800" fill="#E8460F">COMISSÃO TOTAL</text>
+    <text x="0" y="88" font-family="Inter" font-size="52" font-weight="800" fill="#ffffff">R$ ${escapeXml(comFmt)}</text>
     <text x="0" y="118" font-family="Inter" font-size="14" font-weight="500" fill="rgba(255,255,255,0.78)">${escapeXml(subtitle)}</text>
     ${dateLine ? `<text x="0" y="140" font-family="Inter" font-size="12" font-weight="500" fill="rgba(255,255,255,0.55)">${dateLine}</text>` : ""}
   </g>
@@ -140,11 +148,15 @@ function bannerCacheKey(params) {
 }
 
 function renderSvgToPng(svg, width) {
+  const fonts = getFontBuffers();
+  if (!fonts.length) {
+    throw new Error("Fontes Inter não carregadas");
+  }
   const resvg = new Resvg(svg, {
     fitTo: width ? { mode: "width", value: width } : undefined,
     font: {
       loadSystemFonts: false,
-      fontBuffers: getFontBuffers(),
+      fontBuffers: fonts,
       defaultFontFamily: "Inter",
     },
   });

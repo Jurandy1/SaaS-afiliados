@@ -34,6 +34,7 @@ function buildCommissionPush({ com, lucro, pedidos, date, baseUrl }) {
     pedidos: String(pedidosNum),
   });
   if (date) qs.set("d", date);
+  qs.set("v", "2");
 
   const bodyParts = [`R$ ${comFmt}`, `Lucro Líquido: R$ ${lucroFmt}`];
   if (pedidosNum > 0) {

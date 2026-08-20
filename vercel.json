@@ -3,7 +3,7 @@
   "buildCommand": "npm run build:css",
   "functions": {
     "api/index.js": {
-      "includeFiles": "{server/**}",
+      "includeFiles": "server/**",
       "maxDuration": 60
     }
   },
