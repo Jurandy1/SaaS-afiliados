@@ -3313,45 +3313,32 @@ html, body { max-width: 100%; overflow-x: hidden; }
   align-items: center;
   gap: 14px;
 }
-.sync-toast__moeda {
+.sync-toast__icone {
   position: relative;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
+  width: 56px;
+  height: 56px;
   flex-shrink: 0;
-  background: radial-gradient(circle at 32% 28%, #FF9E52 0%, #FF6E1E 42%, #D8420D 78%, #A82A07 100%);
-  box-shadow: 0 3px 0 rgba(0,0,0,0.25), 0 6px 14px rgba(0,0,0,0.35), inset 0 2px 3px rgba(255,255,255,0.55), inset 0 -4px 6px rgba(0,0,0,0.35);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: none;
+  box-shadow: none;
 }
-.sync-toast__moeda::before {
-  content: "";
-  position: absolute;
-  inset: 9%;
-  border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.35);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.25);
-}
-.sync-toast__moeda .brilho {
-  position: absolute;
-  width: 16%;
-  height: 16%;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.9);
-  top: 8%;
-  left: 14%;
-  filter: blur(1px);
-}
-.sync-toast__moeda img {
-  width: 56%;
-  height: 56%;
+.sync-toast__icone img {
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-  position: relative;
-  z-index: 2;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.25));
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
 }
 .sync-toast__body { min-width: 0; flex: 1; }
+.sync-toast__titulo {
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
 .sync-toast__pill {
   display: inline-flex;
   align-items: center;

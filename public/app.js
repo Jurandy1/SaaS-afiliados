@@ -91,15 +91,7 @@
         container.id = "sync-toast-container";
         document.body.appendChild(container);
       }
-      const comStr = Number(com || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const lucroStr = Number(lucro || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const pedidosNum = Number(pedidos || 0);
-      const pedidosTxt = pedidosNum > 0
-        ? `${pedidosNum} pedido${pedidosNum !== 1 ? "s" : ""} validado${pedidosNum !== 1 ? "s" : ""}`
-        : "";
-      const legenda = pedidosTxt
-        ? `Lucro Líquido: R$ ${lucroStr} · ${pedidosTxt}`
-        : `Lucro Líquido: R$ ${lucroStr}`;
 
       const el = document.createElement("div");
       el.className = "sync-toast sync-toast--comissao";
@@ -111,14 +103,12 @@
           </svg>
           <div class="vinheta"></div>
           <div class="sync-toast__inner">
-            <div class="sync-toast__moeda">
-              <span class="brilho"></span>
-              <img src="/assets/push/shopee-icon.png" alt="" width="28" height="28">
+            <div class="sync-toast__icone">
+              <img src="/assets/push/shopee-bag-72.png" alt="" width="56" height="56">
             </div>
             <div class="sync-toast__body">
-              <div class="sync-toast__pill">COMISSÃO TOTAL</div>
-              <div class="sync-toast__valor">R$ ${comStr}</div>
-              <div class="sync-toast__legenda">${legenda}</div>
+              <div class="sync-toast__titulo">Lucro Líquido</div>
+              <div class="sync-toast__valor">R$ ${lucroStr}</div>
             </div>
           </div>
         </div>`;
@@ -153,7 +143,7 @@
       const com = Number(dash.kpis?.comissao || 0);
       const lucro = Number(dash.kpis?.lucro || 0);
       const pedidos = Number(dash.kpis?.pedidos || 0);
-      if (com <= 0) return;
+      if (lucro <= 0 && com <= 0) return;
 
       _toastCommission({ com, lucro, pedidos });
     }

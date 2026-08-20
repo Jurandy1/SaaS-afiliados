@@ -634,31 +634,33 @@
       #screen-notificacoes .onda-bg{position:relative;overflow:hidden;background:radial-gradient(120% 160% at 8% 15%,rgba(255,196,120,.55) 0%,rgba(255,196,120,0) 38%),linear-gradient(128deg,#FF9142 0%,#FF7620 22%,#F5540D 52%,#E23F0D 74%,#C9330A 100%)}
       #screen-notificacoes .onda-bg .onda-svg{position:absolute;inset:0;width:100%;height:100%;display:block}
       #screen-notificacoes .onda-bg .vinheta{position:absolute;inset:0;background:radial-gradient(120% 140% at 100% 120%,rgba(0,0,0,.28) 0%,transparent 55%);pointer-events:none}
-      #screen-notificacoes .moeda{position:relative;border-radius:50%;background:radial-gradient(circle at 32% 28%,#FF9E52 0%,#FF6E1E 42%,#D8420D 78%,#A82A07 100%);box-shadow:0 3px 0 rgba(0,0,0,.25),0 6px 14px rgba(0,0,0,.35),inset 0 2px 3px rgba(255,255,255,.55),inset 0 -4px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-      #screen-notificacoes .moeda::before{content:"";position:absolute;inset:9%;border-radius:50%;border:2px solid rgba(255,255,255,.35)}
-      #screen-notificacoes .moeda img{width:56%;height:56%;object-fit:contain;position:relative;z-index:2}
-      #screen-notificacoes .pill{display:inline-flex;align-items:center;background:#fff;color:#E8460F;font-weight:800;border-radius:999px;padding:6px 14px;font-size:10px;margin-bottom:6px}
+      #screen-notificacoes .moeda{position:relative;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:none;box-shadow:none}
+      #screen-notificacoes .moeda::before{display:none}
+      #screen-notificacoes .moeda img{width:100%;height:100%;object-fit:contain;position:relative;z-index:2;display:block;filter:drop-shadow(0 2px 6px rgba(0,0,0,.25))}
+      #screen-notificacoes .pill{display:none}
+      #screen-notificacoes .titulo{font-size:15px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:4px}
       #screen-notificacoes .valor{font-size:22px;font-weight:800;color:#fff;line-height:1.1}
+      #screen-notificacoes .legenda{display:none}
       #screen-notificacoes .hero-banner{border-radius:18px;padding:20px 22px;display:flex;align-items:center;gap:18px;width:100%;max-width:420px;min-height:120px}
-      #screen-notificacoes .hero-banner .moeda{width:72px;height:72px}
+      #screen-notificacoes .hero-banner .moeda{width:96px;height:96px}
       #screen-notificacoes .hero-banner .conteudo{position:relative;z-index:2}
       #screen-notificacoes .ios-frame{width:260px;height:420px;border-radius:34px;background:linear-gradient(160deg,#2b2f3a,#111319);border:5px solid #05060a;position:relative;overflow:hidden;box-shadow:0 16px 36px rgba(0,0,0,.35)}
       #screen-notificacoes .ios-frame .clock{text-align:center;color:#fff;padding-top:40px;font-size:34px;font-weight:600}
       #screen-notificacoes .ios-card{margin:18px 12px 0;border-radius:16px;padding:12px;display:flex;gap:10px;align-items:center;position:relative}
-      #screen-notificacoes .ios-card .moeda{width:36px;height:36px}
+      #screen-notificacoes .ios-card .moeda{width:48px;height:48px}
       #screen-notificacoes .android-frame{width:260px;height:420px;border-radius:26px;background:#0E0F13;border:5px solid #05060a;position:relative;overflow:hidden;box-shadow:0 16px 36px rgba(0,0,0,.35)}
       #screen-notificacoes .android-card{margin:40px 12px 0;border-radius:16px;padding:14px;position:relative}
       #screen-notificacoes .android-card .top{display:flex;align-items:center;gap:10px;position:relative;z-index:2}
-      #screen-notificacoes .android-card .moeda{width:38px;height:38px}
+      #screen-notificacoes .android-card .moeda{width:48px;height:48px}
       #screen-notificacoes .mac-frame{width:300px;border-radius:20px;background:linear-gradient(170deg,#1a2233,#0c0f18);border:1px solid rgba(255,255,255,.06);padding:20px 16px;box-shadow:0 20px 40px rgba(0,0,0,.35)}
       #screen-notificacoes .mac-toast{border-radius:14px;padding:14px;display:flex;gap:12px;align-items:center;position:relative}
-      #screen-notificacoes .mac-toast .moeda{width:42px;height:42px}
+      #screen-notificacoes .mac-toast .moeda{width:52px;height:52px}
     </style>
     <h2><i class="fa-solid fa-bell" style="color:#ee4d2d"></i> Notificações de Comissão</h2>
     <p class="idx-push-intro">Preview visual do push Web (Android expandido, iOS PWA, desktop) e do toast in-app. O banner PNG é gerado em <code>/api/push/banner.png</code>.</p>
     <div class="idx-push-control">
-      <label for="idx-push-valor">Comissão</label>
-      <input id="idx-push-valor" type="text" value="1.041,09" inputmode="decimal">
+      <label for="idx-push-lucro">Lucro Líquido</label>
+      <input id="idx-push-lucro" type="text" value="536,55" inputmode="decimal">
       <small>R$</small>
     </div>
     <div class="idx-push-grid">
@@ -667,10 +669,10 @@
         <div class="hero-banner onda-bg">
           <svg class="onda-svg" viewBox="0 0 900 210" preserveAspectRatio="none"><path d="M120,150 C300,60 420,230 620,110 C760,30 850,90 940,40" fill="none" stroke="#fff" stroke-opacity="0.16" stroke-width="46"/><path d="M60,190 C260,270 400,60 640,170 C800,240 900,150 980,190" fill="none" stroke="#fff" stroke-opacity="0.10" stroke-width="60"/></svg>
           <div class="vinheta"></div>
-          <div class="moeda"><img src="/assets/push/shopee-icon.png" alt=""></div>
+          <div class="moeda"><img src="/assets/push/shopee-bag-150.png" alt=""></div>
           <div class="conteudo">
-            <div class="pill">COMISSÃO TOTAL</div>
-            <div class="valor">R$ <span class="js-push-valor">1.041,09</span></div>
+            <div class="titulo">Lucro Líquido</div>
+            <div class="valor">R$ <span class="js-push-lucro">536,55</span></div>
           </div>
         </div>
       </div>
@@ -681,8 +683,8 @@
           <div class="ios-card onda-bg">
             <svg class="onda-svg" viewBox="0 0 400 120" preserveAspectRatio="none"><path d="M0,80 C80,20 160,110 280,50" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="20"/></svg>
             <div class="vinheta"></div>
-            <div class="moeda"><img src="/assets/push/shopee-icon.png" alt=""></div>
-            <div class="conteudo"><div class="pill">COMISSÃO TOTAL</div><div class="valor">R$ <span class="js-push-valor">1.041,09</span></div></div>
+            <div class="moeda"><img src="/assets/push/shopee-bag-72.png" alt=""></div>
+            <div class="conteudo"><div class="titulo">Lucro Líquido</div><div class="valor">R$ <span class="js-push-lucro">536,55</span></div></div>
           </div>
         </div>
       </div>
@@ -693,8 +695,8 @@
             <svg class="onda-svg" viewBox="0 0 400 120" preserveAspectRatio="none"><path d="M0,80 C80,20 160,110 280,50" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="20"/></svg>
             <div class="vinheta"></div>
             <div class="top">
-              <div class="moeda"><img src="/assets/push/shopee-icon.png" alt=""></div>
-              <div class="conteudo"><div class="pill">COMISSÃO TOTAL</div><div class="valor">R$ <span class="js-push-valor">1.041,09</span></div></div>
+              <div class="moeda"><img src="/assets/push/shopee-bag-72.png" alt=""></div>
+              <div class="conteudo"><div class="titulo">Lucro Líquido</div><div class="valor">R$ <span class="js-push-lucro">536,55</span></div></div>
             </div>
           </div>
         </div>
@@ -705,8 +707,8 @@
           <div class="mac-toast onda-bg">
             <svg class="onda-svg" viewBox="0 0 400 120" preserveAspectRatio="none"><path d="M0,80 C80,20 160,110 280,50" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="20"/></svg>
             <div class="vinheta"></div>
-            <div class="moeda"><img src="/assets/push/shopee-icon.png" alt=""></div>
-            <div class="conteudo"><div class="pill">COMISSÃO TOTAL</div><div class="valor">R$ <span class="js-push-valor">1.041,09</span></div></div>
+            <div class="moeda"><img src="/assets/push/shopee-bag-72.png" alt=""></div>
+            <div class="conteudo"><div class="titulo">Lucro Líquido</div><div class="valor">R$ <span class="js-push-lucro">536,55</span></div></div>
           </div>
         </div>
       </div>
@@ -787,10 +789,11 @@
   });
   showScreen("login");
 
-  document.getElementById("idx-push-valor")?.addEventListener("input", (e) => {
-    const v = e.target.value.trim() || "0,00";
-    document.querySelectorAll(".js-push-valor").forEach((el) => { el.textContent = v; });
-  });
+  function syncPushPreview() {
+    const lucro = document.getElementById("idx-push-lucro")?.value.trim() || "0,00";
+    document.querySelectorAll(".js-push-lucro").forEach((el) => { el.textContent = lucro; });
+  }
+  document.getElementById("idx-push-lucro")?.addEventListener("input", syncPushPreview);
 })();
 </script>
 </body>

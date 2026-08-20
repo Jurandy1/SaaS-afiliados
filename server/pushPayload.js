@@ -27,23 +27,17 @@ function buildCommissionPush({ com, lucro, pedidos, date, baseUrl }) {
   const pedidosNum = Number(pedidos || 0);
   const comFmt = fmtMoney(comNum);
   const lucroFmt = fmtMoney(lucroNum);
-  const dateBr = formatDateBr(date);
   const qs = new URLSearchParams({
     com: String(comNum),
     lucro: String(lucroNum),
     pedidos: String(pedidosNum),
   });
   if (date) qs.set("d", date);
-  qs.set("v", "9");
-
-  const bodyParts = [`R$ ${comFmt}`, `Lucro Líquido: R$ ${lucroFmt}`];
-  if (pedidosNum > 0) {
-    bodyParts[1] += ` · ${pedidosNum} pedido${pedidosNum !== 1 ? "s" : ""}`;
-  }
+  qs.set("v", "11");
 
   return {
-    title: "COMISSÃO TOTAL",
-    body: bodyParts.join("\n"),
+    title: "Lucro Líquido",
+    body: `R$ ${lucroFmt}`,
     icon: "/assets/push/shopee-coin-192.png",
     badge: "/assets/push/shopee-coin-72.png",
     image: `${baseUrl}/api/push/banner.png?${qs.toString()}`,

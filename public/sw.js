@@ -1,6 +1,6 @@
 self.addEventListener("push", (event) => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || "COMISSÃO TOTAL";
+  const title = data.title || "Lucro Líquido";
   const options = {
     body: data.body || "Seus dados foram atualizados.",
     icon: data.icon || "/assets/push/shopee-coin-192.png",
