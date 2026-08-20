@@ -37,7 +37,7 @@
     async function _doRegister() {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
       try {
-        const reg = await navigator.serviceWorker.register("/sw.js");
+        const reg = await navigator.serviceWorker.register("/sw.js?v=12");
         const perm = await Notification.requestPermission();
         if (perm !== "granted") return;
 

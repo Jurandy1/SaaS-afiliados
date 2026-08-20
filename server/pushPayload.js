@@ -27,20 +27,21 @@ function buildCommissionPush({ com, lucro, pedidos, date, baseUrl }) {
   const pedidosNum = Number(pedidos || 0);
   const comFmt = fmtMoney(comNum);
   const lucroFmt = fmtMoney(lucroNum);
+  const origin = String(baseUrl || "").replace(/\/$/, "") || "https://saa-s-afiliados.vercel.app";
   const qs = new URLSearchParams({
     com: String(comNum),
     lucro: String(lucroNum),
     pedidos: String(pedidosNum),
   });
   if (date) qs.set("d", date);
-  qs.set("v", "11");
+  qs.set("v", "12");
 
   return {
     title: "Lucro Líquido",
     body: `R$ ${lucroFmt}`,
-    icon: "/assets/push/shopee-coin-192.png",
-    badge: "/assets/push/shopee-coin-72.png",
-    image: `${baseUrl}/api/push/banner.png?${qs.toString()}`,
+    icon: `${origin}/assets/push/shopee-bag-150.png`,
+    badge: `${origin}/assets/push/shopee-coin-72.png`,
+    image: `${origin}/api/push/banner.png?${qs.toString()}`,
     tag: "comissao-ontem",
     url: "/",
     com: comNum,
