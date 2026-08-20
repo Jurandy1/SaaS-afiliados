@@ -10,6 +10,101 @@
   const SyncNotify = (() => {
     let _lastSyncedAt = null;
 
+    function _isIOS() {
+      return /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+    }
+
+    function _isStandalone() {
+      return (
+        window.matchMedia("(display-mode: standalone)").matches ||
+        window.navigator.standalone === true
+      );
+    }
+
+    // No iOS, o Web Push só funciona depois que o usuário instala a PWA na
+    // Tela de Início (senão Notification.requestPermission nem funciona
+    // direito dentro de uma aba comum do Safari). Por isso, em vez de mostrar
+    // o banner de "ativar notificações" (que falharia silenciosamente),
+    // mostramos uma tela cheia convidando a instalar primeiro. Só roda em
+    // iOS fora do modo standalone — Android nunca vê isso.
+    function _showIosInstallScreen() {
+      if (document.getElementById("ios-install-screen")) return;
+
+      const screen = document.createElement("div");
+      screen.id = "ios-install-screen";
+      screen.className = "ios-install-screen";
+      screen.innerHTML = `
+        <div class="ios-install-screen__card">
+          <button class="ios-install-screen__skip" id="ios-install-skip" title="Agora não">✕</button>
+          <div class="ios-install-screen__brand">
+            <img src="/assets/push/shopee-coin-192.png" alt="" width="56" height="56" />
+            <span>Shopylitcs</span>
+          </div>
+          <h2>Instale o Shopylitcs<br />no seu iPhone</h2>
+          <p class="ios-install-screen__sub">Acompanhe suas comissões e lucro, e receba notificações importantes direto na Tela de Início — sem precisar abrir o Safari toda vez.</p>
+          <ul class="ios-install-screen__features">
+            <li>📊 Dashboard completo</li>
+            <li>💰 Acompanhe comissão e lucro</li>
+            <li>🔔 Receba notificações importantes</li>
+            <li>📈 Relatórios e indicadores</li>
+          </ul>
+          <button class="ios-install-screen__cta" id="ios-install-cta">INSTALAR AGORA ⬆️</button>
+          <p class="ios-install-screen__note">É o mesmo sistema de sempre — só que como app, sem barra de endereço.</p>
+        </div>`;
+      document.body.appendChild(screen);
+      document.getElementById("ios-install-cta").addEventListener("click", () => {
+        _showIosInstallModal();
+      });
+      document.getElementById("ios-install-skip").addEventListener("click", () => {
+        screen.remove();
+        localStorage.setItem("ios_install_dismissed", "1");
+      });
+    }
+
+    function _showIosInstallModal() {
+      if (document.getElementById("ios-install-overlay")) return;
+
+      const overlay = document.createElement("div");
+      overlay.id = "ios-install-overlay";
+      overlay.className = "ios-install-overlay";
+      overlay.innerHTML = `
+        <div class="ios-install-modal">
+          <button class="ios-install-close" title="Fechar">✕</button>
+          <h3>Como instalar</h3>
+          <div class="ios-install-step">
+            <div class="ios-install-step__num">1</div>
+            <div class="ios-install-step__text">Abra este sistema no <strong>Safari</strong></div>
+          </div>
+          <div class="ios-install-step">
+            <div class="ios-install-step__num">2</div>
+            <div class="ios-install-step__text">Toque no botão <strong>Compartilhar</strong> ⬆️</div>
+          </div>
+          <div class="ios-install-step">
+            <div class="ios-install-step__num">3</div>
+            <div class="ios-install-step__text">Role para baixo e toque em <strong>➕ Adicionar à Tela de Início</strong></div>
+          </div>
+          <div class="ios-install-step">
+            <div class="ios-install-step__num">4</div>
+            <div class="ios-install-step__text">Toque em <strong>Adicionar</strong> no canto superior</div>
+          </div>
+          <div class="ios-install-done">🎉 Pronto! Abra pelo ícone do Shopylitcs na Tela de Início.</div>
+        </div>`;
+      document.body.appendChild(overlay);
+      const close = () => overlay.remove();
+      overlay.querySelector(".ios-install-close").addEventListener("click", close);
+      overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+    }
+
+    // Primeira abertura pelo ícone (modo standalone) sem permissão ainda
+    // concedida — convida a ativar notificações.
+    function _showIosWelcomeIfNeeded() {
+      if (!_isIOS() || !_isStandalone()) return;
+      if (Notification.permission !== "default") return;
+      if (localStorage.getItem("ios_welcome_shown")) return;
+      localStorage.setItem("ios_welcome_shown", "1");
+      _showPermBanner();
+    }
+
     function _showPermBanner() {
       if (!("Notification" in window)) return;
       if (Notification.permission !== "default") return;
@@ -68,10 +163,23 @@
     }
 
     async function registerPush() {
+      if (!("Notification" in window)) return;
+
+      // iOS exige a PWA instalada na Tela de Início antes de conseguir pedir
+      // permissão de notificação. Fora do modo standalone, orienta a instalar.
+      if (_isIOS() && !_isStandalone()) {
+        if (!localStorage.getItem("ios_install_dismissed")) _showIosInstallScreen();
+        return;
+      }
+
       if (Notification.permission === "granted") {
         await _doRegister();
       } else if (Notification.permission === "default" && !localStorage.getItem("push_perm_dismissed")) {
-        _showPermBanner();
+        if (_isIOS()) {
+          _showIosWelcomeIfNeeded();
+        } else {
+          _showPermBanner();
+        }
       }
     }
 

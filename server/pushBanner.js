@@ -72,9 +72,9 @@ function fmtMoney(n) {
   return Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function buildBannerElement({ lucro = 0, venda = 0 } = {}) {
+function buildBannerElement({ lucro = 0, com = 0 } = {}) {
   const lucroFmt = fmtMoney(lucro);
-  const vendaFmt = fmtMoney(venda);
+  const comFmt = fmtMoney(com);
   const bagUri = getBagDataUri();
 
   const bagNode = bagUri
@@ -168,7 +168,7 @@ function buildBannerElement({ lucro = 0, venda = 0 } = {}) {
                           fontWeight: 500,
                           color: "rgba(255,255,255,0.82)",
                         },
-                        children: "Valor da Venda",
+                        children: "Comissão Shopee Total",
                       },
                     },
                     {
@@ -180,7 +180,7 @@ function buildBannerElement({ lucro = 0, venda = 0 } = {}) {
                           fontWeight: 700,
                           color: "#ffffff",
                         },
-                        children: `R$ ${vendaFmt}`,
+                        children: `R$ ${comFmt}`,
                       },
                     },
                   ],
@@ -238,8 +238,8 @@ const _cache = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 function bannerCacheKey(params) {
-  const { lucro, venda } = params;
-  return `${Number(lucro).toFixed(2)}|${Number(venda || 0).toFixed(2)}|bag-lucro-venda`;
+  const { lucro, com } = params;
+  return `${Number(lucro).toFixed(2)}|${Number(com || 0).toFixed(2)}|bag-lucro-com`;
 }
 
 async function renderCommissionBannerPng(params = {}) {

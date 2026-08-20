@@ -3261,6 +3261,179 @@ html, body { max-width: 100%; overflow-x: hidden; }
   padding: 4px 8px;
 }
 
+/* ─── Tela cheia "Instale o app" (iOS) ─── */
+.ios-install-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(120% 120% at 20% 0%, #1e293b 0%, #0f172a 55%, #020617 100%);
+  padding: 24px;
+}
+.ios-install-screen__card {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  color: #f1f5f9;
+  text-align: left;
+}
+.ios-install-screen__skip {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: rgba(255,255,255,0.08);
+  border: 0;
+  color: #cbd5e1;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 15px;
+}
+.ios-install-screen__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+.ios-install-screen__brand img { border-radius: 14px; }
+.ios-install-screen__brand span {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ee4d2d;
+}
+.ios-install-screen__card h2 {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 12px;
+  color: #fff;
+}
+.ios-install-screen__sub {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #94a3b8;
+  margin: 0 0 24px;
+}
+.ios-install-screen__features {
+  list-style: none;
+  margin: 0 0 32px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ios-install-screen__features li {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.ios-install-screen__cta {
+  width: 100%;
+  background: linear-gradient(135deg, #ff7a28 0%, #ee4d2d 100%);
+  color: #fff;
+  border: 0;
+  border-radius: 14px;
+  padding: 16px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(238,77,45,0.35);
+}
+.ios-install-screen__cta:hover { filter: brightness(1.05); }
+.ios-install-screen__note {
+  margin: 16px 0 0;
+  font-size: 12px;
+  color: #64748b;
+  text-align: center;
+}
+
+/* ─── Modal "Como instalar" (iOS) ─── */
+.ios-install-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 100000;
+  padding: 0;
+}
+@media (min-width: 640px) {
+  .ios-install-overlay { align-items: center; padding: 20px; }
+}
+.ios-install-modal {
+  position: relative;
+  background: #fff;
+  width: 100%;
+  max-width: 420px;
+  border-radius: 20px 20px 0 0;
+  padding: 28px 24px 32px;
+  box-shadow: 0 -8px 30px rgba(0,0,0,.25);
+}
+@media (min-width: 640px) {
+  .ios-install-modal { border-radius: 20px; }
+}
+.ios-install-modal h3 {
+  margin: 0 0 18px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.ios-install-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: #f1f5f9;
+  border: 0;
+  color: #64748b;
+  font-size: 15px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.ios-install-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+.ios-install-step:last-of-type { border-bottom: 0; }
+.ios-install-step__num {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ee4d2d;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ios-install-step__text {
+  font-size: 14px;
+  color: #334155;
+  line-height: 1.5;
+  padding-top: 2px;
+}
+.ios-install-done {
+  margin-top: 18px;
+  padding: 14px;
+  background: #f0fdf4;
+  color: #166534;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
 /* ─── Sync Toast Notifications ─── */
 #sync-toast-container {
   position: fixed;

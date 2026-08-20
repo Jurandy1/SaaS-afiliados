@@ -37,7 +37,7 @@ function buildCommissionPush({ com, lucro, venda, pedidos, date, baseUrl }) {
     pedidos: String(pedidosNum),
   });
   if (date) qs.set("d", date);
-  qs.set("v", "15");
+  qs.set("v", "16");
 
   return {
     title: "Lucro Líquido",
