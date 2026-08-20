@@ -279,9 +279,10 @@ async function requestHandler(req, res) {
         const { renderCommissionBannerPng } = require("./pushBanner");
         const com = Number(url.searchParams.get("com") || 0);
         const lucro = Number(url.searchParams.get("lucro") || 0);
+        const venda = Number(url.searchParams.get("venda") || 0);
         const pedidos = Number(url.searchParams.get("pedidos") || 0);
         const date = String(url.searchParams.get("d") || "");
-        const buf = await renderCommissionBannerPng({ com, lucro, pedidos, date });
+        const buf = await renderCommissionBannerPng({ com, lucro, venda, pedidos, date });
         res.writeHead(200, {
           "Content-Type": "image/png",
           "Cache-Control": "public, max-age=600, s-maxage=600, stale-while-revalidate=86400",

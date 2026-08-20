@@ -59,6 +59,7 @@ async function notifyYesterdayCommission(userId, opts = {}) {
 
   let com = 0;
   let lucro = 0;
+  let venda = 0;
   let pedidos = 0;
 
   await runWithUser({ id: userId, email }, async () => {
@@ -70,23 +71,25 @@ async function notifyYesterdayCommission(userId, opts = {}) {
     });
     com = Number(dash.kpis?.comissao || 0);
     lucro = Number(dash.kpis?.lucro || 0);
+    venda = Number(dash.kpis?.faturamento || 0);
     pedidos = Number(dash.kpis?.pedidos || 0);
   });
 
   if (com <= 0) {
     console.log(`[push] skip ${email || userId}: comissão ontem (${yesterday}) = 0`);
-    return { sent: false, reason: "com_zero", date: yesterday, com, lucro, pedidos };
+    return { sent: false, reason: "com_zero", date: yesterday, com, lucro, venda, pedidos };
   }
 
   const fp = fingerprint({ com, lucro, pedidos });
   if (!force && (await alreadyNotified(userId, yesterday, fp))) {
     console.log(`[push] skip ${email || userId}: já notificado ${yesterday} fp=${fp}`);
-    return { sent: false, reason: "already", date: yesterday, com, lucro, pedidos };
+    return { sent: false, reason: "already", date: yesterday, com, lucro, venda, pedidos };
   }
 
   const payload = buildCommissionPush({
     com,
     lucro,
+    venda,
     pedidos,
     date: yesterday,
     baseUrl,
@@ -109,12 +112,12 @@ async function notifyYesterdayCommission(userId, opts = {}) {
   const subCount = Array.isArray(results) ? results.length : 0;
   if (!results) {
     console.warn(`[push] não enviado ${email || userId}: VAPID ausente ou sem subscription`);
-    return { sent: false, reason: "no_vapid_or_subs", date: yesterday, com, lucro, pedidos };
+    return { sent: false, reason: "no_vapid_or_subs", date: yesterday, com, lucro, venda, pedidos };
   }
 
   await markNotified(userId, yesterday, fp);
-  console.log(`[push] enviado ${email || userId}: ${yesterday} com=${com} lucro=${lucro} subs=${subCount}`);
-  return { sent: true, date: yesterday, com, lucro, pedidos, subs: subCount };
+  console.log(`[push] enviado ${email || userId}: ${yesterday} com=${com} lucro=${lucro} venda=${venda} subs=${subCount}`);
+  return { sent: true, date: yesterday, com, lucro, venda, pedidos, subs: subCount };
 }
 
 module.exports = { notifyYesterdayCommission, fingerprint };

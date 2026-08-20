@@ -21,20 +21,23 @@ function formatDateBr(iso) {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
-function buildCommissionPush({ com, lucro, pedidos, date, baseUrl }) {
+function buildCommissionPush({ com, lucro, venda, pedidos, date, baseUrl }) {
   const comNum = Number(com || 0);
   const lucroNum = Number(lucro || 0);
+  const vendaNum = Number(venda || 0);
   const pedidosNum = Number(pedidos || 0);
   const comFmt = fmtMoney(comNum);
   const lucroFmt = fmtMoney(lucroNum);
+  const vendaFmt = fmtMoney(vendaNum);
   const origin = String(baseUrl || "").replace(/\/$/, "") || "https://saa-s-afiliados.vercel.app";
   const qs = new URLSearchParams({
     com: String(comNum),
     lucro: String(lucroNum),
+    venda: String(vendaNum),
     pedidos: String(pedidosNum),
   });
   if (date) qs.set("d", date);
-  qs.set("v", "14");
+  qs.set("v", "15");
 
   return {
     title: "Lucro Líquido",
@@ -46,10 +49,12 @@ function buildCommissionPush({ com, lucro, pedidos, date, baseUrl }) {
     url: "/",
     com: comNum,
     lucro: lucroNum,
+    venda: vendaNum,
     pedidos: pedidosNum,
     date: date || null,
     comFmt,
     lucroFmt,
+    vendaFmt,
   };
 }
 

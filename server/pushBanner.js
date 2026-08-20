@@ -72,8 +72,9 @@ function fmtMoney(n) {
   return Number(n || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function buildBannerElement({ lucro = 0 } = {}) {
+function buildBannerElement({ lucro = 0, venda = 0 } = {}) {
   const lucroFmt = fmtMoney(lucro);
+  const vendaFmt = fmtMoney(venda);
   const bagUri = getBagDataUri();
 
   const bagNode = bagUri
@@ -148,6 +149,43 @@ function buildBannerElement({ lucro = 0 } = {}) {
                   children: `R$ ${lucroFmt}`,
                 },
               },
+              {
+                type: "div",
+                props: {
+                  style: {
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: "8px",
+                    marginTop: "6px",
+                  },
+                  children: [
+                    {
+                      type: "div",
+                      props: {
+                        style: {
+                          display: "flex",
+                          fontSize: "26px",
+                          fontWeight: 500,
+                          color: "rgba(255,255,255,0.82)",
+                        },
+                        children: "Valor da Venda",
+                      },
+                    },
+                    {
+                      type: "div",
+                      props: {
+                        style: {
+                          display: "flex",
+                          fontSize: "30px",
+                          fontWeight: 700,
+                          color: "#ffffff",
+                        },
+                        children: `R$ ${vendaFmt}`,
+                      },
+                    },
+                  ],
+                },
+              },
             ],
           },
         },
@@ -200,8 +238,8 @@ const _cache = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 function bannerCacheKey(params) {
-  const { lucro } = params;
-  return `${Number(lucro).toFixed(2)}|bag-lucro`;
+  const { lucro, venda } = params;
+  return `${Number(lucro).toFixed(2)}|${Number(venda || 0).toFixed(2)}|bag-lucro-venda`;
 }
 
 async function renderCommissionBannerPng(params = {}) {
