@@ -5,21 +5,21 @@ const path = require("path");
 
 const fontsDir = path.join(__dirname, "..", "server", "fonts");
 const iconPath = path.join(__dirname, "..", "public", "assets", "push", "shopee-icon.png");
+const geistSrc = path.join(__dirname, "..", "node_modules", "@vercel", "og", "dist", "Geist-Regular.ttf");
 const outFile = path.join(__dirname, "..", "server", "pushFontsEmbedded.js");
 
-const files = ["Inter-ExtraBold.ttf", "Inter-Medium.ttf"];
-const entries = files.map((name) => {
-  const buf = fs.readFileSync(path.join(fontsDir, name));
-  return `  ${JSON.stringify(name)}: ${JSON.stringify(buf.toString("base64"))},`;
-});
+const geistPath = fs.existsSync(path.join(fontsDir, "Geist-Regular.ttf"))
+  ? path.join(fontsDir, "Geist-Regular.ttf")
+  : geistSrc;
 
+const geistB64 = fs.readFileSync(geistPath).toString("base64");
 const iconB64 = fs.readFileSync(iconPath).toString("base64");
 
 const src = `"use strict";
 
-// Gerado por scripts/embed-push-fonts.cjs — não editar manualmente
+// Gerado por scripts/embed-push-fonts.cjs
 module.exports = {
-${entries.join("\n")}
+  "Geist-Regular.ttf": ${JSON.stringify(geistB64)},
   "shopee-icon.png": ${JSON.stringify(iconB64)},
 };
 `;

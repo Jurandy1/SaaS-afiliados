@@ -2,33 +2,42 @@
 
 const fs = require("fs");
 const path = require("path");
-const satori = require("satori").default || require("satori");
+const { ImageResponse } = require("@vercel/og");
 const { Resvg } = require("@resvg/resvg-js");
 const embeddedFonts = require("./pushFontsEmbedded");
 
 const ICON_PATH = path.join(__dirname, "..", "public", "assets", "push", "shopee-icon.png");
+const FONT_NAME = "Geist-Regular.ttf";
 
 let _iconB64 = null;
-let _satoriFonts = null;
+let _fonts = null;
+
+function toArrayBuffer(buf) {
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+}
 
 function loadFontBuffer(name) {
   const disk = path.join(__dirname, "fonts", name);
   if (fs.existsSync(disk)) return fs.readFileSync(disk);
+  const og = path.join(__dirname, "..", "node_modules", "@vercel", "og", "dist", "Geist-Regular.ttf");
+  if (name === FONT_NAME && fs.existsSync(og)) return fs.readFileSync(og);
   const b64 = embeddedFonts[name];
   if (b64) return Buffer.from(b64, "base64");
   return null;
 }
 
-function getSatoriFonts() {
-  if (_satoriFonts) return _satoriFonts;
-  const bold = loadFontBuffer("Inter-ExtraBold.ttf");
-  const medium = loadFontBuffer("Inter-Medium.ttf");
-  if (!bold || !medium) throw new Error("Fontes Inter não carregadas");
-  _satoriFonts = [
-    { name: "Inter", data: bold, weight: 800, style: "normal" },
-    { name: "Inter", data: medium, weight: 500, style: "normal" },
-  ];
-  return _satoriFonts;
+function getOgFonts() {
+  if (_fonts) return _fonts;
+  const geist = loadFontBuffer(FONT_NAME);
+  if (!geist) throw new Error("Fonte Geist não carregada");
+  const data = toArrayBuffer(geist);
+  _fonts = [400, 500, 700, 800].map((weight) => ({
+    name: "Geist",
+    data,
+    weight,
+    style: "normal",
+  }));
+  return _fonts;
 }
 
 function getIconB64() {
@@ -78,7 +87,7 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
         gap: "28px",
         background:
           "radial-gradient(120% 160% at 8% 15%, rgba(255,196,120,0.55) 0%, rgba(255,196,120,0) 38%), linear-gradient(128deg, #FF9142 0%, #FF7620 22%, #F5540D 52%, #E23F0D 74%, #C9330A 100%)",
-        fontFamily: "Inter",
+        fontFamily: "Geist",
       },
       children: [
         {
@@ -110,7 +119,7 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
                     display: "flex",
                     backgroundColor: "#ffffff",
                     color: "#E8460F",
-                    fontWeight: 800,
+                    fontWeight: 700,
                     fontSize: "14px",
                     padding: "8px 16px",
                     borderRadius: "999px",
@@ -123,7 +132,7 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
                 props: {
                   style: {
                     fontSize: "52px",
-                    fontWeight: 800,
+                    fontWeight: 700,
                     color: "#ffffff",
                     letterSpacing: "-1px",
                     lineHeight: 1.05,
@@ -136,7 +145,7 @@ function buildBannerElement({ com = 0, lucro = 0, pedidos = 0 }) {
                 props: {
                   style: {
                     fontSize: "14px",
-                    fontWeight: 500,
+                    fontWeight: 400,
                     color: "rgba(255,255,255,0.78)",
                     lineHeight: 1.35,
                   },
@@ -181,7 +190,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 
 function bannerCacheKey(params) {
   const { com, lucro, pedidos, date } = params;
-  return `${Number(com).toFixed(2)}|${Number(lucro).toFixed(2)}|${pedidos}|${date || ""}|satori`;
+  return `${Number(com).toFixed(2)}|${Number(lucro).toFixed(2)}|${pedidos}|${date || ""}|og`;
 }
 
 async function renderCommissionBannerPng(params = {}) {
@@ -189,17 +198,13 @@ async function renderCommissionBannerPng(params = {}) {
   const hit = _cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.buf;
 
-  const svg = await satori(buildBannerElement(params), {
+  const response = new ImageResponse(buildBannerElement(params), {
     width: 900,
     height: 210,
-    fonts: getSatoriFonts(),
+    fonts: getOgFonts(),
   });
 
-  const buf = new Resvg(svg, {
-    fitTo: { mode: "width", value: 900 },
-    font: { loadSystemFonts: false },
-  }).render().asPng();
-
+  const buf = Buffer.from(await response.arrayBuffer());
   _cache.set(key, { buf, at: Date.now() });
   return buf;
 }
