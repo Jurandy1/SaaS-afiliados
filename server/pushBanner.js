@@ -2,13 +2,25 @@
 
 const fs = require("fs");
 const path = require("path");
-const { Resvg } = require("@resvg/resvg-js");
 const embeddedFonts = require("./pushFontsEmbedded");
 
 const FONT_NAME = "Geist-Regular.ttf";
 
 let _fonts = null;
 let _ogModule = null;
+let _Resvg = null;
+
+// Lazy-load: @resvg/resvg-js ships platform-specific native binaries. If the
+// binary for the deploy target is missing (a common Vercel bundling gotcha),
+// a top-level require() would crash this whole module and take the banner
+// endpoint down with it. Loading it on-demand keeps the main banner path
+// (which reads a pre-rendered PNG from disk, see getBagDataUri) working even
+// if this native module can't load.
+function getResvg() {
+  if (_Resvg) return _Resvg;
+  ({ Resvg: _Resvg } = require("@resvg/resvg-js"));
+  return _Resvg;
+}
 
 async function getImageResponse() {
   if (!_ogModule) _ogModule = await import("@vercel/og");
@@ -69,25 +81,28 @@ function buildBannerElement({ lucro = 0 } = {}) {
         type: "img",
         props: {
           src: bagUri,
-          width: 150,
-          height: 150,
+          width: 210,
+          height: 210,
           style: { flexShrink: 0 },
         },
       }
-    : { type: "div", props: { style: { width: "150px", height: "150px", flexShrink: 0 } } };
+    : { type: "div", props: { style: { width: "210px", height: "210px", flexShrink: 0 } } };
 
   return {
     type: "div",
     props: {
       style: {
-        width: "900px",
-        height: "210px",
+        // 1024x512 = proporção 2:1, recomendada pelo Chrome/Android para a
+        // imagem grande ("image") de notificações push — evita corte/recusa
+        // de exibição em alguns aparelhos.
+        width: "1024px",
+        height: "512px",
         display: "flex",
         flexDirection: "row",
         alignItems: "center",
-        padding: "28px 40px",
-        gap: "28px",
-        borderRadius: "22px",
+        padding: "64px 72px",
+        gap: "44px",
+        borderRadius: "40px",
         background:
           "radial-gradient(120% 160% at 8% 15%, rgba(255,196,120,0.55) 0%, rgba(255,196,120,0) 38%), linear-gradient(128deg, #FF9142 0%, #FF7620 22%, #F5540D 52%, #E23F0D 74%, #C9330A 100%)",
         fontFamily: "Geist",
@@ -101,7 +116,7 @@ function buildBannerElement({ lucro = 0 } = {}) {
               display: "flex",
               flexDirection: "column",
               alignItems: "flex-start",
-              gap: "6px",
+              gap: "10px",
             },
             children: [
               {
@@ -109,7 +124,7 @@ function buildBannerElement({ lucro = 0 } = {}) {
                 props: {
                   style: {
                     display: "flex",
-                    fontSize: "28px",
+                    fontSize: "38px",
                     fontWeight: 700,
                     color: "#ffffff",
                     letterSpacing: "-0.3px",
@@ -123,7 +138,7 @@ function buildBannerElement({ lucro = 0 } = {}) {
                 props: {
                   style: {
                     display: "flex",
-                    fontSize: "58px",
+                    fontSize: "84px",
                     fontWeight: 800,
                     color: "#ffffff",
                     letterSpacing: "-1.2px",
@@ -196,8 +211,8 @@ async function renderCommissionBannerPng(params = {}) {
 
   const ImageResponse = await getImageResponse();
   const response = new ImageResponse(buildBannerElement(params), {
-    width: 900,
-    height: 210,
+    width: 1024,
+    height: 512,
     fonts: getOgFonts(),
   });
 
@@ -208,6 +223,7 @@ async function renderCommissionBannerPng(params = {}) {
 
 function renderCoinPng(size) {
   const svg = buildCoinSvg(size);
+  const Resvg = getResvg();
   return new Resvg(svg, {
     fitTo: { mode: "width", value: size },
     font: { loadSystemFonts: false, fontBuffers: [loadFontBuffer(FONT_NAME)].filter(Boolean), defaultFontFamily: "Geist" },
@@ -216,6 +232,7 @@ function renderCoinPng(size) {
 
 function renderBagPng(size) {
   const svg = buildBagSvg(size);
+  const Resvg = getResvg();
   return new Resvg(svg, {
     fitTo: { mode: "width", value: size },
     font: { loadSystemFonts: false, fontBuffers: [loadFontBuffer(FONT_NAME)].filter(Boolean), defaultFontFamily: "Geist" },
