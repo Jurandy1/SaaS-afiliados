@@ -845,6 +845,8 @@
     dataColFilters: {},
     dataSort: { key: null, dir: "asc" },
     subidSort: { key: "comissao", dir: "desc" },
+    /** Qual status sobe pro topo: teste → desativada → ativa (ciclo no header Status). */
+    statusPin: "ativa",
     subidProfitFilter: null,
     opsSort: { key: "status", dir: "asc" },
     dailySort: { key: "data", dir: "desc" },
@@ -2427,11 +2429,32 @@
     return A.s.localeCompare(B.s, "pt-BR", { sensitivity: "base", numeric: true }) * mul;
   }
 
+  /** Rank de status: o grupo em `statusPin` fica no topo; dentro do grupo usa o critério da coluna. */
+  function statusPinRank(pin = state.statusPin) {
+    const p = normalizeStatus(pin || "ativa");
+    if (p === "teste") return { teste: 0, ativa: 1, desativada: 2, pausada: 2 };
+    if (p === "desativada") return { desativada: 0, pausada: 0, teste: 1, ativa: 2 };
+    return { ativa: 0, teste: 1, desativada: 2, pausada: 2 };
+  }
+
+  function setStatusPin(status) {
+    state.statusPin = normalizeStatus(status);
+  }
+
+  /** Ciclo: Ativa → Em teste no topo → Desativada no topo → Ativa… */
+  function cycleStatusPin() {
+    const order = ["teste", "desativada", "ativa"];
+    const cur = normalizeStatus(state.statusPin || "ativa");
+    const i = order.indexOf(cur);
+    state.statusPin = order[(i + 1) % order.length];
+    return state.statusPin;
+  }
+
   function sortRows(rows, key, dir, getter) {
     if (!rows?.length) return rows || [];
     const get = getter || ((r) => r[key]);
-    const statusRank = { ativa: 0, teste: 1, desativada: 2, pausada: 2 };
-    // Sempre: Ativa → Teste → Desativada; depois o critério escolhido.
+    const statusRank = statusPinRank();
+    // 1º o grupo pinado no topo; 2º o critério da coluna (desc = maior primeiro).
     return [...rows].sort((a, b) => {
       const ra = statusRank[normalizeStatus(a.status)] ?? 9;
       const rb = statusRank[normalizeStatus(b.status)] ?? 9;
@@ -2442,7 +2465,7 @@
           numeric: true,
         });
       }
-      const c = compareSortValues(get(a), get(b), dir || "asc");
+      const c = compareSortValues(get(a), get(b), dir || "desc");
       if (c !== 0) return c;
       return String(a.subid || "").localeCompare(String(b.subid || ""), "pt-BR", {
         sensitivity: "base",
@@ -2452,6 +2475,17 @@
   }
 
   function toggleSortState(sortState, key, defaultDir = "desc") {
+    if (key === "status") {
+      cycleStatusPin();
+      // Mantém métrica em ordem decrescente dentro do grupo pinado
+      if (!sortState.key || sortState.key === "status") {
+        sortState.key = "comissao";
+        sortState.dir = "desc";
+      } else {
+        sortState.dir = "desc";
+      }
+      return;
+    }
     if (sortState.key === key) sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
     else {
       sortState.key = key;
@@ -2462,15 +2496,28 @@
   function paintSortHeaders(root, sortState) {
     const el = typeof root === "string" ? $(root) : root;
     if (!el) return;
+    const pin = normalizeStatus(state.statusPin || "ativa");
     el.querySelectorAll("th[data-sort]").forEach((th) => {
-      const active = sortState.key === th.dataset.sort;
+      const key = th.dataset.sort;
+      const active = sortState.key === key;
       th.classList.add("th-sort");
       th.classList.toggle("asc", active && sortState.dir === "asc");
       th.classList.toggle("desc", active && sortState.dir === "desc");
-      th.title = active
-        ? (sortState.dir === "asc" ? "Ordenado crescente · clique para decrescente" : "Ordenado decrescente · clique para crescente")
-        : "Clique para ordenar";
-      th.setAttribute("aria-sort", active ? (sortState.dir === "asc" ? "ascending" : "descending") : "none");
+      if (key === "status") {
+        th.classList.add("th-status-pin");
+        th.classList.toggle("pin-teste", pin === "teste");
+        th.classList.toggle("pin-desativada", pin === "desativada");
+        th.classList.toggle("pin-ativa", pin === "ativa");
+        const next = pin === "ativa" ? "Em teste" : pin === "teste" ? "Desativada" : "Ativa";
+        th.title = `${statusLabel(pin)} no topo · clique → ${next} sobe`;
+        th.setAttribute("aria-sort", "other");
+      } else {
+        th.classList.remove("th-status-pin", "pin-teste", "pin-desativada", "pin-ativa");
+        th.title = active
+          ? (sortState.dir === "asc" ? "Ordenado crescente · clique para decrescente" : "Ordenado decrescente · clique para crescente")
+          : "Clique para ordenar";
+        th.setAttribute("aria-sort", active ? (sortState.dir === "asc" ? "ascending" : "descending") : "none");
+      }
     });
   }
 
@@ -2628,7 +2675,7 @@
 
   function statusLabel(s) {
     const st = normalizeStatus(s);
-    if (st === "teste") return "Teste";
+    if (st === "teste") return "Em teste";
     if (st === "desativada") return "Desativada";
     return "Ativa";
   }
@@ -2638,18 +2685,35 @@
     return `<span class="status-pill st-${st}"><i></i>${statusLabel(st)}</span>`;
   }
 
+  /** Select nativo — Ativa / Em teste / Desativada (mais confiável que botão). */
   function statusSelectHtml(subid, status) {
     const st = normalizeStatus(status);
-    return `<button type="button" class="op-status-cycle st-${st}" data-op="status-cycle" data-subid="${escapeHtml(String(subid))}" data-value="${st}" title="Clique para alternar: Ativa → Teste → Desativada">
-      <i></i><span>${statusLabel(st)}</span>
-    </button>`;
+    const sid = escapeHtml(String(subid));
+    return `<select class="op-select op-status-select st-${st}" data-op="status" data-subid="${sid}" title="Ativa → Em teste → Desativada">
+      <option value="ativa" ${st === "ativa" ? "selected" : ""}>Ativa</option>
+      <option value="teste" ${st === "teste" ? "selected" : ""}>Em teste</option>
+      <option value="desativada" ${st === "desativada" ? "selected" : ""}>Desativada</option>
+    </select>`;
   }
 
-  function nextStatusCycle(status) {
-    const st = normalizeStatus(status);
-    if (st === "ativa") return "teste";
-    if (st === "teste") return "desativada";
-    return "ativa";
+  /** Destaca e rola até o SubID depois de mudar status (lista reordena). */
+  function focusSubidAfterStatusChange(subid) {
+    const sid = String(subid || "");
+    if (!sid) return;
+    state._statusFlashSubid = sid;
+    const run = () => {
+      const sel = `[data-subid-row="${CSS.escape(sid)}"], [data-subid="${CSS.escape(sid)}"].ops-card, [data-subid="${CSS.escape(sid)}"].subid-card`;
+      const el = document.querySelector(sel);
+      if (!el) return;
+      el.classList.add("status-just-changed");
+      el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      clearTimeout(state._statusFlashTimer);
+      state._statusFlashTimer = setTimeout(() => {
+        el.classList.remove("status-just-changed");
+        if (state._statusFlashSubid === sid) state._statusFlashSubid = null;
+      }, 2200);
+    };
+    requestAnimationFrame(() => requestAnimationFrame(run));
   }
 
   function canalSelectHtml(subid, canal) {
@@ -2898,42 +2962,58 @@
     };
   }
 
-  async function saveSubidOp(subid, partial) {
+  async function saveSubidOp(subid, partial, opts = {}) {
     const sid = String(subid || "");
     if (isMobileLayout() && state.view === "canais") {
       state.opsSaveFlash = { subid: sid, phase: "saving" };
       paintOpsSaveFlash();
     }
     try {
-      await api("/api/subid-ops", {
+      const body = { subid, ...partial };
+      if (partial.status != null && body.status_source == null) {
+        body.status_source = "manual";
+      }
+      const saved = await api("/api/subid-ops", {
         method: "POST",
-        body: JSON.stringify({ subid, ...partial }),
+        body: JSON.stringify(body),
       });
       const list = state.dash?.subIds || [];
       const key = sid.toLowerCase();
+      const nextStatus = saved?.status != null ? normalizeStatus(saved.status) : partial.status;
       for (const r of list) {
         if (String(r.subid || "").toLowerCase() === key) {
           if (partial.canal != null) r.canal = partial.canal;
-          if (partial.status != null) r.status = partial.status;
+          if (nextStatus != null) {
+            r.status = nextStatus;
+            r.status_source = saved?.status_source || partial.status_source || "manual";
+          }
           if (partial.produto != null) r.produto = partial.produto;
         }
+      }
+      if (partial.status != null) {
+        setStatusPin(saved?.status != null ? saved.status : partial.status);
       }
       if (isMobileLayout() && state.view === "canais") {
         state.opsSaveFlash = { subid: sid, phase: "saved" };
       }
       paintChannelCounts();
-      if (state.view === "canais") renderOpsTable();
-      else if (state.view === "config" && state.cfgTab === "indefinidos") renderIndefinidos();
-      else if (state.view === "dashboard" && state.channel !== "geral") {
-        const ch = state.channel;
-        const dash = state.dash;
-        if (dash) {
-          const q = ($("#subid-search")?.value || "").trim();
-          const channelSubs = filteredSubIds(dash.subIds || [], q, ch, { activeOnly: true });
-          const k = q ? kpisFromSubIds(channelSubs, dash.kpis) : channelKpisFor(ch, dash, channelSubs);
-          renderChannelKpis(ch, k);
+      if (!opts.skipRender) {
+        if (state.view === "canais") renderOpsTable();
+        else if (state.view === "config" && state.cfgTab === "indefinidos") renderIndefinidos();
+        else if (state.view === "dashboard" && state.channel !== "geral") {
+          const ch = state.channel;
+          const dash = state.dash;
+          if (dash) {
+            const q = ($("#subid-search")?.value || "").trim();
+            const channelSubs = filteredSubIds(dash.subIds || [], q, ch, { activeOnly: true });
+            const k = q ? kpisFromSubIds(channelSubs, dash.kpis) : channelKpisFor(ch, dash, channelSubs);
+            renderChannelKpis(ch, k);
+          }
+          renderSubIdsDash();
         }
-        renderSubIdsDash();
+      }
+      if (partial.status != null && !opts.skipRender) {
+        focusSubidAfterStatusChange(sid);
       }
       if (state.opsSaveFlash?.phase === "saved") {
         clearTimeout(state._opsFlashTimer);
@@ -2984,49 +3064,16 @@
   }
 
   function wireOpsSelects(root) {
+    wireGlobalOpsChanges();
     const el = typeof root === "string" ? $(root) : root;
-    if (!el || el.dataset.opsWired) return;
-    el.dataset.opsWired = "1";
-    el.addEventListener("change", async (e) => {
-      const sel = e.target.closest("select[data-op]");
-      if (!sel) return;
-      e.stopPropagation();
-      const subid = sel.dataset.subid;
-      const field = sel.dataset.op;
-      try {
-        await saveSubidOp(subid, { [field]: sel.value });
-      } catch (err) {
-        alert(err.message || String(err));
-      }
-    });
-    el.addEventListener("click", async (e) => {
-      const btn = e.target.closest("button[data-op='status-cycle']");
-      if (!btn) {
-        if (e.target.closest("select[data-op], input[data-op], button[data-op]")) e.stopPropagation();
-        return;
-      }
-      e.preventDefault();
-      e.stopPropagation();
-      if (btn.disabled) return;
-      const subid = btn.dataset.subid;
-      const next = nextStatusCycle(btn.dataset.value || btn.getAttribute("data-value"));
-      btn.disabled = true;
-      try {
-        await saveSubidOp(subid, { status: next });
-        btn.dataset.value = next;
-        btn.setAttribute("data-value", next);
-        btn.className = `op-status-cycle st-${next}`;
-        const label = btn.querySelector("span");
-        if (label) label.textContent = statusLabel(next);
-      } catch (err) {
-        alert(err.message || String(err));
-      } finally {
-        btn.disabled = false;
-      }
-    });
+    if (!el || el.dataset.opsInputWired === "1") return;
+    el.dataset.opsInputWired = "1";
     el.addEventListener("focusin", (e) => {
-      const input = e.target.closest("input[data-op]");
+      const input = e.target.closest("input[data-op], select[data-op]");
       if (input) e.stopPropagation();
+    });
+    el.addEventListener("click", (e) => {
+      if (e.target.closest("select[data-op], input[data-op]")) e.stopPropagation();
     });
     el.addEventListener("blur", async (e) => {
       const input = e.target.closest("input[data-op]");
@@ -3047,6 +3094,33 @@
         input.blur();
       }
     });
+  }
+
+  function wireGlobalOpsChanges() {
+    if (document.documentElement.dataset.opsChangeWired === "1") return;
+    document.documentElement.dataset.opsChangeWired = "1";
+    document.addEventListener("change", async (e) => {
+      const sel = e.target.closest?.("select[data-op]");
+      if (!sel) return;
+      e.stopPropagation();
+      const subid = sel.getAttribute("data-subid") || sel.dataset.subid;
+      const field = sel.getAttribute("data-op") || sel.dataset.op;
+      const value = sel.value;
+      if (!subid || !field) return;
+      try {
+        if (field === "status") {
+          sel.className = `op-select op-status-select st-${normalizeStatus(value)}`;
+          await saveSubidOp(subid, { status: value, status_source: "manual" });
+        } else {
+          await saveSubidOp(subid, { [field]: value });
+        }
+      } catch (err) {
+        alert(err.message || String(err));
+        if (state.view === "dashboard" && state.channel !== "geral") renderSubIdsDash();
+        else if (state.view === "canais") renderOpsTable();
+        else if (state.view === "config" && state.cfgTab === "indefinidos") renderIndefinidos();
+      }
+    }, true);
   }
 
   /** Série diária do canal, somando o histórico dos SubIDs filtrados. */
@@ -3651,7 +3725,7 @@
       else if (flash.phase === "saved") flashHtml = `<span class="ops-card-flash is-saved">✓ Salvo</span>`;
       else if (flash.phase === "error") flashHtml = `<span class="ops-card-flash is-error">Erro</span>`;
     }
-    return `<article class="ops-card${off}" data-subid="${escapeHtml(id)}" role="listitem">
+    return `<article class="ops-card${off}" data-subid-row="${escapeHtml(id)}" data-subid="${escapeHtml(id)}" role="listitem">
       <div class="ops-card-top">
         <div class="ops-card-name" title="${escapeHtml(id)}">${escapeHtml(id)}</div>
         ${flashHtml}
@@ -3662,21 +3736,17 @@
           <span class="ops-field-val">${CHANNEL_ICONS[canal] || ""}${escapeHtml(canalLabel(canal))}</span>
           <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
         </button>
-        <button type="button" class="ops-field-btn ops-field-btn--status st-${escapeHtml(status)}" data-ops-pick="status" data-subid="${escapeHtml(id)}" data-value="${escapeHtml(status)}" aria-haspopup="dialog">
+        <div class="ops-field-status-wrap">
           <span class="ops-field-lab">Status</span>
-          <span class="ops-field-val">${escapeHtml(statusLabel(status))}</span>
-          <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
-        </button>
+          ${statusSelectHtml(id, status)}
+        </div>
       </div>
     </article>`;
   }
 
   function opsSortLabel() {
-    const key = state.opsSort?.key || "status";
-    const dir = state.opsSort?.dir || "asc";
-    const names = { subid: "SubID", canal: "Canal", status: "Status" };
-    const arrow = dir === "desc" ? "↓" : "↑";
-    return `${names[key] || "Ordenar"} ${arrow}`;
+    const pin = normalizeStatus(state.statusPin || "ativa");
+    return `Topo: ${statusLabel(pin)}`;
   }
 
   function renderOpsTable(opts = {}) {
@@ -3687,13 +3757,12 @@
     if (!tb && !cardList) return;
 
     const mobile = isMobileLayout();
-    const statusRank = { ativa: 0, teste: 1, desativada: 2 };
     const sortKey = state.opsSort?.key || "status";
     const sortDir = state.opsSort?.dir || "asc";
     const search = $("#ops-search")?.value || "";
+    const statusRank = statusPinRank();
 
     let list = filteredSubIds(state.dash?.subIds || [], search, "geral");
-
     list = sortRows(list, sortKey, sortDir, (r) => {
       if (sortKey === "subid") return r.subid;
       if (sortKey === "canal") return canalLabel(r.canal || "indefinido");
@@ -3705,7 +3774,7 @@
     state.opsTotal = total;
     const OPS_PREVIEW = 15;
     const OPS_PAGE = 25;
-    const filterKey = `${search}|${sortKey}|${sortDir}`;
+    const filterKey = `${search}|${sortKey}|${sortDir}|${state.statusPin || "ativa"}`;
     const filterChanged = state._opsFilterKey !== filterKey;
     if (filterChanged) {
       state._opsFilterKey = filterKey;
@@ -3772,7 +3841,7 @@
         const canal = r.canal || "indefinido";
         const status = normalizeStatus(r.status);
         const off = status === "desativada" ? " is-desativada" : "";
-        return `<tr class="subid-row${off}">
+        return `<tr class="subid-row${off}" data-subid-row="${escapeHtml(id)}" data-subid="${escapeHtml(id)}">
           <td class="subid">${escapeHtml(id)}</td>
           <td>${canalSelectHtml(id, canal)}</td>
           <td>${statusSelectHtml(id, status)}</td>
@@ -3819,13 +3888,13 @@
     ];
     const STATUS_OPTS = [
       { value: "ativa", label: "Ativa" },
-      { value: "teste", label: "Teste" },
+      { value: "teste", label: "Em teste" },
       { value: "desativada", label: "Desativada" },
     ];
     const SORT_OPTS = [
+      { value: "status", label: "Status (ciclo no topo)" },
       { value: "subid", label: "SubID" },
       { value: "canal", label: "Canal" },
-      { value: "status", label: "Status" },
     ];
 
     function openPick(ctx) {
@@ -3866,13 +3935,18 @@
       if (!pickCtx) return;
       const ctx = pickCtx;
       if (ctx.mode === "sort") {
-        const st = state.opsSort || { key: "status", dir: "asc" };
-        if (st.key === value) st.dir = st.dir === "asc" ? "desc" : "asc";
-        else {
-          st.key = value;
-          st.dir = value === "subid" ? "asc" : "asc";
+        if (value === "status") {
+          cycleStatusPin();
+          state.opsSort = { key: "comissao", dir: "desc" };
+        } else {
+          const st = state.opsSort || { key: "status", dir: "asc" };
+          if (st.key === value) st.dir = st.dir === "asc" ? "desc" : "asc";
+          else {
+            st.key = value;
+            st.dir = value === "subid" ? "asc" : "desc";
+          }
+          state.opsSort = st;
         }
-        state.opsSort = st;
         MobileChrome.closeSheets();
         renderOpsTable();
         return;
@@ -3883,7 +3957,9 @@
       }
       MobileChrome.closeSheets();
       try {
-        await saveSubidOp(ctx.subid, { [ctx.mode]: value });
+        await saveSubidOp(ctx.subid, ctx.mode === "status"
+          ? { status: value, status_source: "manual" }
+          : { [ctx.mode]: value });
       } catch (err) {
         alert(err.message || String(err));
       }
@@ -4125,7 +4201,7 @@
     }
 
     if (!state.subidSort?.key) state.subidSort = { key: "comissao", dir: "desc" };
-    const statusRank = { ativa: 0, teste: 1, desativada: 2, pausada: 2 };
+    const statusRank = statusPinRank();
     all = sortRows(all, state.subidSort.key || "comissao", state.subidSort.dir || "desc", (r) => {
       if (state.subidSort.key === "subid") return r.subid;
       if (state.subidSort.key === "status") return statusRank[normalizeStatus(r.status)] ?? 9;
@@ -4151,7 +4227,7 @@
     state.subidTotal = total;
     const MOBILE_PREVIEW = 3;
     const MOBILE_PAGE = 20;
-    const filterKey = `${ch}|${search}|${state.subidSort.key || "comissao"}|${state.subidSort.dir || "desc"}|${profitMode || "all"}`;
+    const filterKey = `${ch}|${search}|${state.subidSort.key || "comissao"}|${state.subidSort.dir || "desc"}|${profitMode || "all"}|${state.statusPin || "ativa"}`;
     if (state._subidFilterKey !== filterKey) {
       state._subidFilterKey = filterKey;
       state.subidVisible = mobile ? MOBILE_PREVIEW : 40;
@@ -4210,7 +4286,7 @@
           }
           return cellForSubidCol(r, c, ch);
         }).join("");
-        return `<tr class="subid-row${open ? " is-open" : ""}" data-subid="${escapeHtml(id)}">${cells}</tr>${
+        return `<tr class="subid-row${open ? " is-open" : ""}" data-subid-row="${escapeHtml(id)}" data-subid="${escapeHtml(id)}">${cells}</tr>${
           open ? subIdDailyHistoryHtml(r, span) : ""
         }`;
       }).join("") || `<tr><td colspan="${span}">${emptyMsg}</td></tr>`;
@@ -4306,7 +4382,7 @@
     const showAds = ch === "meta" || ch === "pinterest";
     const loadingDaily = showHistory && !Array.isArray(r.daily);
 
-    return `<article class="subid-card${open || details ? " is-open" : ""}${details ? " is-details" : ""}" data-subid="${escapeHtml(id)}" role="listitem">
+    return `<article class="subid-card${open || details ? " is-open" : ""}${details ? " is-details" : ""}" data-subid-row="${escapeHtml(id)}" data-subid="${escapeHtml(id)}" role="listitem">
       <header class="subid-card-head">
         <button type="button" class="subid-card-toggle" data-subid-toggle="${escapeHtml(id)}" aria-expanded="${showHistory ? "true" : "false"}" title="Ver histórico diário">
           <span class="subid-card-caret" aria-hidden="true"></span>
@@ -5722,6 +5798,7 @@
 
   async function boot() {
     wire();
+    wireGlobalOpsChanges();
     const token = getToken();
     if (!token) {
       showAuth();

@@ -548,13 +548,13 @@ async function syncMetaAdStatuses({ token, apiVersion, accountIds, userId = requ
     else desativadas += 1;
 
     const prev = prevMap[subid.toLowerCase()] || {};
-    // Cliente alterou na mão — não mexer. Também preserva status legado sem
-    // origem rastreada (pré-migração): só sobrescreve quando prev.status_source
-    // é explicitamente "meta" (=nossa sync anterior) ou não há status ainda.
-    const isManualOrLegacy = prev.status_source === "manual"
-      || prev.status === "teste"
-      || (prev.status && !prev.status_source);
-    if (isManualOrLegacy) {
+    // Nunca sobrescreve edição manual do cliente nem status "Em teste".
+    if (prev.status_source === "manual" || prev.status === "teste") {
+      preservadosManual += 1;
+      continue;
+    }
+    // Legado sem origem: não mexer (evita apagar escolha antiga)
+    if (prev.status && !prev.status_source) {
       preservadosManual += 1;
       continue;
     }

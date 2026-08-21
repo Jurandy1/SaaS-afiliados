@@ -738,6 +738,7 @@ async function requestHandler(req, res) {
               canal: body.canal,
               status: body.status,
               produto: body.produto,
+              status_source: body.status_source,
             });
             sendJson(res, 200, { success: true, ...row });
           } catch (err) {
