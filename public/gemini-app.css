@@ -62,17 +62,68 @@ html.light { color-scheme: light; }
 .channel-kpi-metrics--5 {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
 }
-.channel-kpi-metrics--8 {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 156px), 1fr));
+.channel-kpi-metrics--8,
+.channel-kpi-metrics--9 {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+}
+@media (min-width: 1280px) and (max-width: 1599px) {
+  .channel-kpi-metrics--8,
+  .channel-kpi-metrics--9 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 @media (min-width: 1600px) {
   .channel-kpi-metrics--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-  .channel-kpi-metrics--8 { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  .channel-kpi-metrics--8 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .channel-kpi-metrics--9 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1800px) {
+  .channel-kpi-metrics--8 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .channel-kpi-metrics--9 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .channel-hero {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+  container-type: inline-size;
+  container-name: kpi-card;
+  overflow: visible;
+}
+.channel-hero-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+.channel-hero-glow::after {
+  content: "";
+  position: absolute;
+  right: -1.25rem;
+  bottom: -1.25rem;
+  width: 5rem;
+  height: 5rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.1);
+  filter: blur(24px);
+}
+.channel-hero-value-wrap {
+  min-width: 0;
+  max-width: 100%;
+  overflow: visible;
+}
+.channel-hero-currency {
+  font-size: 0.85em;
+  line-height: 1;
+}
+.channel-hero-value.is-long-num,
+.channel-hero .kpi-hero-value.is-long-num {
+  font-size: clamp(0.72rem, 10.5cqi, 1.2rem);
+}
+.channel-hero-value.is-xl-num,
+.channel-hero .kpi-hero-value.is-xl-num {
+  font-size: clamp(0.68rem, 9.5cqi, 1.05rem);
+  letter-spacing: -0.03em;
 }
 .channel-hero-icon {
   width: 28px;
@@ -132,18 +183,28 @@ html.dark .channel-kpi-alert strong {
   color: #fcd34d;
 }
 .channel-hero-value {
-  font-size: clamp(1.05rem, 2vw, 1.45rem);
+  font-size: clamp(0.78rem, 12cqi, 1.45rem);
   font-weight: 900;
   letter-spacing: -0.02em;
-  line-height: 1.15;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
   min-width: 0;
+  max-width: 100%;
+  padding-inline-end: 2px;
 }
 .channel-hero .kpi-hero-value {
-  font-size: clamp(1.05rem, 2vw, 1.45rem);
+  font-size: clamp(0.78rem, 12cqi, 1.45rem);
+  overflow: visible;
+  max-width: 100%;
+}
+.channel-hero .kpi-hero-value > span:last-child {
+  overflow: visible;
+  text-overflow: clip;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 /* Card composto: dois valores lado a lado (ex.: Ativa / Em teste) */
@@ -171,13 +232,15 @@ html.dark .channel-kpi-alert strong {
   margin-bottom: 2px;
 }
 .channel-hero-dual-val {
-  font-size: clamp(1.05rem, 2vw, 1.45rem);
+  font-size: clamp(0.95rem, 11cqi, 1.4rem);
   font-weight: 900;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1.15;
   color: #fff;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  overflow: visible;
+  max-width: 100%;
 }
 
 /* legado channel-metric (mantido se algum lugar ainda usar) */
@@ -2377,6 +2440,8 @@ html, body {
 #kpi-grid > div {
   min-width: 0;
   max-width: 100%;
+  container-type: inline-size;
+  container-name: kpi-card;
 }
 .kpi-hero-value {
   display: flex;
@@ -2384,15 +2449,16 @@ html, body {
   gap: 0.25rem;
   min-width: 0;
   max-width: 100%;
-  font-size: clamp(0.95rem, 1.8vw + 0.35rem, 2.1rem);
+  font-size: clamp(0.8rem, 11cqi, 2.1rem);
   font-weight: 900;
   letter-spacing: -0.02em;
-  line-height: 1.15;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   word-break: keep-all;
   overflow-wrap: normal;
-  overflow: hidden;
+  overflow: visible;
+  padding-inline-end: 2px;
 }
 .kpi-hero-value > span:last-child {
   min-width: 0;
@@ -2400,7 +2466,7 @@ html, body {
   white-space: nowrap;
   word-break: keep-all;
   overflow-wrap: normal;
-  overflow: hidden;
+  overflow: visible;
   text-overflow: clip;
 }
 .kpi-hero-value > span:first-child {
@@ -2492,7 +2558,8 @@ html, body {
 }
 /* MacBook / laptop estreito — KPIs de canal em wrap, sem esmagar números */
 @media (max-width: 1366px) {
-  .channel-kpi-metrics--8 {
+  .channel-kpi-metrics--8,
+  .channel-kpi-metrics--9 {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
   }
   .channel-kpi-metrics--5 {
@@ -2503,7 +2570,16 @@ html, body {
   }
   .channel-hero-value,
   .channel-hero .kpi-hero-value {
-    font-size: clamp(1rem, 1.5vw + 0.55rem, 1.35rem);
+    font-size: clamp(0.85rem, 1.3vw + 0.45rem, 1.3rem);
+    overflow: visible;
+  }
+  .channel-hero-value.is-long-num,
+  .channel-hero .kpi-hero-value.is-long-num {
+    font-size: clamp(0.75rem, 1.1vw + 0.4rem, 1.1rem);
+  }
+  .channel-hero-value.is-xl-num,
+  .channel-hero .kpi-hero-value.is-xl-num {
+    font-size: clamp(0.68rem, 1vw + 0.35rem, 0.98rem);
   }
   .channel-hero--dual .channel-hero-dual-val {
     font-size: clamp(1rem, 1.4vw + 0.5rem, 1.35rem);
@@ -2640,7 +2716,8 @@ html, body {
 @media (max-width: 420px) {
   .channel-kpi-metrics,
   .channel-kpi-metrics--5,
-  .channel-kpi-metrics--8 {
+  .channel-kpi-metrics--8,
+  .channel-kpi-metrics--9 {
     grid-template-columns: 1fr;
   }
   .period-bar-actions {
@@ -4295,12 +4372,22 @@ html, body { max-width: 100%; overflow-x: hidden; }
   }
   .channel-kpi-primary .channel-hero-value,
   .channel-kpi-primary .channel-hero .kpi-hero-value {
-    font-size: clamp(1.05rem, 4.8vw, 1.35rem);
-    line-height: 1.15;
+    font-size: clamp(0.95rem, 4.2vw, 1.3rem);
+    line-height: 1.2;
+    overflow: visible;
+  }
+  .channel-kpi-primary .channel-hero-value.is-long-num,
+  .channel-kpi-primary .channel-hero .kpi-hero-value.is-long-num {
+    font-size: clamp(0.82rem, 3.6vw, 1.1rem);
+  }
+  .channel-kpi-primary .channel-hero-value.is-xl-num,
+  .channel-kpi-primary .channel-hero .kpi-hero-value.is-xl-num {
+    font-size: clamp(0.74rem, 3.2vw, 0.98rem);
   }
   .channel-kpi-secondary .channel-hero-value,
   .channel-kpi-secondary .channel-hero .kpi-hero-value {
-    font-size: clamp(0.98rem, 4.4vw, 1.2rem);
+    font-size: clamp(0.9rem, 3.8vw, 1.15rem);
+    overflow: visible;
   }
   /* Card composto no mobile — números um pouco menores para caber ambos */
   .channel-kpi-primary .channel-hero--dual .channel-hero-dual-val {

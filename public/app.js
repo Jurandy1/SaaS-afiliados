@@ -1653,20 +1653,22 @@
       currency = "R$";
       amount = String(value).replace(/^R\$\s*/, "");
     }
+    const digits = String(amount).replace(/\D/g, "").length;
+    const numCls = digits >= 8 ? " is-xl-num" : digits >= 6 ? " is-long-num" : "";
     const infoBtn = opts.infoKey
       ? `<button type="button" class="m-kpi-info" data-m-info="${escapeHtml(opts.infoKey)}" aria-label="Sobre ${escapeHtml(label)}"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>`
       : "";
     const tier = opts.tier ? ` channel-hero--${opts.tier}` : "";
-    return `<article class="channel-hero${tier} relative overflow-hidden bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
-      <div class="absolute -right-5 -bottom-5 w-20 h-20 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
+    return `<article class="channel-hero${tier} relative bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
+      <div class="channel-hero-glow" aria-hidden="true"></div>
       <div class="relative mb-2.5 min-w-0 flex items-center gap-1.5">
         <span class="channel-hero-label text-[10px] font-bold uppercase tracking-wider ${theme.label}">${escapeHtml(label)}</span>
         ${infoBtn}
       </div>
-      <div class="relative min-w-0">
+      <div class="relative min-w-0 channel-hero-value-wrap">
         ${isMoney
-          ? `<div class="kpi-hero-value text-white channel-hero-value"><span class="text-base font-bold ${theme.currency} shrink-0">${currency}</span><span>${amount}</span></div>`
-          : `<p class="channel-hero-value text-white font-black tracking-tight">${value}</p>`}
+          ? `<div class="kpi-hero-value text-white channel-hero-value${numCls}"><span class="channel-hero-currency font-bold ${theme.currency} shrink-0">${currency}</span><span>${amount}</span></div>`
+          : `<p class="channel-hero-value text-white font-black tracking-tight${numCls}">${value}</p>`}
         ${hint && !opts.hideHint ? `<p class="channel-hero-hint">${escapeHtml(hint)}</p>` : ""}
       </div>
     </article>`;
@@ -1698,14 +1700,29 @@
         <span class="channel-hero-dual-lab ${theme.label}">${escapeHtml(e.label)}</span>
         <span class="channel-hero-dual-val">${escapeHtml(String(e.value))}</span>
       </div>`).join("");
-    return `<article class="channel-hero channel-hero--dual${tier} relative overflow-hidden bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
-      <div class="absolute -right-5 -bottom-5 w-20 h-20 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
+    return `<article class="channel-hero channel-hero--dual${tier} relative bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
+      <div class="channel-hero-glow" aria-hidden="true"></div>
       <div class="relative mb-2.5 min-w-0 flex items-center gap-1.5">
         <span class="channel-hero-label text-[10px] font-bold uppercase tracking-wider ${theme.label}">${escapeHtml(label)}</span>
         ${infoBtn}
       </div>
       <div class="relative channel-hero-dual-grid">${cells}</div>
     </article>`;
+  }
+
+  function campanhasStatusCard(ch) {
+    const counts = channelStatusCounts(ch);
+    const hasData = Boolean(state.dash);
+    return {
+      key: "campanhas",
+      label: "Campanhas",
+      tone: "teal",
+      icon: "campanhas",
+      entries: [
+        { label: "Ativa", value: hasData ? fmtNum(counts.ativa) : "—" },
+        { label: "Em teste", value: hasData ? fmtNum(counts.teste) : "—" },
+      ],
+    };
   }
 
   function renderChannelKpis(ch, k) {
@@ -1722,6 +1739,7 @@
     const hasRoi = hasData && Number(k?.inv_total) > 0 && Number.isFinite(Number(k?.roi));
     const lucroTone = lucroNeg ? "rose" : "emerald";
     const roiTone = roiNeg ? "rose" : "emerald";
+    const campanhasCard = campanhasStatusCard(ch);
 
     let cards = [];
     if (ch === "meta") {
@@ -1734,6 +1752,7 @@
         ["Investimento Meta", money(invMeta), "meta", "investimento_meta"],
         ["Lucro", money(k?.lucro), lucroTone, "lucro"],
         ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "roi"],
+        campanhasCard,
         ["Pedidos", num(k?.pedidos), "indigo", "pedidos", "Validados"],
         ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
         ["Abatimento", pct(k?.abatimento_cliques), abatTone, "abatimento"],
@@ -1748,6 +1767,7 @@
         ["Investimento Pinterest", money(k?.inv_pin), "pin", "investimento_pin"],
         ["Lucro", money(k?.lucro), lucroTone, "lucro"],
         ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "roi"],
+        campanhasCard,
         ["Pedidos", num(k?.pedidos), "indigo", "pedidos", "Validados"],
         ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
         ["Abatimento", pct(k?.abatimento_cliques), abatTone, "abatimento"],
@@ -1756,6 +1776,7 @@
       cards = [
         ["Faturamento", money(k?.faturamento), "orange", "faturamento"],
         ["Comissão", money(k?.comissao), "emerald", "comissao"],
+        campanhasCard,
         ["Pedidos", num(k?.pedidos), "indigo", "pedidos", "Validados"],
         ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
       ];
@@ -1806,8 +1827,8 @@
       return;
     }
 
-    const PRIMARY_KEYS = new Set(["faturamento", "comissao", "lucro", "roi"]);
-    const primaryOrder = ["faturamento", "comissao", "lucro", "roi"];
+    const PRIMARY_KEYS = new Set(["faturamento", "comissao", "lucro", "roi", "campanhas"]);
+    const primaryOrder = ["faturamento", "comissao", "lucro", "roi", "campanhas"];
     const byKey = new Map(cards.map((c) => [cardKey(c), c]));
     const primary = primaryOrder.map((key) => byKey.get(key)).filter(Boolean);
     const secondary = cards.filter((c) => !PRIMARY_KEYS.has(cardKey(c)));
@@ -2900,7 +2921,17 @@
       paintChannelCounts();
       if (state.view === "canais") renderOpsTable();
       else if (state.view === "config" && state.cfgTab === "indefinidos") renderIndefinidos();
-      else if (state.view === "dashboard" && state.channel !== "geral") renderSubIdsDash();
+      else if (state.view === "dashboard" && state.channel !== "geral") {
+        const ch = state.channel;
+        const dash = state.dash;
+        if (dash) {
+          const q = ($("#subid-search")?.value || "").trim();
+          const channelSubs = filteredSubIds(dash.subIds || [], q, ch, { activeOnly: true });
+          const k = q ? kpisFromSubIds(channelSubs, dash.kpis) : channelKpisFor(ch, dash, channelSubs);
+          renderChannelKpis(ch, k);
+        }
+        renderSubIdsDash();
+      }
       if (state.opsSaveFlash?.phase === "saved") {
         clearTimeout(state._opsFlashTimer);
         state._opsFlashTimer = setTimeout(() => {
