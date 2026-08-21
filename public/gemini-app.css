@@ -146,6 +146,40 @@ html.dark .channel-kpi-alert strong {
   font-size: clamp(1.05rem, 2vw, 1.45rem);
 }
 
+/* Card composto: dois valores lado a lado (ex.: Ativa / Em teste) */
+.channel-hero--dual .channel-hero-dual-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  min-width: 0;
+}
+.channel-hero-dual-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+}
+.channel-hero-dual-lab {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.95;
+  margin-bottom: 2px;
+}
+.channel-hero-dual-val {
+  font-size: clamp(1.05rem, 2vw, 1.45rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* legado channel-metric (mantido se algum lugar ainda usar) */
 .channel-metric {
   display: flex;
@@ -1265,7 +1299,7 @@ html.dark .light-card {
 }
 .subid-history-table thead tr { background: transparent; color: #94a3b8; }
 .subid-history-table thead th {
-  padding: 2px 18px 4px;
+  padding: 6px 20px 8px;
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -1280,9 +1314,9 @@ html.dark .light-card {
 .subid-history-total td.num { text-align: right; }
 .subid-history-table tbody tr { background: transparent; }
 .subid-history-table tbody td {
-  padding: 1px 18px;
-  font-size: 12px;
-  line-height: 1.25;
+  padding: 5px 20px;
+  font-size: 12.5px;
+  line-height: 1.45;
   border-bottom: 0;
   vertical-align: middle;
   white-space: nowrap;
@@ -1290,8 +1324,8 @@ html.dark .light-card {
 .subid-history-table tbody td:first-child { padding-left: 4px; color: #cbd5e1; }
 .subid-history-total { background: transparent !important; color: #fff; }
 .subid-history-total td {
-  padding-top: 3px !important;
-  padding-bottom: 3px !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
   border-top: 1px solid #1e293b;
   border-bottom: 0 !important;
   font-weight: 700;
@@ -4236,6 +4270,19 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .channel-kpi-secondary .channel-hero-value,
   .channel-kpi-secondary .channel-hero .kpi-hero-value {
     font-size: clamp(0.98rem, 4.4vw, 1.2rem);
+  }
+  /* Card composto no mobile — números um pouco menores para caber ambos */
+  .channel-kpi-primary .channel-hero--dual .channel-hero-dual-val {
+    font-size: clamp(0.95rem, 4.2vw, 1.2rem);
+  }
+  .channel-kpi-secondary .channel-hero--dual .channel-hero-dual-val {
+    font-size: clamp(0.9rem, 3.8vw, 1.05rem);
+  }
+  .channel-hero--dual .channel-hero-dual-grid {
+    gap: 6px;
+  }
+  .channel-hero--dual .channel-hero-dual-cell {
+    padding: 5px 8px;
   }
   .channel-kpi-more {
     border: 1px solid #e2e8f0;

@@ -1238,6 +1238,15 @@
     const subs = hasData && subCount != null ? fmtNum(subCount) : "—";
     const fat = hasData ? Number(k.faturamento || 0) : null;
     const com = hasData ? Number(k.comissao || 0) : null;
+    // Contagem global (todos os canais) de campanhas por status
+    let ativaCount = 0, testeCount = 0;
+    if (hasData) {
+      for (const r of (state.dash.subIds || [])) {
+        const st = normalizeStatus(r.status);
+        if (st === "teste") testeCount += 1;
+        else if (st !== "desativada") ativaCount += 1;
+      }
+    }
     const el = $("#kpi-grid");
     if (!el) return;
 
@@ -1330,6 +1339,26 @@
         <div class="relative kpi-hero-foot bg-black/10 p-2.5 rounded-xl mt-auto">
           <span class="text-xs text-rose-100 shrink-0">Status:</span>
           <span class="text-xs font-black text-white">${hasData && invPin > 0 ? "Ativo" : "Inativo"}</span>
+        </div>
+      </div>
+
+      <div class="kpi-hero relative overflow-hidden bg-gradient-to-br from-teal-500 via-teal-600 to-cyan-700 text-white rounded-2xl p-4 sm:p-5 shadow-lg shadow-teal-500/10 min-w-0">
+        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
+        <div class="relative flex items-center justify-between mb-3 gap-2 min-w-0">
+          <span class="text-xs font-bold uppercase tracking-wider text-teal-100 flex items-center gap-1.5 min-w-0">
+            <i class="fa-solid fa-bullseye shrink-0" aria-hidden="true"></i> Campanhas
+          </span>
+          <span class="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-md font-bold shrink-0">Todos canais</span>
+        </div>
+        <div class="relative grid grid-cols-2 gap-2 min-w-0">
+          <div class="bg-black/12 p-2 rounded-xl min-w-0">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-teal-100">Ativa</p>
+            <p class="kpi-hero-value text-white" style="font-size: clamp(1.2rem, 3vw, 1.8rem)"><span>${hasData ? fmtNum(ativaCount) : "—"}</span></p>
+          </div>
+          <div class="bg-black/12 p-2 rounded-xl min-w-0">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-teal-100">Em teste</p>
+            <p class="kpi-hero-value text-white" style="font-size: clamp(1.2rem, 3vw, 1.8rem)"><span>${hasData ? fmtNum(testeCount) : "—"}</span></p>
+          </div>
         </div>
       </div>`;
   }
@@ -1631,6 +1660,12 @@
       currency: "text-amber-200",
       soft: "text-amber-100/85",
     },
+    teal: {
+      card: "from-teal-500 via-teal-600 to-cyan-700 shadow-teal-500/15",
+      label: "text-teal-100",
+      currency: "text-teal-200",
+      soft: "text-teal-100/85",
+    },
   };
 
   function channelMetricCard(label, value, tone, iconKey, hint, opts = {}) {
@@ -1658,6 +1693,42 @@
           : `<p class="channel-hero-value text-white font-black tracking-tight">${value}</p>`}
         ${hint && !opts.hideHint ? `<p class="channel-hero-hint">${escapeHtml(hint)}</p>` : ""}
       </div>
+    </article>`;
+  }
+
+  /** Conta SubIDs do canal por status (ativa/teste/desativada). Independe do período. */
+  function channelStatusCounts(ch) {
+    const list = state.dash?.subIds || [];
+    let ativa = 0, teste = 0, desativada = 0;
+    for (const r of list) {
+      if ((r.canal || "indefinido") !== ch) continue;
+      const st = normalizeStatus(r.status);
+      if (st === "teste") teste += 1;
+      else if (st === "desativada") desativada += 1;
+      else ativa += 1;
+    }
+    return { ativa, teste, desativada };
+  }
+
+  /** Card com dois valores lado a lado (Ativa / Em teste). */
+  function channelDualCard(label, entries, tone, iconKey, opts = {}) {
+    const theme = CHANNEL_HERO[tone] || CHANNEL_HERO.orange;
+    const infoBtn = opts.infoKey
+      ? `<button type="button" class="m-kpi-info" data-m-info="${escapeHtml(opts.infoKey)}" aria-label="Sobre ${escapeHtml(label)}"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>`
+      : "";
+    const tier = opts.tier ? ` channel-hero--${opts.tier}` : "";
+    const cells = entries.map((e) => `
+      <div class="channel-hero-dual-cell">
+        <span class="channel-hero-dual-lab ${theme.label}">${escapeHtml(e.label)}</span>
+        <span class="channel-hero-dual-val">${escapeHtml(String(e.value))}</span>
+      </div>`).join("");
+    return `<article class="channel-hero channel-hero--dual${tier} relative overflow-hidden bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
+      <div class="absolute -right-5 -bottom-5 w-20 h-20 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
+      <div class="relative mb-2.5 min-w-0 flex items-center gap-1.5">
+        <span class="channel-hero-label text-[10px] font-bold uppercase tracking-wider ${theme.label}">${escapeHtml(label)}</span>
+        ${infoBtn}
+      </div>
+      <div class="relative channel-hero-dual-grid">${cells}</div>
     </article>`;
   }
 
@@ -1736,22 +1807,31 @@
       return opts;
     };
 
+    // Suporta cards simples (array) OU cards compostos (objeto com .entries).
+    // ATENÇÃO: Arrays têm .entries() no prototype — sempre checar Array.isArray primeiro.
+    const isDual = (card) => card && !Array.isArray(card) && Array.isArray(card.entries);
+    const renderAny = (card, tier) => {
+      if (isDual(card)) {
+        return channelDualCard(card.label, card.entries, card.tone, card.icon, { tier });
+      }
+      const [lab, val, tone, icon, hint] = card;
+      return channelMetricCard(lab, val, tone, icon, hint, { ...cardOpts(icon, hint), tier });
+    };
+    const cardKey = (card) => (isDual(card) ? card.key : card[3]);
+
     if (!mobile) {
-      el.innerHTML = `<div class="channel-kpi-metrics channel-kpi-metrics--${cards.length}">${cards.map(([lab, val, tone, icon, hint]) =>
-        channelMetricCard(lab, val, tone, icon, hint, cardOpts(icon, hint))
-      ).join("")}</div>${alertHtml}`;
+      el.innerHTML = `<div class="channel-kpi-metrics channel-kpi-metrics--${cards.length}">${cards.map((c) => renderAny(c)).join("")}</div>${alertHtml}`;
       return;
     }
 
     const PRIMARY_KEYS = new Set(["faturamento", "comissao", "lucro", "roi"]);
     const primaryOrder = ["faturamento", "comissao", "lucro", "roi"];
-    const byKey = new Map(cards.map((c) => [c[3], c]));
+    const byKey = new Map(cards.map((c) => [cardKey(c), c]));
     const primary = primaryOrder.map((key) => byKey.get(key)).filter(Boolean);
-    const secondary = cards.filter((c) => !PRIMARY_KEYS.has(c[3]));
+    const secondary = cards.filter((c) => !PRIMARY_KEYS.has(cardKey(c)));
     const moreOpen = Boolean(state.channelMoreOpen);
 
-    const renderCard = ([lab, val, tone, icon, hint], tier) =>
-      channelMetricCard(lab, val, tone, icon, hint, { ...cardOpts(icon, hint), tier });
+    const renderCard = (c, tier) => renderAny(c, tier);
 
     let moreHtml = "";
     if (secondary.length) {
@@ -2576,17 +2656,15 @@
   }
 
   /**
-   * Abatimento = redução/perda. Segue a semântica do dashboard Shopee:
-   * "% de cliques ads que a Shopee NÃO creditou" (ads que se perderam no caminho).
-   * Clamp em [0, 100] porque cliques orgânicos podem inflar Shopee acima de Ads.
+   * Abatimento no padrão Shopee = (cliques_shopee / cliques_ads) × 100.
+   * Valores > 100% são válidos (orgânico inflando shopee). Sem clamp.
+   * Se cliques_ads = 0 → retorna null (fmtPct renderiza "—").
    */
   function clickAbatPct(r, channel) {
     const shopee = r.cliques_shopee != null ? Number(r.cliques_shopee) : null;
     const ads = adsClicksFor(r, channel);
     if (shopee == null || !(ads > 0)) return null;
-    const perda = (ads - shopee) / ads;
-    const clamped = Math.max(0, Math.min(1, perda));
-    return Math.round(clamped * 10000) / 100;
+    return Math.round((shopee / ads) * 10000) / 100;
   }
 
   /** % Comissão = comissão ÷ faturamento × 100 (participação da comissão no faturamento). */
@@ -2735,11 +2813,6 @@
     let cliquesMeta = 0, cliquesPin = 0, cliquesAds = 0;
     let impressoes = 0, alcance = 0;
     let cliquesShopeeRaw = null;
-    // Soma pareada ads↔shopee só sobre SubIDs com cliques ads > 0.
-    // Evita que SubIDs organic-only inflem o denominador Shopee no agregado.
-    let paidAds = 0;
-    let paidShopeeForAbat = 0;
-    let anyPaidShopee = false;
     for (const r of list) {
       const a = aggregateSubInPeriod(r, start, end);
       fat += a.faturamento;
@@ -2753,19 +2826,11 @@
       unpaid += Number(a.unpaid || 0);
       cliquesMeta += a.cliques_meta;
       cliquesPin += a.cliques_pin;
-      const adsHere = adsClicksFor(a, state.channel);
-      cliquesAds += adsHere;
+      cliquesAds += adsClicksFor(a, state.channel);
       impressoes += Number(r.impressoes || 0);
       alcance += Number(r.alcance || 0);
       if (a.cliques_shopee != null) {
         cliquesShopeeRaw = (cliquesShopeeRaw == null ? 0 : cliquesShopeeRaw) + Number(a.cliques_shopee);
-      }
-      if (adsHere > 0) {
-        paidAds += adsHere;
-        if (a.cliques_shopee != null) {
-          anyPaidShopee = true;
-          paidShopeeForAbat += Number(a.cliques_shopee || 0);
-        }
       }
     }
     const spendMeta = invMeta;
@@ -2782,10 +2847,10 @@
     const comissaoLiq = com * (1 - gov);
     const lucro = Math.round((comissaoLiq - invForRoi) * 100) / 100;
     const roi = invForRoi > 0 ? Math.round((lucro / invForRoi) * 10000) / 100 : null;
+    // Agregado no padrão Shopee: soma bruta shopee/ads × 100. Sem clamp, > 100% é válido.
     let abatimentoCliques = null;
-    if (anyPaidShopee && paidAds > 0) {
-      const perda = Math.max(0, Math.min(1, (paidAds - paidShopeeForAbat) / paidAds));
-      abatimentoCliques = Math.round(perda * 10000) / 100;
+    if (cliquesShopeeRaw != null && cliquesAds > 0) {
+      abatimentoCliques = Math.round((cliquesShopeeRaw / cliquesAds) * 10000) / 100;
     }
     return {
       ...(baseKpis || {}),
@@ -3061,7 +3126,7 @@
         { key: "alcance", label: "Alcance", shortLabel: "Alcance", num: true },
         { key: "ctr_meta", label: "CTR Meta", shortLabel: "CTR Meta", num: true },
         { key: "cpc_meta", label: "CPC Meta", shortLabel: "CPC Meta", num: true },
-        { key: "abatimento_cliques", label: "% Abat. cliques (perda)", shortLabel: "Abat. cliques", num: true },
+        { key: "abatimento_cliques", label: "% Abat. cliques (shopee ÷ ads)", shortLabel: "Abat. cliques", num: true },
         { key: "abatimento", label: "% Comissão / faturamento", shortLabel: "% Com.", num: true },
         { key: "tendencia", label: "Tendência", shortLabel: "Tend.", num: true },
         { key: "status", label: "Status", shortLabel: "Status", num: false },
@@ -3072,7 +3137,7 @@
         ...base,
         { key: "cliques_pin", label: "Cliques Pin", shortLabel: "Cliques Pin", num: true },
         { key: "cliques_shopee", label: "Cliques Shopee", shortLabel: "Cliq Shopee", num: true },
-        { key: "abatimento_cliques", label: "% Abat. cliques (perda)", shortLabel: "Abat. cliques", num: true },
+        { key: "abatimento_cliques", label: "% Abat. cliques (shopee ÷ ads)", shortLabel: "Abat. cliques", num: true },
         { key: "abatimento", label: "% Comissão / faturamento", shortLabel: "% Com.", num: true },
         { key: "tendencia", label: "Tendência", shortLabel: "Tend.", num: true },
         { key: "status", label: "Status", shortLabel: "Status", num: false },
@@ -3319,7 +3384,7 @@
       case "abatimento_cliques": return `<td class="num">${fmtPct(abatC)}</td>`;
       case "abatimento": return `<td class="num">${fmtPct(abat)}</td>`;
       case "tendencia": return trendCellHtml(r);
-      case "status": return `<td>${statusPillHtml(r.status)}</td>`;
+      case "status": return `<td>${statusSelectHtml(r.subid, r.status)}</td>`;
       default: return `<td class="num">—</td>`;
     }
   }
@@ -3886,15 +3951,22 @@
       </tr>`;
     }
     const totCom = days.reduce((a, d) => a + Number(d.comissao || 0), 0);
+    // Padroniza: lucro sempre líquido (comissao_liq − inv_total). Se o server
+    // enviou d.lucro, usa. Caso contrário aplica taxRate/metaTaxRate como no
+    // resto do sistema (calcLucroRoi) em vez de subtrair comissão bruta.
+    const taxRate = Number(state.dash?.tax?.taxRate ?? state.settings?.taxRate ?? 0) / 100;
+    const netLucro = (d) => {
+      if (d.lucro != null) return Number(d.lucro);
+      const inv = investForRoi(d);
+      const comLiq = Number(d.comissao || 0) * (1 - taxRate);
+      return comLiq - inv;
+    };
     const totInv = days.reduce((a, d) => a + investForRoi(d), 0);
-    const totLucro = days.reduce((a, d) => {
-      if (d.lucro != null) return a + Number(d.lucro);
-      return a + (Number(d.comissao || 0) - investForRoi(d));
-    }, 0);
+    const totLucro = days.reduce((a, d) => a + netLucro(d), 0);
     const totRoi = totInv > 0 ? (totLucro / totInv) * 100 : null;
     const rows = days.map((d) => {
       const inv = investForRoi(d);
-      const lucro = d.lucro != null ? Number(d.lucro) : Number(d.comissao || 0) - inv;
+      const lucro = netLucro(d);
       const roi = displayRoi(d);
       return `<tr>
         <td>${escapeHtml(shortDayLabel(d.data))}</td>
@@ -4190,7 +4262,7 @@
           <span class="subid-card-caret" aria-hidden="true"></span>
           <span class="subid-card-name">${escapeHtml(id)}</span>
         </button>
-        <div class="subid-card-status">${statusPillHtml(r.status)}</div>
+        <div class="subid-card-status">${statusSelectHtml(id, r.status)}</div>
       </header>
       <div class="subid-card-essentials">
         <div class="subid-card-essential"><span class="lab">Comissão</span><span class="val cell-emerald">${fmt(com)}</span></div>

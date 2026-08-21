@@ -12,9 +12,10 @@ function round2(n) {
   return Math.round(Number(n || 0) * 100) / 100;
 }
 
-// "Abat. cliques" = % de cliques ads que a Shopee NÃO creditou (perda de atribuição).
-// "% Comissão" (chamado historicamente de "abatimento" na UI) = com/fat.
-// Clamp em [0, 100] no cliques porque orgânico pode inflar shopee acima de ads.
+// Abatimento no padrão da Shopee = (cliques_shopee / cliques_ads) × 100.
+// Valores > 100% são válidos (orgânico inflando shopee). Sem clamp.
+// Se cliques_ads = 0, retorna null (divisão indefinida — UI mostra "—").
+// "% Comissão" (participação da comissão no faturamento) = com/fat × 100.
 function commAbatPct(fat, com) {
   const f = Number(fat || 0);
   const c = Number(com || 0);
@@ -25,8 +26,7 @@ function clickAbatPct(shopee, ads) {
   const s = Number(shopee || 0);
   const a = Number(ads || 0);
   if (!(a > 0)) return null;
-  const perda = Math.max(0, Math.min(1, (a - s) / a));
-  return round2(perda * 100);
+  return round2((s / a) * 100);
 }
 
 function sumSpend(rows) {
