@@ -1659,9 +1659,17 @@
       ? `<button type="button" class="m-kpi-info" data-m-info="${escapeHtml(opts.infoKey)}" aria-label="Sobre ${escapeHtml(label)}"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>`
       : "";
     const tier = opts.tier ? ` channel-hero--${opts.tier}` : "";
-    return `<article class="channel-hero${tier} relative overflow-hidden bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
+    const hasSub = opts.sub && opts.sub.label;
+    const subClass = hasSub && opts.sub.toneClass ? ` ${opts.sub.toneClass}` : "";
+    const subHtml = hasSub
+      ? `<div class="channel-hero-sub">
+          <span class="channel-hero-sub-lab">${escapeHtml(opts.sub.label)}</span>
+          <span class="channel-hero-sub-val${subClass}">${escapeHtml(String(opts.sub.value))}</span>
+        </div>`
+      : "";
+    return `<article class="channel-hero${tier}${hasSub ? " channel-hero--with-sub" : ""} relative overflow-hidden bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
       <div class="absolute -right-5 -bottom-5 w-20 h-20 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
-      <div class="relative mb-2.5 min-w-0 flex items-center gap-1.5">
+      <div class="relative mb-1.5 min-w-0 flex items-center gap-1.5">
         <span class="channel-hero-label text-[10px] font-bold uppercase tracking-wider ${theme.label}">${escapeHtml(label)}</span>
         ${infoBtn}
       </div>
@@ -1670,6 +1678,7 @@
           ? `<div class="kpi-hero-value text-white channel-hero-value"><span class="text-base font-bold ${theme.currency} shrink-0">${currency}</span><span>${amount}</span></div>`
           : `<p class="channel-hero-value text-white font-black tracking-tight">${value}</p>`}
         ${hint && !opts.hideHint ? `<p class="channel-hero-hint">${escapeHtml(hint)}</p>` : ""}
+        ${subHtml}
       </div>
     </article>`;
   }
@@ -1738,47 +1747,63 @@
     const invMeta = k?.inv_meta;
     const hasRoi = hasData && Number(k?.inv_total) > 0 && Number.isFinite(Number(k?.roi));
     const lucroTone = lucroNeg ? "rose" : "emerald";
-    const roiTone = roiNeg ? "rose" : "emerald";
     const campanhasCard = campanhasStatusCard(ch);
+    const abatToneClass = k?.abatimento_cliques == null
+      ? ""
+      : Number(k.abatimento_cliques) >= 100 ? "is-abat-ok" : "is-abat-bad";
+
+    const fatCard = {
+      key: "faturamento",
+      label: "Faturamento",
+      value: money(k?.faturamento),
+      tone: "orange",
+      icon: "faturamento",
+      sub: { label: "Pedidos", value: num(k?.pedidos) },
+    };
+    const lucroCard = {
+      key: "lucro",
+      label: "Lucro",
+      value: money(k?.lucro),
+      tone: lucroTone,
+      icon: "lucro",
+      sub: { label: "ROI", value: pct(hasRoi ? k?.roi : null) },
+    };
+    const cliquesCard = (abatPct) => ({
+      key: "cliques",
+      label: "Cliques Shopee",
+      value: num(k?.cliques_shopee),
+      tone: "sky",
+      icon: "cliques",
+      sub: abatPct
+        ? { label: "Abatimento", value: pct(k?.abatimento_cliques), toneClass: abatToneClass }
+        : null,
+    });
 
     let cards = [];
     if (ch === "meta") {
-      const abatTone = k?.abatimento_cliques == null
-        ? "amber"
-        : Number(k.abatimento_cliques) >= 100 ? "emerald" : "rose";
       cards = [
-        ["Faturamento", money(k?.faturamento), "orange", "faturamento"],
+        fatCard,
         ["Comissão", money(k?.comissao), "emerald", "comissao"],
         ["Investimento Meta", money(invMeta), "meta", "investimento_meta"],
-        ["Lucro", money(k?.lucro), lucroTone, "lucro"],
-        ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "roi"],
+        lucroCard,
         campanhasCard,
-        ["Pedidos", num(k?.pedidos), "indigo", "pedidos", "Validados"],
-        ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
-        ["Abatimento", pct(k?.abatimento_cliques), abatTone, "abatimento"],
+        cliquesCard(true),
       ];
     } else if (ch === "pinterest") {
-      const abatTone = k?.abatimento_cliques == null
-        ? "amber"
-        : Number(k.abatimento_cliques) >= 100 ? "emerald" : "rose";
       cards = [
-        ["Faturamento", money(k?.faturamento), "orange", "faturamento"],
+        fatCard,
         ["Comissão", money(k?.comissao), "emerald", "comissao"],
         ["Investimento Pinterest", money(k?.inv_pin), "pin", "investimento_pin"],
-        ["Lucro", money(k?.lucro), lucroTone, "lucro"],
-        ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "roi"],
+        lucroCard,
         campanhasCard,
-        ["Pedidos", num(k?.pedidos), "indigo", "pedidos", "Validados"],
-        ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
-        ["Abatimento", pct(k?.abatimento_cliques), abatTone, "abatimento"],
+        cliquesCard(true),
       ];
     } else if (ch === "organico") {
       cards = [
-        ["Faturamento", money(k?.faturamento), "orange", "faturamento"],
+        fatCard,
         ["Comissão", money(k?.comissao), "emerald", "comissao"],
         campanhasCard,
-        ["Pedidos", num(k?.pedidos), "indigo", "pedidos", "Validados"],
-        ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
+        cliquesCard(false),
       ];
     }
 
@@ -1791,7 +1816,7 @@
       const bits = [];
       if (cancelados > 0) bits.push(`<strong>${fmtNum(cancelados)}</strong> cancelado${cancelados === 1 ? "" : "s"}`);
       if (unpaid > 0) bits.push(`<strong>${fmtNum(unpaid)}</strong> não pago${unpaid === 1 ? "" : "s"}`);
-      pedidosInfoText = `O card Pedidos conta só os <strong>validados</strong> (concluídos + pendentes). ${bits.join(" e ")} ficam de fora — não entram em faturamento nem comissão.`;
+      pedidosInfoText = `Pedidos no card Faturamento são só os <strong>validados</strong> (concluídos + pendentes). ${bits.join(" e ")} ficam de fora — não entram em faturamento nem comissão.`;
       if (!mobile) {
         alertHtml = `<p class="channel-kpi-alert" role="status"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>${pedidosInfoText}</span></p>`;
       } else {
@@ -1801,34 +1826,33 @@
       state._pedidosHintHtml = "";
     }
 
-    const cardOpts = (icon, hint) => {
-      const opts = {};
-      if (mobile && icon === "pedidos" && hasPedidosNote) {
-        opts.infoKey = "pedidos";
-        opts.hideHint = true;
-      }
-      return opts;
-    };
-
-    // Suporta cards simples (array) OU cards compostos (objeto com .entries).
+    // Suporta cards simples (array), compostos (.entries) ou com sublinha (.sub).
     // ATENÇÃO: Arrays têm .entries() no prototype — sempre checar Array.isArray primeiro.
     const isDual = (card) => card && !Array.isArray(card) && Array.isArray(card.entries);
+    const isObjectCard = (card) => card && !Array.isArray(card) && card.label && card.value != null;
     const renderAny = (card, tier) => {
       if (isDual(card)) {
         return channelDualCard(card.label, card.entries, card.tone, card.icon, { tier });
       }
+      if (isObjectCard(card)) {
+        const opts = { tier, sub: card.sub || null };
+        if (mobile && card.icon === "faturamento" && hasPedidosNote) {
+          opts.infoKey = "pedidos";
+        }
+        return channelMetricCard(card.label, card.value, card.tone, card.icon, card.hint, opts);
+      }
       const [lab, val, tone, icon, hint] = card;
-      return channelMetricCard(lab, val, tone, icon, hint, { ...cardOpts(icon, hint), tier });
+      return channelMetricCard(lab, val, tone, icon, hint, { tier });
     };
-    const cardKey = (card) => (isDual(card) ? card.key : card[3]);
+    const cardKey = (card) => (Array.isArray(card) ? card[3] : card.key || card.icon);
 
     if (!mobile) {
       el.innerHTML = `<div class="channel-kpi-metrics channel-kpi-metrics--${cards.length}">${cards.map((c) => renderAny(c)).join("")}</div>${alertHtml}`;
       return;
     }
 
-    const PRIMARY_KEYS = new Set(["faturamento", "comissao", "lucro", "roi", "campanhas"]);
-    const primaryOrder = ["faturamento", "comissao", "lucro", "roi", "campanhas"];
+    const PRIMARY_KEYS = new Set(["faturamento", "comissao", "lucro", "campanhas"]);
+    const primaryOrder = ["faturamento", "comissao", "lucro", "campanhas"];
     const byKey = new Map(cards.map((c) => [cardKey(c), c]));
     const primary = primaryOrder.map((key) => byKey.get(key)).filter(Boolean);
     const secondary = cards.filter((c) => !PRIMARY_KEYS.has(cardKey(c)));
