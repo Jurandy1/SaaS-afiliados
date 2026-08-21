@@ -1590,96 +1590,44 @@
   };
 
   const CHANNEL_HERO = {
-    orange: {
-      card: "from-orange-500 via-orange-600 to-red-600 shadow-orange-500/15",
-      label: "text-orange-100",
-      currency: "text-orange-200",
-      soft: "text-orange-100/85",
-    },
-    emerald: {
-      card: "from-emerald-600 via-emerald-600 to-teal-700 shadow-emerald-500/15",
-      label: "text-emerald-100",
-      currency: "text-emerald-200",
-      soft: "text-emerald-100/85",
-    },
-    meta: {
-      card: "from-blue-600 via-indigo-600 to-blue-700 shadow-blue-500/15",
-      label: "text-blue-100",
-      currency: "text-blue-200",
-      soft: "text-blue-100/85",
-    },
-    pin: {
-      card: "from-rose-500 via-rose-600 to-red-600 shadow-rose-500/15",
-      label: "text-rose-100",
-      currency: "text-rose-200",
-      soft: "text-rose-100/85",
-    },
-    rose: {
-      card: "from-rose-500 via-rose-600 to-red-600 shadow-rose-500/15",
-      label: "text-rose-100",
-      currency: "text-rose-200",
-      soft: "text-rose-100/85",
-    },
-    indigo: {
-      card: "from-indigo-500 via-indigo-600 to-violet-700 shadow-indigo-500/15",
-      label: "text-indigo-100",
-      currency: "text-indigo-200",
-      soft: "text-indigo-100/85",
-    },
-    sky: {
-      card: "from-sky-500 via-sky-600 to-cyan-700 shadow-sky-500/15",
-      label: "text-sky-100",
-      currency: "text-sky-200",
-      soft: "text-sky-100/85",
-    },
-    amber: {
-      card: "from-amber-500 via-amber-600 to-orange-600 shadow-amber-500/15",
-      label: "text-amber-100",
-      currency: "text-amber-200",
-      soft: "text-amber-100/85",
-    },
-    teal: {
-      card: "from-teal-500 via-teal-600 to-cyan-700 shadow-teal-500/15",
-      label: "text-teal-100",
-      currency: "text-teal-200",
-      soft: "text-teal-100/85",
-    },
+    orange: { tone: "orange" },
+    emerald: { tone: "emerald" },
+    green: { tone: "green" },
+    meta: { tone: "meta" },
+    pin: { tone: "pin" },
+    rose: { tone: "rose" },
+    indigo: { tone: "indigo" },
+    sky: { tone: "sky" },
+    amber: { tone: "amber" },
+    teal: { tone: "teal" },
   };
 
   function channelMetricCard(label, value, tone, iconKey, hint, opts = {}) {
     const theme = CHANNEL_HERO[tone] || CHANNEL_HERO.orange;
-    const isMoney = String(value).startsWith("R$");
-    let currency = "";
-    let amount = value;
-    if (isMoney) {
-      currency = "R$";
-      amount = String(value).replace(/^R\$\s*/, "");
-    }
     const infoBtn = opts.infoKey
       ? `<button type="button" class="m-kpi-info" data-m-info="${escapeHtml(opts.infoKey)}" aria-label="Sobre ${escapeHtml(label)}"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>`
       : "";
     const tier = opts.tier ? ` channel-hero--${opts.tier}` : "";
     const hasSub = opts.sub && opts.sub.label;
     const subClass = hasSub && opts.sub.toneClass ? ` ${opts.sub.toneClass}` : "";
-    const subHtml = hasSub
-      ? `<div class="channel-hero-sub">
-          <span class="channel-hero-sub-lab">${escapeHtml(opts.sub.label)}</span>
-          <span class="channel-hero-sub-val${subClass}">${escapeHtml(String(opts.sub.value))}</span>
-        </div>`
-      : "";
-    return `<article class="channel-hero${tier}${hasSub ? " channel-hero--with-sub" : ""} relative overflow-hidden bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
-      <div class="absolute -right-5 -bottom-5 w-20 h-20 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
-      <div class="relative mb-1.5 min-w-0 flex items-center gap-1.5">
-        <span class="channel-hero-label text-[10px] font-bold uppercase tracking-wider ${theme.label}">${escapeHtml(label)}</span>
+    let footHtml = "";
+    if (hasSub) {
+      footHtml = `<div class="channel-hero-sub">
+        <span class="channel-hero-sub-lab">${escapeHtml(opts.sub.label)}</span>
+        <span class="channel-hero-sub-val${subClass}">${escapeHtml(String(opts.sub.value))}</span>
+      </div>`;
+    } else if (hint && !opts.hideHint) {
+      footHtml = `<p class="channel-hero-hint">${escapeHtml(hint)}</p>`;
+    }
+    return `<article class="channel-hero channel-hero-tone-${theme.tone}${tier} rounded-2xl min-w-0">
+      <div class="channel-hero-top">
+        <span class="channel-hero-label channel-hero-lab">${escapeHtml(label)}</span>
         ${infoBtn}
       </div>
-      <div class="relative min-w-0">
-        ${isMoney
-          ? `<div class="kpi-hero-value text-white channel-hero-value"><span class="text-base font-bold ${theme.currency} shrink-0">${currency}</span><span>${amount}</span></div>`
-          : `<p class="channel-hero-value text-white font-black tracking-tight">${value}</p>`}
-        ${hint && !opts.hideHint ? `<p class="channel-hero-hint">${escapeHtml(hint)}</p>` : ""}
-        ${subHtml}
+      <div class="channel-hero-body">
+        <div class="channel-hero-value numeric tracking-tight">${value}</div>
       </div>
+      ${footHtml ? `<div class="channel-hero-foot">${footHtml}</div>` : ""}
     </article>`;
   }
 
@@ -1697,31 +1645,38 @@
     return { ativa, teste, desativada };
   }
 
-  /** Card com dois valores lado a lado (Ativa / Em teste). */
+  /** Card Campanhas: Ativa | Em teste (layout do redesign). */
   function channelDualCard(label, entries, tone, iconKey, opts = {}) {
-    const theme = CHANNEL_HERO[tone] || CHANNEL_HERO.orange;
-    const infoBtn = opts.infoKey
-      ? `<button type="button" class="m-kpi-info" data-m-info="${escapeHtml(opts.infoKey)}" aria-label="Sobre ${escapeHtml(label)}"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>`
-      : "";
+    const theme = CHANNEL_HERO[tone] || CHANNEL_HERO.teal;
     const tier = opts.tier ? ` channel-hero--${opts.tier}` : "";
-    const cells = entries.map((e) => `
-      <div class="channel-hero-dual-cell">
-        <span class="channel-hero-dual-lab ${theme.label}">${escapeHtml(e.label)}</span>
-        <span class="channel-hero-dual-val">${escapeHtml(String(e.value))}</span>
-      </div>`).join("");
-    return `<article class="channel-hero channel-hero--dual${tier} relative overflow-hidden bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
-      <div class="absolute -right-5 -bottom-5 w-20 h-20 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
-      <div class="relative mb-2.5 min-w-0 flex items-center gap-1.5">
-        <span class="channel-hero-label text-[10px] font-bold uppercase tracking-wider ${theme.label}">${escapeHtml(label)}</span>
-        ${infoBtn}
+    const a = entries[0] || { label: "Ativa", value: "—" };
+    const b = entries[1] || { label: "Em teste", value: "—" };
+    const foot = opts.footer
+      ? `<p class="channel-hero-hint">${escapeHtml(opts.footer)}</p>`
+      : "";
+    return `<article class="channel-hero channel-hero--dual channel-hero-tone-${theme.tone}${tier} rounded-2xl min-w-0">
+      <div class="channel-hero-top">
+        <span class="channel-hero-label channel-hero-lab">${escapeHtml(label)}</span>
       </div>
-      <div class="relative channel-hero-dual-grid">${cells}</div>
+      <div class="channel-hero-body channel-hero-dual-inline">
+        <div class="channel-hero-dual-item">
+          <span class="channel-hero-dual-lab channel-hero-lab">${escapeHtml(a.label)}</span>
+          <span class="channel-hero-dual-val numeric">${escapeHtml(String(a.value))}</span>
+        </div>
+        <div class="channel-hero-dual-sep" aria-hidden="true"></div>
+        <div class="channel-hero-dual-item">
+          <span class="channel-hero-dual-lab channel-hero-lab">${escapeHtml(b.label)}</span>
+          <span class="channel-hero-dual-val numeric">${escapeHtml(String(b.value))}</span>
+        </div>
+      </div>
+      ${foot ? `<div class="channel-hero-foot">${foot}</div>` : ""}
     </article>`;
   }
 
   function campanhasStatusCard(ch) {
     const counts = channelStatusCounts(ch);
     const hasData = Boolean(state.dash);
+    const shown = counts.ativa + counts.teste;
     return {
       key: "campanhas",
       label: "Campanhas",
@@ -1731,6 +1686,7 @@
         { label: "Ativa", value: hasData ? fmtNum(counts.ativa) : "—" },
         { label: "Em teste", value: hasData ? fmtNum(counts.teste) : "—" },
       ],
+      footer: hasData ? `Total: ${fmtNum(shown)} SubID${shown === 1 ? "" : "s"}` : null,
     };
   }
 
@@ -1743,10 +1699,9 @@
     const num = (v) => (!hasData || v == null ? "—" : fmtNum(v));
     const pct = (v) => (!hasData ? "—" : fmtPct(v));
     const lucroNeg = Number(k?.lucro) < 0;
-    const roiNeg = Number(k?.roi) < 0;
     const invMeta = k?.inv_meta;
     const hasRoi = hasData && Number(k?.inv_total) > 0 && Number.isFinite(Number(k?.roi));
-    const lucroTone = lucroNeg ? "rose" : "emerald";
+    const lucroTone = lucroNeg ? "rose" : "green";
     const campanhasCard = campanhasStatusCard(ch);
     const abatToneClass = k?.abatimento_cliques == null
       ? ""
@@ -1760,6 +1715,14 @@
       icon: "faturamento",
       sub: { label: "Pedidos", value: num(k?.pedidos) },
     };
+    const comissaoCard = {
+      key: "comissao",
+      label: "Comissão",
+      value: money(k?.comissao),
+      tone: "emerald",
+      icon: "comissao",
+      hint: "Calculado com base nos pedidos",
+    };
     const lucroCard = {
       key: "lucro",
       label: "Lucro",
@@ -1768,13 +1731,13 @@
       icon: "lucro",
       sub: { label: "ROI", value: pct(hasRoi ? k?.roi : null) },
     };
-    const cliquesCard = (abatPct) => ({
+    const cliquesCard = (withAbat) => ({
       key: "cliques",
       label: "Cliques Shopee",
       value: num(k?.cliques_shopee),
       tone: "sky",
       icon: "cliques",
-      sub: abatPct
+      sub: withAbat
         ? { label: "Abatimento", value: pct(k?.abatimento_cliques), toneClass: abatToneClass }
         : null,
     });
@@ -1783,8 +1746,15 @@
     if (ch === "meta") {
       cards = [
         fatCard,
-        ["Comissão", money(k?.comissao), "emerald", "comissao"],
-        ["Investimento Meta", money(invMeta), "meta", "investimento_meta"],
+        comissaoCard,
+        {
+          key: "investimento_meta",
+          label: "Investimento Meta",
+          value: money(invMeta),
+          tone: "meta",
+          icon: "investimento_meta",
+          hint: "Gasto sincronizado Meta API",
+        },
         lucroCard,
         campanhasCard,
         cliquesCard(true),
@@ -1792,17 +1762,24 @@
     } else if (ch === "pinterest") {
       cards = [
         fatCard,
-        ["Comissão", money(k?.comissao), "emerald", "comissao"],
-        ["Investimento Pinterest", money(k?.inv_pin), "pin", "investimento_pin"],
+        comissaoCard,
+        {
+          key: "investimento_pin",
+          label: "Investimento Pinterest",
+          value: money(k?.inv_pin),
+          tone: "pin",
+          icon: "investimento_pin",
+          hint: "Gasto sincronizado Pinterest",
+        },
         lucroCard,
         campanhasCard,
         cliquesCard(true),
       ];
     } else if (ch === "organico") {
+      // Sem ads: sem Lucro (≈ comissão) e sem card Campanhas Ativa/Em teste.
       cards = [
         fatCard,
-        ["Comissão", money(k?.comissao), "emerald", "comissao"],
-        campanhasCard,
+        comissaoCard,
         cliquesCard(false),
       ];
     }
@@ -1818,7 +1795,15 @@
       if (unpaid > 0) bits.push(`<strong>${fmtNum(unpaid)}</strong> não pago${unpaid === 1 ? "" : "s"}`);
       pedidosInfoText = `Pedidos no card Faturamento são só os <strong>validados</strong> (concluídos + pendentes). ${bits.join(" e ")} ficam de fora — não entram em faturamento nem comissão.`;
       if (!mobile) {
-        alertHtml = `<p class="channel-kpi-alert" role="status"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>${pedidosInfoText}</span></p>`;
+        if (!state.channelPedidosAlertDismissed) {
+          alertHtml = `<div class="channel-kpi-alert" role="status">
+            <div class="channel-kpi-alert-main">
+              <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+              <span>${pedidosInfoText}</span>
+            </div>
+            <button type="button" class="channel-kpi-alert-close" data-dismiss-channel-alert aria-label="Fechar aviso"><i class="fa-solid fa-xmark"></i></button>
+          </div>`;
+        }
       } else {
         state._pedidosHintHtml = pedidosInfoText;
       }
@@ -1832,7 +1817,10 @@
     const isObjectCard = (card) => card && !Array.isArray(card) && card.label && card.value != null;
     const renderAny = (card, tier) => {
       if (isDual(card)) {
-        return channelDualCard(card.label, card.entries, card.tone, card.icon, { tier });
+        return channelDualCard(card.label, card.entries, card.tone, card.icon, {
+          tier,
+          footer: card.footer || null,
+        });
       }
       if (isObjectCard(card)) {
         const opts = { tier, sub: card.sub || null };
@@ -1848,6 +1836,11 @@
 
     if (!mobile) {
       el.innerHTML = `<div class="channel-kpi-metrics channel-kpi-metrics--${cards.length}">${cards.map((c) => renderAny(c)).join("")}</div>${alertHtml}`;
+      el.querySelector("[data-dismiss-channel-alert]")?.addEventListener("click", () => {
+        state.channelPedidosAlertDismissed = true;
+        const box = el.querySelector(".channel-kpi-alert");
+        if (box) box.remove();
+      });
       return;
     }
 
@@ -3203,7 +3196,13 @@
     $$(".channel-only").forEach((el) => el.classList.toggle("hidden", !isChannel));
     const label = CHANNEL_LABELS[ch] || "Geral";
     const eyebrow = $("#dash-subids-eyebrow");
-    if (eyebrow) eyebrow.textContent = `canal ${label} · altere o status`;
+    if (eyebrow) {
+      eyebrow.dataset.channelLabel = label;
+      const periodBit = eyebrow.dataset.periodBit || "";
+      eyebrow.textContent = periodBit
+        ? `canal ${label} · altere o status | ${periodBit}`
+        : `canal ${label} · altere o status`;
+    }
     const subidsIcon = $("#dash-subids-icon");
     if (subidsIcon) {
       const iconSrc = ch === "meta"
@@ -4202,7 +4201,7 @@
     }
     const dirLabel = $("#subid-sort-dir-label");
     if (dirLabel) dirLabel.textContent = dir === "asc" ? "↑ Asc" : "↓ Desc";
-    const mode = state.subidProfitFilter;
+    const mode = state.subidProfitFilter || "all";
     $$("[data-subid-profit]").forEach((btn) => {
       const on = btn.dataset.subidProfit === mode;
       btn.classList.toggle("is-active", on);
@@ -4266,12 +4265,14 @@
     const slice = all.slice(0, state.subidVisible);
     const pill = $("#subid-count-pill");
     if (pill) pill.textContent = fmtNum(total);
-    const periodCount = $("#subid-period-count");
-    if (periodCount) {
-      const label = total === 1 ? "1 SubID no período" : `${fmtNum(total)} SubIDs no período`;
-      periodCount.textContent = profitMode
-        ? `${label} · filtro ${profitMode === "lucro" ? "só lucro" : "só prejuízo"}`
-        : label;
+    const eyebrow = $("#dash-subids-eyebrow");
+    if (eyebrow) {
+      const chLabel = eyebrow.dataset.channelLabel || CHANNEL_LABELS[state.channel] || "Meta";
+      let periodBit = total === 1 ? "1 SubID no período" : `${fmtNum(total)} SubIDs no período`;
+      if (profitMode === "lucro") periodBit += " · filtro só lucro";
+      else if (profitMode === "prejuizo") periodBit += " · filtro só prejuízo";
+      eyebrow.dataset.periodBit = periodBit;
+      eyebrow.textContent = `canal ${chLabel} · altere o status | ${periodBit}`;
     }
 
     const tbody = $("#subid-tbody");
@@ -5436,7 +5437,7 @@
     $$("[data-subid-profit]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const mode = btn.dataset.subidProfit;
-        state.subidProfitFilter = state.subidProfitFilter === mode ? null : mode;
+        state.subidProfitFilter = !mode || mode === "all" ? null : mode;
         renderSubIdsDash();
       });
     });
