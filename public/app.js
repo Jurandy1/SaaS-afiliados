@@ -2574,7 +2574,7 @@
     const shopee = r.cliques_shopee != null ? Number(r.cliques_shopee) : null;
     const ads = adsClicksFor(r, channel);
     if (shopee == null || !(ads > 0)) return null;
-    return Math.round((shopee / ads) * 10000) / 100;
+    return Math.round((1 - (shopee / ads)) * 10000) / 100;
   }
 
   /**
@@ -3017,12 +3017,12 @@
       { key: "concluidos", label: "Concluídos", shortLabel: "Concluídos", num: true },
       { key: "pendentes", label: "Pendentes", shortLabel: "Pendentes", num: true },
       { key: "cancelados", label: "Cancelados", shortLabel: "Cancelados", num: true },
-      { key: "cliques_shopee", label: "Cliques Shopee", shortLabel: "Cliq Shopee", num: true },
     ];
     if (ch === "meta") {
       return [
         ...base,
         { key: "cliques_meta", label: "Cliques Meta", shortLabel: "Cliques Meta", num: true },
+        { key: "cliques_shopee", label: "Cliques Shopee", shortLabel: "Cliq Shopee", num: true },
         { key: "impressoes", label: "Impressões", shortLabel: "Impressões", num: true },
         { key: "alcance", label: "Alcance", shortLabel: "Alcance", num: true },
         { key: "ctr_meta", label: "CTR Meta", shortLabel: "CTR Meta", num: true },
@@ -3037,6 +3037,7 @@
       return [
         ...base,
         { key: "cliques_pin", label: "Cliques Pin", shortLabel: "Cliques Pin", num: true },
+        { key: "cliques_shopee", label: "Cliques Shopee", shortLabel: "Cliq Shopee", num: true },
         { key: "abatimento_cliques", label: "% Abat. cliques", shortLabel: "Abat. cliques", num: true },
         { key: "abatimento", label: "Abat. comissão", shortLabel: "Abat.", num: true },
         { key: "tendencia", label: "Tendência", shortLabel: "Tend.", num: true },
@@ -3045,6 +3046,7 @@
     }
     return [
       ...base,
+      { key: "cliques_shopee", label: "Cliques Shopee", shortLabel: "Cliq Shopee", num: true },
       { key: "abatimento", label: "Abat. comissão", shortLabel: "Abat.", num: true },
       { key: "tendencia", label: "Tendência", shortLabel: "Tend.", num: true },
       { key: "status", label: "Status", shortLabel: "Status", num: false },
@@ -3261,7 +3263,7 @@
       : (r.abatimento != null ? Number(r.abatimento) : null);
     switch (col.key) {
       case "subid":
-        return `<td class="subid" data-subid="${escapeHtml(String(r.subid || ""))}">${escapeHtml(String(r.subid || ""))}</td>`;
+        return `<td class="subid" title="Expandir dia a dia do periodo" style="cursor:pointer;" data-subid="${escapeHtml(String(r.subid || ""))}">${escapeHtml(String(r.subid || ""))}</td>`;
       case "faturamento": return `<td class="num cell-emerald">${fmt(r.faturamento)}</td>`;
       case "comissao": return `<td class="num cell-emerald">${fmt(r.comissao)}</td>`;
       case "inv_total": return `<td class="num cell-gasto">${fmt(inv)}</td>`;
@@ -3307,10 +3309,10 @@
       ? kpisFromSubIds(channelSubs, dash.kpis)
       : channelKpisFor(ch, dash, channelSubs);
     if (ch === "meta" && k.cliques_shopee != null && Number(k.cliques_meta) > 0) {
-      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_meta)) * 10000) / 100;
+      k.abatimento_cliques = Math.round((1 - (Number(k.cliques_shopee) / Number(k.cliques_meta))) * 10000) / 100;
     }
     if (ch === "pinterest" && k.cliques_shopee != null && Number(k.cliques_pin) > 0) {
-      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_pin)) * 10000) / 100;
+      k.abatimento_cliques = Math.round((1 - (Number(k.cliques_shopee) / Number(k.cliques_pin))) * 10000) / 100;
     }
     renderChannelKpis(ch, k);
     const liveText = $("#dash-live-text");
@@ -3371,10 +3373,10 @@
       if (dash.kpis.abatimento_cliques != null) k.abatimento_cliques = dash.kpis.abatimento_cliques;
     }
     if (isChannel && ch === "meta" && k.cliques_shopee != null && Number(k.cliques_meta) > 0) {
-      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_meta)) * 10000) / 100;
+      k.abatimento_cliques = Math.round((1 - (Number(k.cliques_shopee) / Number(k.cliques_meta))) * 10000) / 100;
     }
     if (isChannel && ch === "pinterest" && k.cliques_shopee != null && Number(k.cliques_pin) > 0) {
-      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_pin)) * 10000) / 100;
+      k.abatimento_cliques = Math.round((1 - (Number(k.cliques_shopee) / Number(k.cliques_pin))) * 10000) / 100;
     }
     const { start, end } = periodRange();
     const daily = isChannel
@@ -3915,6 +3917,7 @@
       e.preventDefault();
       const id = cell.dataset.subid;
       if (!id) return;
+      navigator.clipboard.writeText(id).catch(() => {});
       const opening = !state.expandedSubIds[id];
       state.expandedSubIds[id] = opening;
       const row = (state.dash?.subIds || []).find((r) => String(r.subid || "") === id);
