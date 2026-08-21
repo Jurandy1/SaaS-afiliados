@@ -52,34 +52,44 @@ html.light { color-scheme: light; }
   min-width: 0;
   max-width: 100%;
 }
-.channel-kpi-metrics {
-  display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 0.875rem;
-  width: 100%;
-  min-width: 0;
-}
-@media (min-width: 640px) {
-  .channel-kpi-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (min-width: 768px) {
-  .channel-kpi-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-@media (min-width: 1280px) {
-  .channel-kpi-metrics,
-  .channel-kpi-metrics--4,
-  .channel-kpi-metrics--5,
-  .channel-kpi-metrics--6 {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-  .channel-kpi-metrics--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
+/* auto-fit: Meta / Pinterest / Orgânico — cards quebram linha antes de esmagar números */
+.channel-kpi-metrics,
+.channel-kpi-metrics--3,
 .channel-kpi-metrics--4,
 .channel-kpi-metrics--5,
 .channel-kpi-metrics--6,
 .channel-kpi-metrics--8,
 .channel-kpi-metrics--9 {
-  /* breakpoints acima cobrem; classes mantidas por compat */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr));
+  gap: 0.875rem;
+  width: 100%;
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .channel-kpi-metrics,
+  .channel-kpi-metrics--3,
+  .channel-kpi-metrics--4,
+  .channel-kpi-metrics--5,
+  .channel-kpi-metrics--6 {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  }
+}
+@media (min-width: 1100px) {
+  .channel-kpi-metrics--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .channel-kpi-metrics--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1400px) {
+  .channel-kpi-metrics--6 {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .channel-kpi-metrics--5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 
 .channel-hero {
@@ -91,9 +101,11 @@ html.light { color-scheme: light; }
   justify-content: space-between;
   height: 100%;
   min-height: 0;
-  padding: 1rem;
+  padding: 0.85rem 0.9rem;
   color: #fff;
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+  container-type: inline-size;
+  container-name: channel-hero;
 }
 .channel-hero-tone-orange {
   background: linear-gradient(to bottom right, #f97316, #d97706);
@@ -149,19 +161,24 @@ html.light { color-scheme: light; }
   border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 .channel-hero-value {
-  font-size: 1.5rem;
+  font-size: clamp(0.95rem, 11cqi + 0.35rem, 1.5rem);
   font-weight: 900;
   letter-spacing: -0.02em;
-  line-height: 1.15;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
   min-width: 0;
+  max-width: 100%;
   color: #fff;
 }
+@supports not (font-size: 1cqi) {
+  .channel-hero-value {
+    font-size: clamp(0.95rem, 2.6vw + 0.45rem, 1.5rem);
+  }
+}
 .channel-hero .kpi-hero-value {
-  font-size: 1.5rem;
+  font-size: inherit;
 }
 .channel-hero-hint {
   margin: 0;
@@ -234,12 +251,18 @@ html.light { color-scheme: light; }
   line-height: 1.2;
 }
 .channel-hero-dual-val {
-  font-size: 1.5rem;
+  font-size: clamp(0.95rem, 10cqi + 0.3rem, 1.5rem);
   font-weight: 900;
   letter-spacing: -0.02em;
-  line-height: 1;
+  line-height: 1.15;
   color: #fff;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@supports not (font-size: 1cqi) {
+  .channel-hero-dual-val {
+    font-size: clamp(0.95rem, 2.4vw + 0.4rem, 1.5rem);
+  }
 }
 
 .channel-kpi-alert {
@@ -2780,24 +2803,17 @@ html, body {
   #ops-table.data-table--ops { min-width: 520px; }
   #indef-table { min-width: 640px; }
 }
-/* MacBook / laptop estreito — KPIs de canal em wrap, sem esmagar números */
-@media (max-width: 1366px) {
+/* Laptop estreito — reforça wrap dos KPIs em todos os menus de campanha */
+@media (max-width: 1399px) {
+  .channel-kpi-metrics--3,
+  .channel-kpi-metrics--5,
+  .channel-kpi-metrics--6,
   .channel-kpi-metrics--8,
   .channel-kpi-metrics--9 {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
-  }
-  .channel-kpi-metrics--5 {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 176px), 1fr));
   }
   .channel-hero {
-    padding: 0.9rem 1rem;
-  }
-  .channel-hero-value,
-  .channel-hero .kpi-hero-value {
-    font-size: clamp(1rem, 1.5vw + 0.55rem, 1.35rem);
-  }
-  .channel-hero--dual .channel-hero-dual-val {
-    font-size: clamp(1rem, 1.4vw + 0.5rem, 1.35rem);
+    padding: 0.8rem 0.85rem;
   }
 }
 @media (max-width: 639px) {
@@ -2930,10 +2946,17 @@ html, body {
 }
 @media (max-width: 420px) {
   .channel-kpi-metrics,
+  .channel-kpi-metrics--3,
+  .channel-kpi-metrics--4,
   .channel-kpi-metrics--5,
+  .channel-kpi-metrics--6,
   .channel-kpi-metrics--8,
   .channel-kpi-metrics--9 {
     grid-template-columns: 1fr;
+  }
+  .channel-hero-value,
+  .channel-hero-dual-val {
+    font-size: clamp(1.05rem, 5.5vw, 1.35rem);
   }
   .period-bar-actions {
     width: 100%;
@@ -4593,20 +4616,26 @@ html, body { max-width: 100%; overflow-x: hidden; }
     max-width: 100%;
   }
   .channel-kpi-primary .channel-hero-value,
-  .channel-kpi-primary .channel-hero .kpi-hero-value {
-    font-size: clamp(1.05rem, 4.8vw, 1.35rem);
-    line-height: 1.15;
+  .channel-kpi-primary .channel-hero .kpi-hero-value,
+  .channel-kpi-secondary .channel-hero-value,
+  .channel-kpi-secondary .channel-hero .kpi-hero-value,
+  #channel-kpi-grid .channel-hero-value {
+    font-size: clamp(0.92rem, 4.6vw, 1.28rem);
+    line-height: 1.2;
+    overflow: visible;
+    text-overflow: unset;
+    white-space: nowrap;
   }
   .channel-kpi-secondary .channel-hero-value,
   .channel-kpi-secondary .channel-hero .kpi-hero-value {
-    font-size: clamp(0.98rem, 4.4vw, 1.2rem);
+    font-size: clamp(0.9rem, 4.2vw, 1.15rem);
   }
   /* Card composto no mobile — números um pouco menores para caber ambos */
-  .channel-kpi-primary .channel-hero--dual .channel-hero-dual-val {
-    font-size: clamp(0.95rem, 4.2vw, 1.2rem);
-  }
-  .channel-kpi-secondary .channel-hero--dual .channel-hero-dual-val {
-    font-size: clamp(0.9rem, 3.8vw, 1.05rem);
+  .channel-kpi-primary .channel-hero--dual .channel-hero-dual-val,
+  .channel-kpi-secondary .channel-hero--dual .channel-hero-dual-val,
+  #channel-kpi-grid .channel-hero-dual-val {
+    font-size: clamp(0.9rem, 4vw, 1.15rem);
+    overflow: visible;
   }
   .channel-hero--dual .channel-hero-dual-grid {
     gap: 6px;

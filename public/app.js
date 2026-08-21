@@ -1844,8 +1844,12 @@
       return;
     }
 
-    const PRIMARY_KEYS = new Set(["faturamento", "comissao", "lucro", "campanhas"]);
-    const primaryOrder = ["faturamento", "comissao", "lucro", "campanhas"];
+    // Mobile: Meta/Pin mostram 4 principais + “Mais métricas”; Orgânico mostra todos (só 3).
+    const primaryOrder =
+      ch === "organico"
+        ? ["faturamento", "comissao", "cliques"]
+        : ["faturamento", "comissao", "lucro", "campanhas"];
+    const PRIMARY_KEYS = new Set(primaryOrder);
     const byKey = new Map(cards.map((c) => [cardKey(c), c]));
     const primary = primaryOrder.map((key) => byKey.get(key)).filter(Boolean);
     const secondary = cards.filter((c) => !PRIMARY_KEYS.has(cardKey(c)));
