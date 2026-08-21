@@ -1246,13 +1246,13 @@ html.dark .light-card {
 }
 .subid-detail td { background: #1e293b !important; padding: 0 !important; }
 .subid-history {
-  padding: 16px 18px 18px;
+  padding: 12px 16px 14px;
   margin: 0;
 }
 .subid-history-empty {
-  font-size: 12.5px;
+  font-size: 12px;
   color: #94a3b8;
-  padding: 8px 4px;
+  padding: 4px 0;
 }
 .subid-history-head { display: none !important; }
 .subid-history-table {
@@ -1266,10 +1266,10 @@ html.dark .light-card {
   color: #94a3b8;
 }
 .subid-history-table thead th {
-  padding: 11px 14px 12px;
+  padding: 8px 12px 9px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   border-bottom: 1px solid #334155;
   white-space: nowrap;
@@ -1283,7 +1283,7 @@ html.dark .light-card {
   border-color: #1e293b;
 }
 .subid-history-table tbody td {
-  padding: 11px 14px;
+  padding: 8px 12px;
   font-size: 12.5px;
   border-bottom: 1px solid #1e293b;
   vertical-align: middle;
@@ -1296,8 +1296,8 @@ html.dark .light-card {
   color: #fff;
 }
 .subid-history-total td {
-  padding-top: 13px !important;
-  padding-bottom: 13px !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
   border-top: 1px solid #334155;
   border-bottom: 0 !important;
   font-weight: 700;
