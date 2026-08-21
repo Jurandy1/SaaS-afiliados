@@ -88,6 +88,11 @@ alter table if exists subid_ops drop constraint if exists subid_ops_status_check
 alter table if exists subid_ops add constraint subid_ops_status_check
   check (status is null or status in ('ativa', 'teste', 'desativada', 'pausada'));
 
+alter table if exists subid_ops add column if not exists status_source text;
+alter table if exists subid_ops drop constraint if exists subid_ops_status_source_check;
+alter table if exists subid_ops add constraint subid_ops_status_source_check
+  check (status_source is null or status_source in ('manual', 'meta', 'pinterest'));
+
 notify pgrst, 'reload schema';
 `;
 

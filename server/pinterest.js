@@ -195,14 +195,27 @@ function summarizePinSubIds(rows) {
 }
 
 async function applyPinterestCsvOps(rows, userId = requireUserId()) {
-  const { upsertSubidOpsMany } = require("./subidOps");
-  const ops = summarizePinSubIds(rows).map((r) => {
+  const { upsertSubidOpsMany, loadSubidOps } = require("./subidOps");
+  const prevMap = await loadSubidOps(userId);
+  const ops = [];
+  for (const r of summarizePinSubIds(rows)) {
+    const prev = prevMap[String(r.subid || "").toLowerCase()] || {};
+    // Cliente travou status na mão — só classifica canal se ainda indefinido
+    if (prev.status_source === "manual" || prev.status === "teste") {
+      if (!prev.canal || prev.canal === "indefinido") {
+        ops.push({ subid: r.subid, canal: "pinterest" });
+      }
+      continue;
+    }
     const fromEntity = pinStatusFromEntity(r.statusRaw);
-    let status = fromEntity;
-    if (!status) status = Number(r.gasto) > 0 ? "ativa" : "desativada";
-    if (fromEntity === "ativa" && !(Number(r.gasto) > 0)) status = "desativada";
-    return { subid: r.subid, canal: "pinterest", status };
-  });
+    // Só grava status com certeza do CSV (entity status). Sem chute por gasto zero.
+    const row = { subid: r.subid, canal: "pinterest" };
+    if (fromEntity) {
+      row.status = fromEntity;
+      row.status_source = "pinterest";
+    }
+    ops.push(row);
+  }
   if (!ops.length) return { total: 0, ativas: 0, desativadas: 0 };
   await upsertSubidOpsMany(ops, userId);
   return {

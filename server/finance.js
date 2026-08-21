@@ -330,7 +330,8 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     if (!canal) {
       canal = inferCanal(r.subid, fin.inv_meta, fin.inv_pin);
     }
-    const status = r.status || (fin.lucro < 0 ? "desativada" : "ativa");
+    // Status operacional: Meta API / Pin CSV / manual em subid_ops — nunca por lucro.
+    const status = r.status || "ativa";
     const cliquesMeta = meta.clicksBySub[key] || 0;
     const cliquesPin = pin.clicksBySub[key] || 0;
     const cliquesAds = cliquesMeta + cliquesPin;
@@ -465,7 +466,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
       ctr_meta: null,
       abatimento_cliques: null,
       canal: "pinterest",
-      status: Number(spend) > 0 ? "ativa" : "desativada",
+      status: "ativa",
       daily: buildSubDaily(sub, []),
       ...fin,
     });

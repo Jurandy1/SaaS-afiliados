@@ -612,7 +612,7 @@
           <div class="canais-page-head">
             <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1 canais-eyebrow">Operação</div>
             <h1 class="text-2xl font-extrabold text-slate-900" id="canais-title">Canais e status</h1>
-            <p class="text-xs text-slate-500 mt-1 canais-page-sub">Classifique cada SubID por canal e estágio da campanha.</p>
+            <p class="text-xs text-slate-500 mt-1 canais-page-sub">Você pode mudar canal e status à vontade. O sistema só marca Desativada com confirmação da API Meta (ou status do CSV Pin) — nunca por lucro.</p>
             <div class="chan-counts" aria-label="Contagem por canal">
               <span class="chan-count"><img src="/assets/meta.png" alt="" /> Meta <b id="canais-count-meta">0</b></span>
               <span class="chan-count"><img class="is-square" src="/assets/pinterest.png" alt="" /> Pin <b id="canais-count-pin">0</b></span>
@@ -769,7 +769,7 @@
                     <label>Arquivo CSV
                       <input type="file" id="pin-file" accept=".csv,text/csv" />
                     </label>
-                    <p class="hint">Export do Ads Manager com ativas e desativadas (Date + Ad name + Spend). Um import classifica os SubIDs como Pinterest: pausada/arquivada ou sem gasto → Desativada; com gasto e ACTIVE → Ativa. Não precisa classificar os 500 pins na mão.</p>
+                    <p class="hint">Export do Ads Manager com ativas e desativadas (Date + Ad name + Spend). Status só muda com o status do anúncio no CSV (ACTIVE/PAUSED…). Alteração manual sua não é sobrescrita. Sem chute por gasto zero.</p>
                     <div class="form-actions">
                       <button type="button" class="btn primary sm" id="btn-pin-import">Importar CSV</button>
                     </div>

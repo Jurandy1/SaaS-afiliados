@@ -19,6 +19,11 @@ alter table if exists subid_ops drop constraint if exists subid_ops_canal_check;
 alter table if exists subid_ops add constraint subid_ops_canal_check
   check (canal is null or canal in ('meta', 'pinterest', 'organico', 'indefinido'));
 
+alter table if exists subid_ops add column if not exists status_source text;
+alter table if exists subid_ops drop constraint if exists subid_ops_status_source_check;
+alter table if exists subid_ops add constraint subid_ops_status_source_check
+  check (status_source is null or status_source in ('manual', 'meta', 'pinterest'));
+
 create table if not exists clique_daily (
   user_id uuid not null,
   data date not null,

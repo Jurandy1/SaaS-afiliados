@@ -4784,7 +4784,11 @@
         const tot = r.totais
           ? ` · gasto R$ ${Number(r.totais.gasto || 0).toLocaleString("pt-BR")} · ${Number(r.totais.cliques || 0).toLocaleString("pt-BR")} cliques`
           : "";
-        const msg = `Meta sync: ${r.gravados} linhas (${r.range?.since} a ${r.range?.until})${tot}` +
+        const st = r.statusSync;
+        const statusMsg = st && st.total
+          ? ` · status API: ${st.ativas || 0} ativas / ${st.desativadas || 0} desativadas (${st.atualizados || 0} atualizados${st.preservadosManual ? `, ${st.preservadosManual} manuais preservados` : ""})`
+          : "";
+        const msg = `Meta sync: ${r.gravados} linhas (${r.range?.since} a ${r.range?.until})${tot}${statusMsg}` +
           (r.erros?.length ? ` · avisos: ${r.erros.join("; ")}` : "");
         if (isBanner) {
           status.className = "banner ok keep";
