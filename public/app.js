@@ -1653,22 +1653,20 @@
       currency = "R$";
       amount = String(value).replace(/^R\$\s*/, "");
     }
-    const digits = String(amount).replace(/\D/g, "").length;
-    const numCls = digits >= 8 ? " is-xl-num" : digits >= 6 ? " is-long-num" : "";
     const infoBtn = opts.infoKey
       ? `<button type="button" class="m-kpi-info" data-m-info="${escapeHtml(opts.infoKey)}" aria-label="Sobre ${escapeHtml(label)}"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>`
       : "";
     const tier = opts.tier ? ` channel-hero--${opts.tier}` : "";
-    return `<article class="channel-hero${tier} relative bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
-      <div class="channel-hero-glow" aria-hidden="true"></div>
+    return `<article class="channel-hero${tier} relative overflow-hidden bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
+      <div class="absolute -right-5 -bottom-5 w-20 h-20 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
       <div class="relative mb-2.5 min-w-0 flex items-center gap-1.5">
         <span class="channel-hero-label text-[10px] font-bold uppercase tracking-wider ${theme.label}">${escapeHtml(label)}</span>
         ${infoBtn}
       </div>
-      <div class="relative min-w-0 channel-hero-value-wrap">
+      <div class="relative min-w-0">
         ${isMoney
-          ? `<div class="kpi-hero-value text-white channel-hero-value${numCls}"><span class="channel-hero-currency font-bold ${theme.currency} shrink-0">${currency}</span><span>${amount}</span></div>`
-          : `<p class="channel-hero-value text-white font-black tracking-tight${numCls}">${value}</p>`}
+          ? `<div class="kpi-hero-value text-white channel-hero-value"><span class="text-base font-bold ${theme.currency} shrink-0">${currency}</span><span>${amount}</span></div>`
+          : `<p class="channel-hero-value text-white font-black tracking-tight">${value}</p>`}
         ${hint && !opts.hideHint ? `<p class="channel-hero-hint">${escapeHtml(hint)}</p>` : ""}
       </div>
     </article>`;
@@ -1700,8 +1698,8 @@
         <span class="channel-hero-dual-lab ${theme.label}">${escapeHtml(e.label)}</span>
         <span class="channel-hero-dual-val">${escapeHtml(String(e.value))}</span>
       </div>`).join("");
-    return `<article class="channel-hero channel-hero--dual${tier} relative bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
-      <div class="channel-hero-glow" aria-hidden="true"></div>
+    return `<article class="channel-hero channel-hero--dual${tier} relative overflow-hidden bg-gradient-to-br ${theme.card} text-white rounded-2xl p-4 shadow-lg min-w-0">
+      <div class="absolute -right-5 -bottom-5 w-20 h-20 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
       <div class="relative mb-2.5 min-w-0 flex items-center gap-1.5">
         <span class="channel-hero-label text-[10px] font-bold uppercase tracking-wider ${theme.label}">${escapeHtml(label)}</span>
         ${infoBtn}
@@ -2642,11 +2640,16 @@
 
   function statusSelectHtml(subid, status) {
     const st = normalizeStatus(status);
-    return `<select class="op-select" data-op="status" data-subid="${escapeHtml(String(subid))}">
-      <option value="ativa" ${st === "ativa" ? "selected" : ""}>Ativa</option>
-      <option value="teste" ${st === "teste" ? "selected" : ""}>Teste</option>
-      <option value="desativada" ${st === "desativada" ? "selected" : ""}>Desativada</option>
-    </select>`;
+    return `<button type="button" class="op-status-cycle st-${st}" data-op="status-cycle" data-subid="${escapeHtml(String(subid))}" data-value="${st}" title="Clique para alternar: Ativa → Teste → Desativada">
+      <i></i><span>${statusLabel(st)}</span>
+    </button>`;
+  }
+
+  function nextStatusCycle(status) {
+    const st = normalizeStatus(status);
+    if (st === "ativa") return "teste";
+    if (st === "teste") return "desativada";
+    return "ativa";
   }
 
   function canalSelectHtml(subid, canal) {
@@ -2996,6 +2999,31 @@
         alert(err.message || String(err));
       }
     });
+    el.addEventListener("click", async (e) => {
+      const btn = e.target.closest("button[data-op='status-cycle']");
+      if (!btn) {
+        if (e.target.closest("select[data-op], input[data-op], button[data-op]")) e.stopPropagation();
+        return;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      if (btn.disabled) return;
+      const subid = btn.dataset.subid;
+      const next = nextStatusCycle(btn.dataset.value || btn.getAttribute("data-value"));
+      btn.disabled = true;
+      try {
+        await saveSubidOp(subid, { status: next });
+        btn.dataset.value = next;
+        btn.setAttribute("data-value", next);
+        btn.className = `op-status-cycle st-${next}`;
+        const label = btn.querySelector("span");
+        if (label) label.textContent = statusLabel(next);
+      } catch (err) {
+        alert(err.message || String(err));
+      } finally {
+        btn.disabled = false;
+      }
+    });
     el.addEventListener("focusin", (e) => {
       const input = e.target.closest("input[data-op]");
       if (input) e.stopPropagation();
@@ -3018,9 +3046,6 @@
         e.preventDefault();
         input.blur();
       }
-    });
-    el.addEventListener("click", (e) => {
-      if (e.target.closest("select[data-op], input[data-op]")) e.stopPropagation();
     });
   }
 
@@ -3995,10 +4020,10 @@
       const roi = displayRoi(d);
       return `<tr>
         <td>${escapeHtml(shortDayLabel(d.data))}</td>
-        <td class="num cell-emerald">${fmt(d.comissao)}</td>
-        <td class="num cell-gasto">${fmt(inv)}</td>
-        <td class="num ${lucroCellClass(lucro)}">${fmt(lucro)}</td>
-        <td class="num ${roiTierClass(roi)}">${fmtPct(roi)}</td>
+        <td class="num">${fmt(d.comissao)}</td>
+        <td class="num muted">${fmt(inv)}</td>
+        <td class="num ${lucro < 0 ? "is-neg" : ""}">${fmt(lucro)}</td>
+        <td class="num ${Number(roi) < 0 ? "is-neg" : ""}">${fmtPct(roi)}</td>
       </tr>`;
     }).join("");
     return `<tr class="subid-detail" data-parent="${escapeHtml(key)}">
@@ -4018,10 +4043,10 @@
               ${rows}
               <tr class="subid-history-total">
                 <td>Total ${days.length}d</td>
-                <td class="num cell-emerald">${fmt(totCom)}</td>
-                <td class="num cell-gasto">${fmt(totInv)}</td>
-                <td class="num ${lucroCellClass(totLucro)}">${fmt(totLucro)}</td>
-                <td class="num ${roiTierClass(totRoi)}">${fmtPct(totRoi)}</td>
+                <td class="num">${fmt(totCom)}</td>
+                <td class="num muted">${fmt(totInv)}</td>
+                <td class="num ${totLucro < 0 ? "is-neg" : ""}">${fmt(totLucro)}</td>
+                <td class="num ${Number(totRoi) < 0 ? "is-neg" : ""}">${fmtPct(totRoi)}</td>
               </tr>
             </tbody>
           </table>
@@ -4035,7 +4060,7 @@
     if (!tb || tb.dataset.expandWired) return;
     tb.dataset.expandWired = "1";
     tb.addEventListener("click", async (e) => {
-      if (e.target.closest("select, button, input, a, label, .op-select")) return;
+      if (e.target.closest("select, button, input, a, label, .op-select, .op-status-cycle")) return;
       const cell = e.target.closest("td.subid[data-subid]");
       if (!cell) return;
       e.preventDefault();
@@ -4336,10 +4361,10 @@
           <span class="hday-txt">${escapeHtml(labelFull)}</span>
         </div>
         <div class="hcells">
-          <span class="hcell"><span class="lab">Comissão</span><span class="val cell-emerald">${fmt(d.comissao)}</span></span>
-          <span class="hcell"><span class="lab">Invest.</span><span class="val cell-gasto">${fmt(inv)}</span></span>
-          <span class="hcell"><span class="lab">Lucro</span><span class="val ${lucroCellClass(lucro)}">${fmt(lucro)}</span></span>
-          <span class="hcell"><span class="lab">ROI</span><span class="val ${roiTierClass(roi)}">${fmtPct(roi)}</span></span>
+          <span class="hcell"><span class="lab">Comissão</span><span class="val">${fmt(d.comissao)}</span></span>
+          <span class="hcell"><span class="lab">Invest.</span><span class="val muted">${fmt(inv)}</span></span>
+          <span class="hcell"><span class="lab">Lucro</span><span class="val ${lucro < 0 ? "is-neg" : ""}">${fmt(lucro)}</span></span>
+          <span class="hcell"><span class="lab">ROI</span><span class="val ${Number(roi) < 0 ? "is-neg" : ""}">${fmtPct(roi)}</span></span>
         </div>
       </div>`;
     }).join("");
@@ -4385,7 +4410,7 @@
     if (!root || root.dataset.expandWired === "1") return;
     root.dataset.expandWired = "1";
     root.addEventListener("click", async (e) => {
-      if (e.target.closest("select, .op-select")) return;
+      if (e.target.closest("select, .op-select, .op-status-cycle, button")) return;
       const detailsBtn = e.target.closest("[data-subid-details]");
       if (detailsBtn) {
         e.preventDefault();
