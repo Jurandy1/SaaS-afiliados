@@ -18,7 +18,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="/tailwind.css" />
-  <link rel="stylesheet" href="/gemini-app.css?v=abat-hist-1" />
+  <link rel="stylesheet" href="/gemini-app.css?v=subid-filters-1" />
 </head>
 <body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen antialiased selection:bg-brand-500 selection:text-white font-sans transition-colors duration-200">
 
@@ -419,25 +419,51 @@
           <div class="channel-only hidden space-y-4">
             <div class="channel-kpi-grid min-w-0 w-full" id="channel-kpi-grid"></div>
             <section class="surface-card overflow-hidden" id="dash-subids-panel">
-              <div class="panel-head px-4 sm:px-5 py-4 border-b border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div class="flex items-center gap-3">
+              <div class="panel-head px-4 sm:px-5 py-4 border-b border-slate-200/80 flex flex-col gap-3">
+                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                   <div>
-                    <h3 class="panel-title flex items-center gap-2">
+                    <h3 class="panel-title flex items-center gap-2 flex-wrap">
                       <img id="dash-subids-icon" src="/assets/shopee.png" alt="" width="18" height="18" />
                       Detalhamento por SubID
                       <span class="count-pill" id="subid-count-pill">0</span>
                     </h3>
                     <p class="dashboard-section-desc" id="dash-subids-eyebrow">altere o status</p>
+                    <p class="subid-period-count text-xs text-slate-500 mt-1" id="subid-period-count">0 SubIDs no período</p>
                   </div>
                 </div>
-                <div class="flex flex-wrap items-center gap-2 justify-end">
-                  <div class="col-picker-wrap relative">
-                    <button type="button" class="btn ghost sm" id="btn-subid-cols" aria-expanded="false" aria-controls="subid-cols-pop">
-                      <i class="fa-solid fa-table-columns"></i> Colunas <span class="col-picker-count" id="subid-cols-count"></span>
+                <div class="subid-filter-bar" id="subid-filter-bar">
+                  <input type="search" id="subid-search" class="search subid-filter-search" placeholder="Pesquisar SubID…" autocomplete="off" />
+                  <div class="subid-filter-tools">
+                    <div class="col-picker-wrap relative">
+                      <button type="button" class="btn ghost sm" id="btn-subid-cols" aria-expanded="false" aria-controls="subid-cols-pop">
+                        <i class="fa-solid fa-table-columns"></i> Colunas <span class="col-picker-count" id="subid-cols-count"></span>
+                      </button>
+                      <div class="col-picker-pop hidden" id="subid-cols-pop" role="dialog" aria-label="Colunas visíveis"></div>
+                    </div>
+                    <button type="button" class="btn ghost sm subid-sort-dir" id="btn-subid-sort-dir" title="Alternar ordem" aria-label="Alternar ordem crescente ou decrescente">
+                      <span id="subid-sort-dir-label">↓ Desc</span>
                     </button>
-                    <div class="col-picker-pop hidden" id="subid-cols-pop" role="dialog" aria-label="Colunas visíveis"></div>
+                    <label class="subid-sort-select-wrap">
+                      <span class="sr-only">Ordenar por</span>
+                      <select id="subid-sort-key" class="subid-sort-select" aria-label="Ordenar SubIDs">
+                        <option value="comissao">Ordenar: Comissão</option>
+                        <option value="lucro">Ordenar: Lucro</option>
+                        <option value="roi">Ordenar: ROI</option>
+                        <option value="faturamento">Ordenar: Faturamento</option>
+                        <option value="inv_total">Ordenar: Gasto</option>
+                        <option value="pedidos">Ordenar: Vendas</option>
+                        <option value="abatimento_cliques">Ordenar: Batimento</option>
+                        <option value="cliques_ads">Ordenar: Cliques ads</option>
+                        <option value="cliques_shopee">Ordenar: Cliques Shopee</option>
+                        <option value="status">Ordenar: Status</option>
+                        <option value="subid">Ordenar: SubID</option>
+                      </select>
+                    </label>
                   </div>
-                  <input type="search" id="subid-search" class="search max-w-xs" placeholder="Filtrar por SubID…" />
+                  <div class="subid-filter-chips" role="group" aria-label="Filtro rápido de resultado">
+                    <button type="button" class="subid-chip" id="btn-subid-prejuizo" data-subid-profit="prejuizo" aria-pressed="false">Só prejuízo</button>
+                    <button type="button" class="subid-chip" id="btn-subid-lucro" data-subid-profit="lucro" aria-pressed="false">Só lucro</button>
+                  </div>
                 </div>
               </div>
               <div class="table-scroll table-scroll--dark table-scroll--infinite" id="subid-scroll">
@@ -1277,6 +1303,6 @@
     </div>
   </div>
 
-  <script src="/app.js?v=abat-hist-1"></script>
+  <script src="/app.js?v=subid-filters-1"></script>
 </body>
 </html>

@@ -844,7 +844,8 @@
     dataPageSize: 10,
     dataColFilters: {},
     dataSort: { key: null, dir: "asc" },
-    subidSort: { key: null, dir: "asc" },
+    subidSort: { key: "comissao", dir: "desc" },
+    subidProfitFilter: null,
     opsSort: { key: "status", dir: "asc" },
     dailySort: { key: "data", dir: "desc" },
     dailyRows: [],
@@ -3935,20 +3936,57 @@
     });
   }
 
+  function subidLucroValue(r) {
+    if (!r) return 0;
+    if (r.lucro != null) return Number(r.lucro);
+    return Number(r.comissao || 0) - investForRoi(r);
+  }
+
+  function paintSubidFilterBar() {
+    const key = state.subidSort?.key || "comissao";
+    const dir = state.subidSort?.dir || "desc";
+    const sel = $("#subid-sort-key");
+    if (sel && sel.value !== key) {
+      const opt = [...sel.options].some((o) => o.value === key);
+      if (opt) sel.value = key;
+    }
+    const dirLabel = $("#subid-sort-dir-label");
+    if (dirLabel) dirLabel.textContent = dir === "asc" ? "↑ Asc" : "↓ Desc";
+    const mode = state.subidProfitFilter;
+    $$("[data-subid-profit]").forEach((btn) => {
+      const on = btn.dataset.subidProfit === mode;
+      btn.classList.toggle("is-active", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+
   function renderSubIdsDash() {
     const ch = state.channel || "geral";
     const mobile = isMobileLayout();
     const cols = paintSubidThead(ch);
     const search = $("#subid-search")?.value || "";
     let all = filteredSubIds(state.dash?.subIds || [], search, ch, { activeOnly: true });
+
+    const profitMode = state.subidProfitFilter;
+    if (profitMode === "lucro") {
+      all = all.filter((r) => subidLucroValue(r) > 0);
+    } else if (profitMode === "prejuizo") {
+      all = all.filter((r) => subidLucroValue(r) < 0);
+    }
+
+    if (!state.subidSort?.key) state.subidSort = { key: "comissao", dir: "desc" };
     const statusRank = { ativa: 0, teste: 1, desativada: 2, pausada: 2 };
-    all = sortRows(all, state.subidSort.key || "status", state.subidSort.dir || "asc", (r) => {
+    all = sortRows(all, state.subidSort.key || "comissao", state.subidSort.dir || "desc", (r) => {
       if (state.subidSort.key === "subid") return r.subid;
-      if (state.subidSort.key === "status" || !state.subidSort.key) return statusRank[normalizeStatus(r.status)] ?? 9;
+      if (state.subidSort.key === "status") return statusRank[normalizeStatus(r.status)] ?? 9;
       if (state.subidSort.key === "roi") return displayRoi(r);
       if (state.subidSort.key === "inv_total") return investForRoi(r);
-      if (state.subidSort.key === "lucro") return r.lucro != null ? Number(r.lucro) : Number(r.comissao || 0) - investForRoi(r);
+      if (state.subidSort.key === "lucro") return subidLucroValue(r);
+      if (state.subidSort.key === "faturamento") return Number(r.faturamento || 0);
+      if (state.subidSort.key === "comissao") return Number(r.comissao || 0);
+      if (state.subidSort.key === "pedidos") return Number(r.pedidos ?? r.concluidos ?? 0);
       if (state.subidSort.key === "cliques_ads") return adsClicksFor(r, ch);
+      if (state.subidSort.key === "cliques_shopee") return Number(r.cliques_shopee || 0);
       if (state.subidSort.key === "abatimento_cliques") return clickAbatPct(r, ch);
       if (state.subidSort.key === "abatimento") {
         const fat = Number(r.faturamento || 0);
@@ -3958,11 +3996,12 @@
       return r[state.subidSort.key];
     });
     paintSortHeaders("#subid-thead", state.subidSort);
+    paintSubidFilterBar();
     const total = all.length;
     state.subidTotal = total;
     const MOBILE_PREVIEW = 3;
     const MOBILE_PAGE = 20;
-    const filterKey = `${ch}|${search}|${state.subidSort.key || "status"}|${state.subidSort.dir || "asc"}`;
+    const filterKey = `${ch}|${search}|${state.subidSort.key || "comissao"}|${state.subidSort.dir || "desc"}|${profitMode || "all"}`;
     if (state._subidFilterKey !== filterKey) {
       state._subidFilterKey = filterKey;
       state.subidVisible = mobile ? MOBILE_PREVIEW : 40;
@@ -3977,16 +4016,26 @@
     const slice = all.slice(0, state.subidVisible);
     const pill = $("#subid-count-pill");
     if (pill) pill.textContent = fmtNum(total);
+    const periodCount = $("#subid-period-count");
+    if (periodCount) {
+      const label = total === 1 ? "1 SubID no período" : `${fmtNum(total)} SubIDs no período`;
+      periodCount.textContent = profitMode
+        ? `${label} · filtro ${profitMode === "lucro" ? "só lucro" : "só prejuízo"}`
+        : label;
+    }
 
     const tbody = $("#subid-tbody");
     const cardList = $("#subid-card-list");
     const table = $("#subid-table");
+    const emptyMsg = profitMode
+      ? (profitMode === "lucro" ? "Nenhum SubID com lucro no filtro atual." : "Nenhum SubID com prejuízo no filtro atual.")
+      : "Nenhum SubID neste canal no período.";
     if (mobile) {
       if (table) table.classList.add("is-mobile-hidden");
       if (cardList) {
         cardList.classList.remove("hidden");
         const cardsHtml = slice.map((r) => renderSubIdCard(r, ch)).join("")
-          || `<div class="subid-card-empty">Nenhum SubID neste canal no período.</div>`;
+          || `<div class="subid-card-empty">${emptyMsg}</div>`;
         cardList.innerHTML = cardsHtml;
         wireOpsSelects("#subid-card-list");
         wireSubIdCardExpand(cardList, renderSubIdsDash);
@@ -4014,7 +4063,7 @@
         return `<tr class="subid-row${open ? " is-open" : ""}" data-subid="${escapeHtml(id)}">${cells}</tr>${
           open ? subIdDailyHistoryHtml(r, span) : ""
         }`;
-      }).join("") || `<tr><td colspan="${span}">Nenhum SubID neste canal no período.</td></tr>`;
+      }).join("") || `<tr><td colspan="${span}">${emptyMsg}</td></tr>`;
       wireOpsSelects("#subid-tbody");
       wireSubIdExpand("#subid-tbody", renderSubIdsDash);
     }
@@ -5118,6 +5167,25 @@
     });
 
     $("#subid-search")?.addEventListener("input", debounce(() => { renderSubIdsDash(); }, 200));
+    $("#subid-sort-key")?.addEventListener("change", () => {
+      const key = $("#subid-sort-key")?.value || "comissao";
+      if (!state.subidSort) state.subidSort = { key: "comissao", dir: "desc" };
+      state.subidSort.key = key;
+      if (!state.subidSort.dir) state.subidSort.dir = "desc";
+      renderSubIdsDash();
+    });
+    $("#btn-subid-sort-dir")?.addEventListener("click", () => {
+      if (!state.subidSort) state.subidSort = { key: "comissao", dir: "desc" };
+      state.subidSort.dir = state.subidSort.dir === "asc" ? "desc" : "asc";
+      renderSubIdsDash();
+    });
+    $$("[data-subid-profit]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const mode = btn.dataset.subidProfit;
+        state.subidProfitFilter = state.subidProfitFilter === mode ? null : mode;
+        renderSubIdsDash();
+      });
+    });
     $("#ops-search")?.addEventListener("input", debounce(() => { renderOpsTable(); }, 200));
     wireSortHeaders("#ops-thead", () => state.opsSort, () => {
       renderOpsTable();
