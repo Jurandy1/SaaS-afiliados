@@ -1243,15 +1243,6 @@
     const subs = hasData && subCount != null ? fmtNum(subCount) : "—";
     const fat = hasData ? Number(k.faturamento || 0) : null;
     const com = hasData ? Number(k.comissao || 0) : null;
-    // Contagem global (todos os canais) de campanhas por status
-    let ativaCount = 0, testeCount = 0;
-    if (hasData) {
-      for (const r of (state.dash.subIds || [])) {
-        const st = normalizeStatus(r.status);
-        if (st === "teste") testeCount += 1;
-        else if (st !== "desativada") ativaCount += 1;
-      }
-    }
     const el = $("#kpi-grid");
     if (!el) return;
 
@@ -1344,26 +1335,6 @@
         <div class="relative kpi-hero-foot bg-black/10 p-2.5 rounded-xl mt-auto">
           <span class="text-xs text-rose-100 shrink-0">Status:</span>
           <span class="text-xs font-black text-white">${hasData && invPin > 0 ? "Ativo" : "Inativo"}</span>
-        </div>
-      </div>
-
-      <div class="kpi-hero relative overflow-hidden bg-gradient-to-br from-teal-500 via-teal-600 to-cyan-700 text-white rounded-2xl p-4 sm:p-5 shadow-lg shadow-teal-500/10 min-w-0">
-        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl pointer-events-none" aria-hidden="true"></div>
-        <div class="relative flex items-center justify-between mb-3 gap-2 min-w-0">
-          <span class="text-xs font-bold uppercase tracking-wider text-teal-100 flex items-center gap-1.5 min-w-0">
-            <i class="fa-solid fa-bullseye shrink-0" aria-hidden="true"></i> Campanhas
-          </span>
-          <span class="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-md font-bold shrink-0">Todos canais</span>
-        </div>
-        <div class="relative grid grid-cols-2 gap-2 min-w-0">
-          <div class="bg-black/12 p-2 rounded-xl min-w-0">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-teal-100">Ativa</p>
-            <p class="kpi-hero-value text-white" style="font-size: clamp(1.2rem, 3vw, 1.8rem)"><span>${hasData ? fmtNum(ativaCount) : "—"}</span></p>
-          </div>
-          <div class="bg-black/12 p-2 rounded-xl min-w-0">
-            <p class="text-[10px] font-bold uppercase tracking-wider text-teal-100">Em teste</p>
-            <p class="kpi-hero-value text-white" style="font-size: clamp(1.2rem, 3vw, 1.8rem)"><span>${hasData ? fmtNum(testeCount) : "—"}</span></p>
-          </div>
         </div>
       </div>`;
   }
