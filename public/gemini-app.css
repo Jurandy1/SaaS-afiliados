@@ -1244,9 +1244,9 @@ html.dark .light-card {
 .subid-row.is-open .subid-caret::before {
   content: none !important;
 }
-.subid-detail td { background: #1e293b !important; padding: 0 !important; }
+.subid-detail td { background: #0b1220 !important; padding: 0 !important; }
 .subid-history {
-  padding: 12px 16px 14px;
+  padding: 6px 10px 8px;
   margin: 0;
 }
 .subid-history-empty {
@@ -1256,49 +1256,43 @@ html.dark .light-card {
 }
 .subid-history-head { display: none !important; }
 .subid-history-table {
-  width: 100%;
+  width: auto;
   color: #cbd5e1;
-  border-collapse: separate;
+  border-collapse: collapse;
   border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
-.subid-history-table thead tr {
-  background: #020617;
-  color: #94a3b8;
-}
+.subid-history-table thead tr { background: transparent; color: #94a3b8; }
 .subid-history-table thead th {
-  padding: 8px 12px 9px;
-  font-size: 11px;
+  padding: 2px 18px 4px;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid #1e293b;
+  white-space: nowrap;
+  text-align: left;
+}
+.subid-history-table thead th:first-child { padding-left: 4px; }
+.subid-history-table thead th.num,
+.subid-history-table tbody td.num,
+.subid-history-total td.num { text-align: right; }
+.subid-history-table tbody tr { background: transparent; }
+.subid-history-table tbody td {
+  padding: 1px 18px;
+  font-size: 12px;
+  line-height: 1.25;
+  border-bottom: 0;
+  vertical-align: middle;
   white-space: nowrap;
 }
-.subid-history-table thead th.num,
-.subid-history-table tbody td.num {
-  text-align: right;
-}
-.subid-history-table tbody tr {
-  background: #0f172a;
-  border-color: #1e293b;
-}
-.subid-history-table tbody td {
-  padding: 8px 12px;
-  font-size: 12.5px;
-  border-bottom: 1px solid #1e293b;
-  vertical-align: middle;
-}
-.subid-history-table tbody tr:last-child td {
-  border-bottom: 0;
-}
-.subid-history-total {
-  background: #020617 !important;
-  color: #fff;
-}
+.subid-history-table tbody td:first-child { padding-left: 4px; color: #cbd5e1; }
+.subid-history-total { background: transparent !important; color: #fff; }
 .subid-history-total td {
-  padding-top: 10px !important;
-  padding-bottom: 10px !important;
-  border-top: 1px solid #334155;
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+  border-top: 1px solid #1e293b;
   border-bottom: 0 !important;
   font-weight: 700;
 }
@@ -2331,22 +2325,28 @@ html, body {
   gap: 0.25rem;
   min-width: 0;
   max-width: 100%;
-  font-size: clamp(1.15rem, 2.4vw, 2.25rem);
+  font-size: clamp(1rem, 2.2vw, 2.25rem);
   font-weight: 900;
   letter-spacing: -0.02em;
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
   overflow: hidden;
 }
 .kpi-hero-value > span:last-child {
   min-width: 0;
   flex: 1 1 auto;
   white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
 }
 .kpi-hero-value > span:first-child {
   flex: 0 0 auto;
+  white-space: nowrap;
 }
 .kpi-hero-foot {
   display: flex;
@@ -2354,11 +2354,19 @@ html, body {
   justify-content: space-between;
   gap: 0.5rem;
   min-width: 0;
+  flex-wrap: nowrap;
+}
+.kpi-hero-foot > span {
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
 .kpi-hero-foot > span:last-child {
   min-width: 0;
   text-align: right;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }
 .topbar-actions {
   width: 100%;
@@ -2375,6 +2383,18 @@ html, body {
   position: relative;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+/* No mobile, o wrapper de Canais usa scroll natural da página (sem caixa aninhada
+   que trava a lista dentro de 78vh e impede o toque de rolar). */
+@media (max-width: 767px) {
+  #ops-scroll.table-scroll--infinite {
+    max-height: none;
+    overflow: visible;
+    overflow-x: visible;
+    overflow-y: visible;
+    overscroll-behavior: auto;
+    -webkit-overflow-scrolling: auto;
+  }
 }
 /* CabeÃ§alhos ficam fixos enquanto a lista infinita rola */
 .table-scroll--infinite .data-table--ops {
@@ -4658,7 +4678,11 @@ html, body { max-width: 100%; overflow-x: hidden; }
   }
 
   #ops-scroll {
-    overflow-x: hidden !important;
+    /* Ambos os eixos devem ser 'visible' — per CSS spec, se um eixo for hidden
+       e o outro visible, o navegador rebaixa o visible para 'auto', criando um
+       scroll aninhado que trava a rolagem por toque no mobile. */
+    overflow: visible !important;
+    overflow-x: visible !important;
     overflow-y: visible !important;
     max-height: none !important;
     min-width: 0;

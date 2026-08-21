@@ -553,6 +553,11 @@ function channelKpisFromSubs(subIds, channel, taxRate = 0, metaTaxRate = 12) {
   let cliquesPin = 0;
   let cliquesShopee = 0;
   let hasCliquesShopee = false;
+  // Soma pareada Ads↔Shopee só sobre SubIDs com cliques ads > 0 no período.
+  // Assim SubIDs organic-only (0 cliques Meta/Pin) não inflam o denominador Shopee.
+  let paidMeta = 0;
+  let paidPin = 0;
+  let paidShopeeForAbat = 0;
   for (const r of subs) {
     fat += Number(r.faturamento || 0);
     com += Number(r.comissao || 0);
@@ -561,18 +566,28 @@ function channelKpisFromSubs(subIds, channel, taxRate = 0, metaTaxRate = 12) {
     pedidos += Number(r.concluidos || 0) + Number(r.pendentes || 0);
     cancelados += Number(r.cancelados || 0);
     unpaid += Number(r.unpaid || 0);
-    cliquesMeta += Number(r.cliques_meta || 0);
-    cliquesPin += Number(r.cliques_pin || 0);
+    const clm = Number(r.cliques_meta || 0);
+    const clp = Number(r.cliques_pin || 0);
+    cliquesMeta += clm;
+    cliquesPin += clp;
     if (r.cliques_shopee != null) {
       hasCliquesShopee = true;
       cliquesShopee += Number(r.cliques_shopee || 0);
     }
+    const adsHere = channel === "meta" ? clm : channel === "pinterest" ? clp : clm + clp;
+    if (adsHere > 0) {
+      paidMeta += clm;
+      paidPin += clp;
+      paidShopeeForAbat += Number(r.cliques_shopee || 0);
+    }
   }
   const fin = calcLucroRoi(com, invMeta, invPin, { taxRate, metaTaxRate });
   const cliquesAds = channel === "meta" ? cliquesMeta : channel === "pinterest" ? cliquesPin : cliquesMeta + cliquesPin;
+  const paidAds = channel === "meta" ? paidMeta : channel === "pinterest" ? paidPin : paidMeta + paidPin;
   let abatimentoCliques = null;
-  if (hasCliquesShopee && cliquesAds > 0) {
-    abatimentoCliques = Math.round((cliquesShopee / cliquesAds) * 10000) / 100;
+  if (hasCliquesShopee && paidAds > 0) {
+    const perda = Math.max(0, Math.min(1, (paidAds - paidShopeeForAbat) / paidAds));
+    abatimentoCliques = Math.round(perda * 10000) / 100;
   }
   return {
     faturamento: Math.round(fat * 100) / 100,

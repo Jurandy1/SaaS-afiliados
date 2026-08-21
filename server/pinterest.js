@@ -200,8 +200,11 @@ async function applyPinterestCsvOps(rows, userId = requireUserId()) {
   const ops = [];
   for (const r of summarizePinSubIds(rows)) {
     const prev = prevMap[String(r.subid || "").toLowerCase()] || {};
-    // Cliente travou status na mão — só classifica canal se ainda indefinido
-    if (prev.status_source === "manual" || prev.status === "teste") {
+    // Cliente travou status na mão (ou legado sem origem) — só classifica canal se ainda indefinido
+    const isManualOrLegacy = prev.status_source === "manual"
+      || prev.status === "teste"
+      || (prev.status && !prev.status_source);
+    if (isManualOrLegacy) {
       if (!prev.canal || prev.canal === "indefinido") {
         ops.push({ subid: r.subid, canal: "pinterest" });
       }

@@ -1163,7 +1163,15 @@
       updateIaPeriodPill();
       loadClaudeCreds();
     }
-    if (view === "canais") renderOpsTable();
+    if (view === "canais") {
+      // Reseta o slice ao entrar na view para não abrir com 200+ cards de uma sessão anterior.
+      if (isMobileLayout()) {
+        state.opsVisible = 15;
+        state._opsDomCount = 0;
+        state._opsFilterKey = null;
+      }
+      renderOpsTable();
+    }
     if (view === "config") {
       setCfgTab(navKey === "integracoes" ? "conexoes" : state.cfgTab || "conexoes");
       if (state.cfgTab === "indefinidos") renderIndefinidos();
@@ -2396,9 +2404,8 @@
     }
     const sorted = sortRows(state.dailyRows, state.dailySort.key, state.dailySort.dir, (d) => {
       if (state.dailySort.key === "abatimento") {
-        const fat = Number(d.faturamento || 0);
-        const com = Number(d.comissao || 0);
-        return fat > 0 ? (com / fat) * 100 : 0;
+        const v = commAbatPct(d.faturamento, d.comissao);
+        return v != null ? v : 0;
       }
       if (state.dailySort.key === "lucro") {
         return d.lucro != null ? d.lucro : Number(d.comissao || 0) - Number(d.inv_total || 0);
@@ -2422,7 +2429,7 @@
       const dayCard = (d, isTotal) => {
         const fat = Number(d.faturamento || 0);
         const com = Number(d.comissao || 0);
-        const abat = isTotal ? Number(d.abatimento || 0) : (fat > 0 ? (com / fat) * 100 : 0);
+        const abat = isTotal ? Number(d.abatimento || 0) : (commAbatPct(fat, com) ?? 0);
         const lucro = isTotal
           ? d.lucro
           : (d.lucro != null ? d.lucro : com - Number(d.inv_total || 0));
@@ -2482,7 +2489,7 @@
     $("#daily-tbody").innerHTML = sorted.map((d) => {
       const fat = Number(d.faturamento || 0);
       const com = Number(d.comissao || 0);
-      const abat = fat > 0 ? (com / fat) * 100 : 0;
+      const abat = commAbatPct(fat, com) ?? 0;
       const lucro = d.lucro != null ? d.lucro : com - Number(d.inv_total || 0);
       return `<tr>
         <td class="font-medium subid">${shortDay(d.data)}</td>
@@ -2568,12 +2575,26 @@
     return Number(r.cliques_ads != null ? r.cliques_ads : (Number(r.cliques_meta || 0) + Number(r.cliques_pin || 0)));
   }
 
+  /**
+   * Abatimento = redução/perda. Segue a semântica do dashboard Shopee:
+   * "% de cliques ads que a Shopee NÃO creditou" (ads que se perderam no caminho).
+   * Clamp em [0, 100] porque cliques orgânicos podem inflar Shopee acima de Ads.
+   */
   function clickAbatPct(r, channel) {
     const shopee = r.cliques_shopee != null ? Number(r.cliques_shopee) : null;
     const ads = adsClicksFor(r, channel);
     if (shopee == null || !(ads > 0)) return null;
-    /* % Abat. cliques = Cliques Shopee / Cliques Ads (Meta ou Pin no canal) */
-    return Math.round((shopee / ads) * 10000) / 100;
+    const perda = (ads - shopee) / ads;
+    const clamped = Math.max(0, Math.min(1, perda));
+    return Math.round(clamped * 10000) / 100;
+  }
+
+  /** % Comissão = comissão ÷ faturamento × 100 (participação da comissão no faturamento). */
+  function commAbatPct(fat, com) {
+    const f = Number(fat || 0);
+    const c = Number(com || 0);
+    if (!(f > 0)) return null;
+    return Math.round((c / f) * 10000) / 100;
   }
 
   /**
@@ -2714,6 +2735,11 @@
     let cliquesMeta = 0, cliquesPin = 0, cliquesAds = 0;
     let impressoes = 0, alcance = 0;
     let cliquesShopeeRaw = null;
+    // Soma pareada ads↔shopee só sobre SubIDs com cliques ads > 0.
+    // Evita que SubIDs organic-only inflem o denominador Shopee no agregado.
+    let paidAds = 0;
+    let paidShopeeForAbat = 0;
+    let anyPaidShopee = false;
     for (const r of list) {
       const a = aggregateSubInPeriod(r, start, end);
       fat += a.faturamento;
@@ -2727,11 +2753,19 @@
       unpaid += Number(a.unpaid || 0);
       cliquesMeta += a.cliques_meta;
       cliquesPin += a.cliques_pin;
-      cliquesAds += adsClicksFor(a, state.channel);
+      const adsHere = adsClicksFor(a, state.channel);
+      cliquesAds += adsHere;
       impressoes += Number(r.impressoes || 0);
       alcance += Number(r.alcance || 0);
       if (a.cliques_shopee != null) {
         cliquesShopeeRaw = (cliquesShopeeRaw == null ? 0 : cliquesShopeeRaw) + Number(a.cliques_shopee);
+      }
+      if (adsHere > 0) {
+        paidAds += adsHere;
+        if (a.cliques_shopee != null) {
+          anyPaidShopee = true;
+          paidShopeeForAbat += Number(a.cliques_shopee || 0);
+        }
       }
     }
     const spendMeta = invMeta;
@@ -2749,8 +2783,9 @@
     const lucro = Math.round((comissaoLiq - invForRoi) * 100) / 100;
     const roi = invForRoi > 0 ? Math.round((lucro / invForRoi) * 10000) / 100 : null;
     let abatimentoCliques = null;
-    if (cliquesShopeeRaw != null && cliquesAds > 0) {
-      abatimentoCliques = Math.round((cliquesShopeeRaw / cliquesAds) * 10000) / 100;
+    if (anyPaidShopee && paidAds > 0) {
+      const perda = Math.max(0, Math.min(1, (paidAds - paidShopeeForAbat) / paidAds));
+      abatimentoCliques = Math.round(perda * 10000) / 100;
     }
     return {
       ...(baseKpis || {}),
@@ -2776,7 +2811,7 @@
       cpc_meta,
       ctr_meta,
       abatimento_cliques: abatimentoCliques,
-      abatimento: fat > 0 ? Math.round((com / fat) * 10000) / 100 : null,
+      abatimento: commAbatPct(fat, com),
     };
   }
 
@@ -2939,7 +2974,7 @@
           inv_total: Math.round(invTotal * 100) / 100,
           lucro,
           roi: invTotal > 0 ? Math.round((lucro / invTotal) * 10000) / 100 : null,
-          abatimento: r.faturamento > 0 ? Math.round((r.comissao / r.faturamento) * 10000) / 100 : null,
+          abatimento: commAbatPct(r.faturamento, r.comissao),
         };
       });
   }
@@ -3026,8 +3061,8 @@
         { key: "alcance", label: "Alcance", shortLabel: "Alcance", num: true },
         { key: "ctr_meta", label: "CTR Meta", shortLabel: "CTR Meta", num: true },
         { key: "cpc_meta", label: "CPC Meta", shortLabel: "CPC Meta", num: true },
-        { key: "abatimento_cliques", label: "% Abat. cliques", shortLabel: "Abat. cliques", num: true },
-        { key: "abatimento", label: "Abat. comissão", shortLabel: "Abat.", num: true },
+        { key: "abatimento_cliques", label: "% Abat. cliques (perda)", shortLabel: "Abat. cliques", num: true },
+        { key: "abatimento", label: "% Comissão / faturamento", shortLabel: "% Com.", num: true },
         { key: "tendencia", label: "Tendência", shortLabel: "Tend.", num: true },
         { key: "status", label: "Status", shortLabel: "Status", num: false },
       ];
@@ -3037,8 +3072,8 @@
         ...base,
         { key: "cliques_pin", label: "Cliques Pin", shortLabel: "Cliques Pin", num: true },
         { key: "cliques_shopee", label: "Cliques Shopee", shortLabel: "Cliq Shopee", num: true },
-        { key: "abatimento_cliques", label: "% Abat. cliques", shortLabel: "Abat. cliques", num: true },
-        { key: "abatimento", label: "Abat. comissão", shortLabel: "Abat.", num: true },
+        { key: "abatimento_cliques", label: "% Abat. cliques (perda)", shortLabel: "Abat. cliques", num: true },
+        { key: "abatimento", label: "% Comissão / faturamento", shortLabel: "% Com.", num: true },
         { key: "tendencia", label: "Tendência", shortLabel: "Tend.", num: true },
         { key: "status", label: "Status", shortLabel: "Status", num: false },
       ];
@@ -3046,21 +3081,22 @@
     return [
       ...base,
       { key: "cliques_shopee", label: "Cliques Shopee", shortLabel: "Cliq Shopee", num: true },
-      { key: "abatimento", label: "Abat. comissão", shortLabel: "Abat.", num: true },
+      { key: "abatimento", label: "% Comissão / faturamento", shortLabel: "% Com.", num: true },
       { key: "tendencia", label: "Tendência", shortLabel: "Tend.", num: true },
       { key: "status", label: "Status", shortLabel: "Status", num: false },
     ];
   }
 
   const SUBID_COL_ESSENTIAL = {
-    meta: ["subid", "comissao", "inv_total", "lucro", "roi", "pedidos", "cliques_meta", "cliques_shopee", "abatimento", "tendencia", "status"],
-    pinterest: ["subid", "comissao", "inv_total", "lucro", "roi", "pedidos", "cliques_pin", "cliques_shopee", "abatimento", "tendencia", "status"],
+    meta: ["subid", "comissao", "inv_total", "lucro", "roi", "pedidos", "cliques_meta", "cliques_shopee", "abatimento_cliques", "tendencia", "status"],
+    pinterest: ["subid", "comissao", "inv_total", "lucro", "roi", "pedidos", "cliques_pin", "cliques_shopee", "abatimento_cliques", "tendencia", "status"],
     organico: ["subid", "comissao", "pedidos", "cliques_shopee", "abatimento", "tendencia", "status"],
     geral: ["subid", "comissao", "inv_total", "lucro", "roi", "pedidos", "cliques_shopee", "abatimento", "tendencia", "status"],
   };
 
   function subidColStorageKey(ch) {
-    return `saas:subid_cols:${ch || "meta"}`;
+    // v2: recolunas quando "Abat." (comissão) foi trocado por "Abat. cliques" nos canais pagos
+    return `saas:subid_cols:v2:${ch || "meta"}`;
   }
 
   function defaultSubidColPrefs(ch) {
@@ -3257,8 +3293,8 @@
     const roi = displayRoi(r);
     const lucro = r.lucro != null ? Number(r.lucro) : Number(r.comissao || 0) - inv;
     const abatC = clickAbatPct(r, ch);
-    const abat = r.faturamento > 0
-      ? Math.round((Number(r.comissao || 0) / Number(r.faturamento)) * 10000) / 100
+    const abat = Number(r.faturamento) > 0
+      ? commAbatPct(r.faturamento, r.comissao)
       : (r.abatimento != null ? Number(r.abatimento) : null);
     switch (col.key) {
       case "subid":
@@ -3283,7 +3319,7 @@
       case "abatimento_cliques": return `<td class="num">${fmtPct(abatC)}</td>`;
       case "abatimento": return `<td class="num">${fmtPct(abat)}</td>`;
       case "tendencia": return trendCellHtml(r);
-      case "status": return `<td>${statusSelectHtml(r.subid, r.status)}</td>`;
+      case "status": return `<td>${statusPillHtml(r.status)}</td>`;
       default: return `<td class="num">—</td>`;
     }
   }
@@ -3304,15 +3340,11 @@
     }
     const q = ($("#subid-search")?.value || "").trim();
     const channelSubs = filteredSubIds(dash.subIds || [], q, ch, { activeOnly: true });
+    // KPI de abat. cliques agora vem já com soma pareada (server: channelKpisFromSubs,
+    // client: kpisFromSubIds). Não sobrescrevemos com sum-bruta para não voltar a inflar.
     let k = q
       ? kpisFromSubIds(channelSubs, dash.kpis)
       : channelKpisFor(ch, dash, channelSubs);
-    if (ch === "meta" && k.cliques_shopee != null && Number(k.cliques_meta) > 0) {
-      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_meta)) * 10000) / 100;
-    }
-    if (ch === "pinterest" && k.cliques_shopee != null && Number(k.cliques_pin) > 0) {
-      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_pin)) * 10000) / 100;
-    }
     renderChannelKpis(ch, k);
     const liveText = $("#dash-live-text");
     if (liveText) {
@@ -3371,12 +3403,7 @@
       if (dash.kpis.cpc_meta != null) k.cpc_meta = dash.kpis.cpc_meta;
       if (dash.kpis.abatimento_cliques != null) k.abatimento_cliques = dash.kpis.abatimento_cliques;
     }
-    if (isChannel && ch === "meta" && k.cliques_shopee != null && Number(k.cliques_meta) > 0) {
-      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_meta)) * 10000) / 100;
-    }
-    if (isChannel && ch === "pinterest" && k.cliques_shopee != null && Number(k.cliques_pin) > 0) {
-      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_pin)) * 10000) / 100;
-    }
+    // Abat. cliques por canal já vem calculado com soma pareada pelo server/kpisFromSubIds.
     const { start, end } = periodRange();
     const daily = isChannel
       ? (dash.dailyByChannel?.[ch] || dailyFromSubIds(channelSubs, start, end))
@@ -3482,13 +3509,15 @@
       state._opsObserver = null;
     }
     if (!sentinel || typeof IntersectionObserver !== "function") return;
-    const root = $("main.page-main");
+    // Root = viewport (null). Antes usava `main.page-main`, mas ele NÃO rola de fato
+    // (main cresce com o conteúdo, quem rola é o html) → sentinel ficava sempre "dentro"
+    // do root, disparando onMore em cadeia e carregando 250+ cards de uma vez.
     const obs = new IntersectionObserver((entries) => {
       if (!entries.some((e) => e.isIntersecting)) return;
       onMore();
     }, {
-      root: root || null,
-      rootMargin: "240px 0px",
+      root: null,
+      rootMargin: "160px 0px",
       threshold: 0,
     });
     obs.observe(sentinel);
@@ -3832,9 +3861,8 @@
     const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (!m) return raw.slice(0, 10) || "—";
     const months = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-    const day = Number(m[3]);
     const mi = Number(m[2]) - 1;
-    return `${day} ${months[mi] || m[2]}`;
+    return `${m[3]} ${months[mi] || m[2]}`;
   }
 
   function dayLabelMobile(iso) {
@@ -3989,8 +4017,8 @@
       if (state.subidSort.key === "cliques_shopee") return Number(r.cliques_shopee || 0);
       if (state.subidSort.key === "abatimento_cliques") return clickAbatPct(r, ch);
       if (state.subidSort.key === "abatimento") {
-        const fat = Number(r.faturamento || 0);
-        return fat > 0 ? (Number(r.comissao || 0) / fat) * 100 : Number(r.abatimento || 0);
+        const v = commAbatPct(r.faturamento, r.comissao);
+        return v != null ? v : Number(r.abatimento || 0);
       }
       if (state.subidSort.key === "tendencia") return subidTrendScore(r);
       return r[state.subidSort.key];
@@ -4142,7 +4170,7 @@
     const pedidos = Number(r.pedidos ?? r.concluidos ?? 0);
     const cliquesShopee = Number(r.cliques_shopee ?? r.cliques ?? 0);
     const cliquesAds = adsClicksFor(r, ch);
-    const abatFat = fat > 0 ? (com / fat) * 100 : Number(r.abatimento || 0);
+    const abatFat = commAbatPct(fat, com) ?? Number(r.abatimento || 0);
     const abatCli = clickAbatPct(r, ch);
     const trend = subidTrendScore(r);
     const trendChip = trend === 1
@@ -4162,7 +4190,7 @@
           <span class="subid-card-caret" aria-hidden="true"></span>
           <span class="subid-card-name">${escapeHtml(id)}</span>
         </button>
-        <div class="subid-card-status">${statusSelectHtml(id, r.status)}</div>
+        <div class="subid-card-status">${statusPillHtml(r.status)}</div>
       </header>
       <div class="subid-card-essentials">
         <div class="subid-card-essential"><span class="lab">Comissão</span><span class="val cell-emerald">${fmt(com)}</span></div>

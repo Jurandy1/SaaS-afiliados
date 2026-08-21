@@ -28,6 +28,14 @@ function round2(n) {
   return Math.round(Number(n || 0) * 100) / 100;
 }
 
+// "% Comissão" (chamado de "abatimento" na UI legada) = com/fat × 100.
+function commAbatPct(fat, com) {
+  const f = Number(fat || 0);
+  const c = Number(com || 0);
+  if (!(f > 0)) return 0;
+  return round2((c / f) * 100);
+}
+
 function aggregateReport(nodes) {
   const byDay = {};
   const bySubId = {};
@@ -245,7 +253,7 @@ function aggregateReport(nodes) {
         ...rest,
         faturamento: round2(r.faturamento),
         comissao: round2(r.comissao),
-        abatimento: r.faturamento > 0 ? round2((r.comissao / r.faturamento) * 100) : 0,
+        abatimento: commAbatPct(r.faturamento, r.comissao),
         daily: dailyRows,
       };
     })
@@ -268,7 +276,7 @@ function aggregateReport(nodes) {
       pendentes,
       cancelados,
       unpaid,
-      abatimento: faturamento > 0 ? round2((comissao / faturamento) * 100) : 0,
+      abatimento: commAbatPct(faturamento, comissao),
       subIdsCount: subIds.length,
     },
     daily: daily.map((d) => ({

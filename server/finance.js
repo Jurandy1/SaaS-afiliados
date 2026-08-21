@@ -12,6 +12,23 @@ function round2(n) {
   return Math.round(Number(n || 0) * 100) / 100;
 }
 
+// "Abat. cliques" = % de cliques ads que a Shopee NÃO creditou (perda de atribuição).
+// "% Comissão" (chamado historicamente de "abatimento" na UI) = com/fat.
+// Clamp em [0, 100] no cliques porque orgânico pode inflar shopee acima de ads.
+function commAbatPct(fat, com) {
+  const f = Number(fat || 0);
+  const c = Number(com || 0);
+  if (!(f > 0)) return null;
+  return round2((c / f) * 100);
+}
+function clickAbatPct(shopee, ads) {
+  const s = Number(shopee || 0);
+  const a = Number(ads || 0);
+  if (!(a > 0)) return null;
+  const perda = Math.max(0, Math.min(1, (a - s) / a));
+  return round2(perda * 100);
+}
+
 function sumSpend(rows) {
   const byDay = {};
   const bySub = {};
@@ -160,10 +177,7 @@ function reconcileSubIdsToPeriod(subIds, start, end, tax) {
     const fat = round2(agg.faturamento);
     const com = round2(agg.comissao);
     const clAds = agg.cliques_meta + agg.cliques_pin;
-    let abatimentoCliques = null;
-    if (cliquesShopee > 0 && clAds > 0) {
-      abatimentoCliques = round2((cliquesShopee / clAds) * 100);
-    }
+    const abatimentoCliques = clAds > 0 ? clickAbatPct(cliquesShopee, clAds) : null;
 
     return {
       ...sub,
@@ -184,7 +198,7 @@ function reconcileSubIdsToPeriod(subIds, start, end, tax) {
       cliques_pin: agg.cliques_pin,
       cliques_ads: clAds,
       cliques_shopee: cliquesShopee,
-      abatimento: fat > 0 ? round2((com / fat) * 100) : null,
+      abatimento: commAbatPct(fat, com),
       abatimento_cliques: abatimentoCliques,
     };
   });
@@ -316,7 +330,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
       const fin = calcLucroRoi(src.comissao, invMeta, invPin, tax);
       const fat = Number(src.faturamento || 0);
       const com = Number(src.comissao || 0);
-      const abatimento = fat > 0 ? round2((com / fat) * 100) : null;
+      const abatimento = commAbatPct(fat, com);
       return { ...src, ...fin, abatimento };
     });
 
@@ -341,10 +355,9 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     const metaAgg = meta.spendClicksBySub[key] || { spend: 0, clicks: 0, impressoes: 0 };
     const cpc = metaAgg.clicks > 0 ? round2(metaAgg.spend / metaAgg.clicks) : null;
     const ctr = metaAgg.impressoes > 0 ? round2((metaAgg.clicks / metaAgg.impressoes) * 100) : null;
-    let abatimentoCliques = null;
-    if (cliquesShopee != null && cliquesAds > 0) {
-      abatimentoCliques = round2((cliquesShopee / cliquesAds) * 100);
-    }
+    const abatimentoCliques = cliquesShopee != null && cliquesAds > 0
+      ? clickAbatPct(cliquesShopee, cliquesAds)
+      : null;
     return {
       ...r,
       ...fin,
@@ -368,7 +381,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
   const comissao = Number(dash.kpis?.comissao || 0);
   const kpisFin = calcLucroRoi(comissao, invMeta, invPin, tax);
   const fat = Number(dash.kpis?.faturamento || 0);
-  const abatimento = fat > 0 ? round2((comissao / fat) * 100) : Number(dash.kpis?.abatimento || 0);
+  const abatimento = fat > 0 ? commAbatPct(fat, comissao) : Number(dash.kpis?.abatimento || 0);
 
   // Totais de mídia a partir das linhas brutas (não só SubIDs com venda Shopee)
   const cliquesMetaTotal = metaRows.reduce((a, r) => a + Number(r.cliques || 0), 0);
@@ -380,10 +393,10 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
   const cpcMeta = cliquesMetaTotal > 0 ? round2(invMeta / cliquesMetaTotal) : null;
   const ctrMeta = impressoesTotal > 0 ? round2((cliquesMetaTotal / impressoesTotal) * 100) : null;
   let abatimentoCliquesKpi = null;
-  if (cliquesShopeeTotal > 0 && cliquesAdsTotal > 0) {
-    abatimentoCliquesKpi = round2((cliquesShopeeTotal / cliquesAdsTotal) * 100);
-  } else if (cliquesShopeeTotal > 0 && cliquesMetaTotal > 0) {
-    abatimentoCliquesKpi = round2((cliquesShopeeTotal / cliquesMetaTotal) * 100);
+  if (cliquesAdsTotal > 0) {
+    abatimentoCliquesKpi = clickAbatPct(cliquesShopeeTotal, cliquesAdsTotal);
+  } else if (cliquesMetaTotal > 0) {
+    abatimentoCliquesKpi = clickAbatPct(cliquesShopeeTotal, cliquesMetaTotal);
   }
 
   const kpis = {
@@ -489,11 +502,11 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
   kpis.cliques_shopee = subIdsAll.reduce((a, r) => a + Number(r.cliques_shopee || 0), 0);
   const kpisAligned = calcLucroRoi(kpis.comissao, kpis.inv_meta, kpis.inv_pin, tax);
   Object.assign(kpis, kpisAligned);
-  kpis.abatimento = kpis.faturamento > 0 ? round2((kpis.comissao / kpis.faturamento) * 100) : 0;
-  if (kpis.cliques_shopee > 0 && Number(kpis.cliques_ads || 0) > 0) {
-    kpis.abatimento_cliques = round2((kpis.cliques_shopee / Number(kpis.cliques_ads)) * 100);
-  } else if (kpis.cliques_shopee > 0 && Number(kpis.cliques_meta || 0) > 0) {
-    kpis.abatimento_cliques = round2((kpis.cliques_shopee / Number(kpis.cliques_meta)) * 100);
+  kpis.abatimento = commAbatPct(kpis.faturamento, kpis.comissao) ?? 0;
+  if (Number(kpis.cliques_ads || 0) > 0) {
+    kpis.abatimento_cliques = clickAbatPct(kpis.cliques_shopee, kpis.cliques_ads);
+  } else if (Number(kpis.cliques_meta || 0) > 0) {
+    kpis.abatimento_cliques = clickAbatPct(kpis.cliques_shopee, kpis.cliques_meta);
   } else {
     kpis.abatimento_cliques = null;
   }

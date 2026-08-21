@@ -24,6 +24,13 @@ alter table if exists subid_ops drop constraint if exists subid_ops_status_sourc
 alter table if exists subid_ops add constraint subid_ops_status_source_check
   check (status_source is null or status_source in ('manual', 'meta', 'pinterest'));
 
+-- Backfill: registros legados com status setado mas sem origem foram edições
+-- manuais do usuário (antes do rastreio de origem). Marca como 'manual' para
+-- que sync da API Meta/CSV Pin não sobrescreva.
+update subid_ops
+set status_source = 'manual'
+where status is not null and status_source is null;
+
 create table if not exists clique_daily (
   user_id uuid not null,
   data date not null,
