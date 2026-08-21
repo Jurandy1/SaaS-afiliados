@@ -2568,13 +2568,11 @@
   }
 
   function clickAbatPct(r, channel) {
-    if (r.abatimento_cliques != null && Number.isFinite(Number(r.abatimento_cliques))) {
-      return Number(r.abatimento_cliques);
-    }
     const shopee = r.cliques_shopee != null ? Number(r.cliques_shopee) : null;
     const ads = adsClicksFor(r, channel);
     if (shopee == null || !(ads > 0)) return null;
-    return Math.round((1 - (shopee / ads)) * 10000) / 100;
+    /* % Abat. cliques = Cliques Shopee / Cliques Ads (Meta ou Pin no canal) */
+    return Math.round((shopee / ads) * 10000) / 100;
   }
 
   /**
@@ -3309,10 +3307,10 @@
       ? kpisFromSubIds(channelSubs, dash.kpis)
       : channelKpisFor(ch, dash, channelSubs);
     if (ch === "meta" && k.cliques_shopee != null && Number(k.cliques_meta) > 0) {
-      k.abatimento_cliques = Math.round((1 - (Number(k.cliques_shopee) / Number(k.cliques_meta))) * 10000) / 100;
+      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_meta)) * 10000) / 100;
     }
     if (ch === "pinterest" && k.cliques_shopee != null && Number(k.cliques_pin) > 0) {
-      k.abatimento_cliques = Math.round((1 - (Number(k.cliques_shopee) / Number(k.cliques_pin))) * 10000) / 100;
+      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_pin)) * 10000) / 100;
     }
     renderChannelKpis(ch, k);
     const liveText = $("#dash-live-text");
@@ -3373,10 +3371,10 @@
       if (dash.kpis.abatimento_cliques != null) k.abatimento_cliques = dash.kpis.abatimento_cliques;
     }
     if (isChannel && ch === "meta" && k.cliques_shopee != null && Number(k.cliques_meta) > 0) {
-      k.abatimento_cliques = Math.round((1 - (Number(k.cliques_shopee) / Number(k.cliques_meta))) * 10000) / 100;
+      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_meta)) * 10000) / 100;
     }
     if (isChannel && ch === "pinterest" && k.cliques_shopee != null && Number(k.cliques_pin) > 0) {
-      k.abatimento_cliques = Math.round((1 - (Number(k.cliques_shopee) / Number(k.cliques_pin))) * 10000) / 100;
+      k.abatimento_cliques = Math.round((Number(k.cliques_shopee) / Number(k.cliques_pin)) * 10000) / 100;
     }
     const { start, end } = periodRange();
     const daily = isChannel
