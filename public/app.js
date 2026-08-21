@@ -928,6 +928,11 @@
   function lucroCellClass(v) {
     return Number(v) >= 0 ? "cell-lucro-pos" : "cell-lucro-neg";
   }
+  /** Abat. cliques (shopee ÷ ads): ≥100% verde, <100% vermelho. */
+  function abatCliquesClass(v) {
+    if (v == null || v === "" || Number.isNaN(Number(v))) return "";
+    return Number(v) >= 100 ? "cell-abat-good" : "cell-abat-bad";
+  }
   /** Aceita "R$ 1.234.567,89" / "1234567.89" / "1234567,89" */
   function parseBrNumber(raw) {
     let s = String(raw ?? "").trim();
@@ -1749,6 +1754,9 @@
 
     let cards = [];
     if (ch === "meta") {
+      const abatTone = k?.abatimento_cliques == null
+        ? "amber"
+        : Number(k.abatimento_cliques) >= 100 ? "emerald" : "rose";
       cards = [
         ["Faturamento", money(k?.faturamento), "orange", "faturamento"],
         ["Comissão", money(k?.comissao), "emerald", "comissao"],
@@ -1757,9 +1765,12 @@
         ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "roi"],
         ["Pedidos", num(k?.pedidos), "indigo", "pedidos", "Validados"],
         ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
-        ["Abatimento", pct(k?.abatimento_cliques), "amber", "abatimento"],
+        ["Abatimento", pct(k?.abatimento_cliques), abatTone, "abatimento"],
       ];
     } else if (ch === "pinterest") {
+      const abatTone = k?.abatimento_cliques == null
+        ? "amber"
+        : Number(k.abatimento_cliques) >= 100 ? "emerald" : "rose";
       cards = [
         ["Faturamento", money(k?.faturamento), "orange", "faturamento"],
         ["Comissão", money(k?.comissao), "emerald", "comissao"],
@@ -1768,7 +1779,7 @@
         ["ROI", pct(hasRoi ? k?.roi : null), roiTone, "roi"],
         ["Pedidos", num(k?.pedidos), "indigo", "pedidos", "Validados"],
         ["Cliques Shopee", num(k?.cliques_shopee), "sky", "cliques"],
-        ["Abatimento", pct(k?.abatimento_cliques), "amber", "abatimento"],
+        ["Abatimento", pct(k?.abatimento_cliques), abatTone, "abatimento"],
       ];
     } else if (ch === "organico") {
       cards = [
@@ -2427,9 +2438,20 @@
   }
 
   function sortRows(rows, key, dir, getter) {
-    if (!key || !rows?.length) return rows || [];
+    if (!rows?.length) return rows || [];
     const get = getter || ((r) => r[key]);
+    const statusRank = { ativa: 0, teste: 1, desativada: 2, pausada: 2 };
+    // Sempre: Ativa → Teste → Desativada; depois o critério escolhido.
     return [...rows].sort((a, b) => {
+      const ra = statusRank[normalizeStatus(a.status)] ?? 9;
+      const rb = statusRank[normalizeStatus(b.status)] ?? 9;
+      if (ra !== rb) return ra - rb;
+      if (!key || key === "status") {
+        return String(a.subid || "").localeCompare(String(b.subid || ""), "pt-BR", {
+          sensitivity: "base",
+          numeric: true,
+        });
+      }
       const c = compareSortValues(get(a), get(b), dir || "asc");
       if (c !== 0) return c;
       return String(a.subid || "").localeCompare(String(b.subid || ""), "pt-BR", {
@@ -2483,15 +2505,15 @@
       state.dailySort = { key: "data", dir: "desc" };
     }
     const sorted = sortRows(state.dailyRows, state.dailySort.key, state.dailySort.dir, (d) => {
-      if (state.dailySort.key === "abatimento") {
-        const v = commAbatPct(d.faturamento, d.comissao);
-        return v != null ? v : 0;
+      if (state.dailySort.key === "abatimento" || state.dailySort.key === "abatimento_cliques") {
+        return d.abatimento_cliques != null ? Number(d.abatimento_cliques) : null;
       }
       if (state.dailySort.key === "lucro") {
         return d.lucro != null ? d.lucro : Number(d.comissao || 0) - Number(d.inv_total || 0);
       }
       return d[state.dailySort.key];
     });
+    // Dias não têm status de campanha — sortRows acima ainda funciona (todos "ativa").
     paintSortHeaders("#daily-table thead", state.dailySort);
 
     const mobile = isMobileLayout();
@@ -2509,7 +2531,7 @@
       const dayCard = (d, isTotal) => {
         const fat = Number(d.faturamento || 0);
         const com = Number(d.comissao || 0);
-        const abat = isTotal ? Number(d.abatimento || 0) : (commAbatPct(fat, com) ?? 0);
+        const abat = d.abatimento_cliques != null ? Number(d.abatimento_cliques) : null;
         const lucro = isTotal
           ? d.lucro
           : (d.lucro != null ? d.lucro : com - Number(d.inv_total || 0));
@@ -2530,7 +2552,7 @@
               <div class="daily-card-cell"><span class="lab">Inv. Meta</span><span class="val cell-gasto">${fmt(d.inv_meta)}</span></div>
               <div class="daily-card-cell"><span class="lab">Inv. Pin</span><span class="val cell-gasto">${fmt(d.inv_pin)}</span></div>
               <div class="daily-card-cell"><span class="lab">Inv. Total</span><span class="val cell-gasto">${fmt(d.inv_total)}</span></div>
-              <div class="daily-card-cell"><span class="lab">Abat.</span><span class="val muted">${fmtPct(abat)}</span></div>
+              <div class="daily-card-cell"><span class="lab">Abat. cliques</span><span class="val ${abatCliquesClass(abat)}">${fmtPct(abat)}</span></div>
             </div>
           </details>
         </article>`;
@@ -2569,7 +2591,7 @@
     $("#daily-tbody").innerHTML = sorted.map((d) => {
       const fat = Number(d.faturamento || 0);
       const com = Number(d.comissao || 0);
-      const abat = commAbatPct(fat, com) ?? 0;
+      const abat = d.abatimento_cliques != null ? Number(d.abatimento_cliques) : null;
       const lucro = d.lucro != null ? d.lucro : com - Number(d.inv_total || 0);
       return `<tr>
         <td class="font-medium subid">${shortDay(d.data)}</td>
@@ -2580,11 +2602,12 @@
         <td class="num cell-gasto">${fmt(d.inv_total)}</td>
         <td class="num ${lucroCellClass(lucro)}">${fmt(lucro)}</td>
         <td class="num ${roiTierClass(d.roi)}">${fmtPct(d.roi)}</td>
-        <td class="num muted">${fmtPct(abat)}</td>
+        <td class="num ${abatCliquesClass(abat)}">${fmtPct(abat)}</td>
       </tr>`;
     }).join("") || `<tr><td colspan="9">Sem dias no período.</td></tr>`;
 
     if (state.dailyRows.length) {
+      const totAbat = k.abatimento_cliques != null ? Number(k.abatimento_cliques) : null;
       $("#daily-tfoot").innerHTML = `<tr>
         <td class="subid uppercase tracking-wider">TOTAL</td>
         <td class="num cell-emerald">${fmt(k.faturamento)}</td>
@@ -2594,7 +2617,7 @@
         <td class="num cell-gasto">${fmt(k.inv_total)}</td>
         <td class="num ${lucroCellClass(k.lucro)}">${fmt(k.lucro)}</td>
         <td class="num ${roiTierClass(k.roi)}">${fmtPct(k.roi)}</td>
-        <td class="num muted">${fmtPct(k.abatimento)}</td>
+        <td class="num ${abatCliquesClass(totAbat)}">${fmtPct(totAbat)}</td>
       </tr>`;
     } else $("#daily-tfoot").innerHTML = "";
   }
@@ -3071,7 +3094,7 @@
     const chartSub = $("#dash-chart-sub");
     if (chartSub) chartSub.textContent = "todos os canais";
     const dailySub = $("#dash-daily-sub");
-    if (dailySub) dailySub.textContent = "Fat · Com · Inv · Lucro · ROI · Abat.";
+    if (dailySub) dailySub.textContent = "Fat · Com · Inv · Lucro · ROI · Abat. cliques (shopee ÷ ads)";
   }
 
   /** Contadores de SubIDs por canal no rail e na página de classificação. */
@@ -3381,7 +3404,7 @@
       case "alcance": return `<td class="num">${fmtNum(r.alcance)}</td>`;
       case "ctr_meta": return `<td class="num">${fmtPct(r.ctr_meta)}</td>`;
       case "cpc_meta": return `<td class="num">${fmt(r.cpc_meta)}</td>`;
-      case "abatimento_cliques": return `<td class="num">${fmtPct(abatC)}</td>`;
+      case "abatimento_cliques": return `<td class="num ${abatCliquesClass(abatC)}">${fmtPct(abatC)}</td>`;
       case "abatimento": return `<td class="num">${fmtPct(abat)}</td>`;
       case "tendencia": return trendCellHtml(r);
       case "status": return `<td>${statusSelectHtml(r.subid, r.status)}</td>`;
@@ -4282,7 +4305,7 @@
       <div class="subid-card-foot">
         <span class="subid-card-chip">🖱 Shopee <b>${fmtNum(cliquesShopee)}</b></span>
         ${showAds ? `<span class="subid-card-chip">🖱 Ads <b>${fmtNum(cliquesAds)}</b></span>` : ""}
-        <span class="subid-card-chip">Abat. <b>${fmtPct(showAds ? abatCli : abatFat)}</b></span>
+        <span class="subid-card-chip">Abat. <b class="${abatCliquesClass(showAds ? abatCli : abatFat)}">${fmtPct(showAds ? abatCli : abatFat)}</b></span>
         ${trendChip}
       </div>` : ""}
       ${showHistory ? (loadingDaily

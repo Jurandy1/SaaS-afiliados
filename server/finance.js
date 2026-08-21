@@ -33,6 +33,7 @@ function sumSpend(rows) {
   const byDay = {};
   const bySub = {};
   const bySubDay = {};
+  const clicksByDay = {};
   const clicksBySub = {};
   const clicksBySubDay = {};
   const impressoesBySub = {};
@@ -47,6 +48,7 @@ function sumSpend(rows) {
     const alcance = Number(r.alcance || 0);
     if (day) {
       byDay[day] = (byDay[day] || 0) + g;
+      clicksByDay[day] = (clicksByDay[day] || 0) + clicks;
       const sk = `${sub}|${day}`;
       bySubDay[sk] = (bySubDay[sk] || 0) + g;
       clicksBySubDay[sk] = (clicksBySubDay[sk] || 0) + clicks;
@@ -60,7 +62,7 @@ function sumSpend(rows) {
     spendClicksBySub[sub].clicks += clicks;
     spendClicksBySub[sub].impressoes += impressoes;
   }
-  return { byDay, bySub, bySubDay, clicksBySub, clicksBySubDay, impressoesBySub, alcanceBySub, spendClicksBySub };
+  return { byDay, bySub, bySubDay, clicksByDay, clicksBySub, clicksBySubDay, impressoesBySub, alcanceBySub, spendClicksBySub };
 }
 
 /**
@@ -230,6 +232,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
   const pin = sumSpend(pinRows);
   const clicksBySubDay = {};
   const clicksBySub = {};
+  const clicksShopeeByDay = {};
   const clickSubDays = new Map();
   for (const r of clickRows) {
     const sub = String(r.subid || "").trim().toLowerCase();
@@ -239,6 +242,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     const sk = `${sub}|${day}`;
     clicksBySubDay[sk] = (clicksBySubDay[sk] || 0) + n;
     clicksBySub[sub] = (clicksBySub[sub] || 0) + n;
+    clicksShopeeByDay[day] = (clicksShopeeByDay[day] || 0) + n;
     if (!clickSubDays.has(sub)) clickSubDays.set(sub, new Set());
     clickSubDays.get(sub).add(day);
   }
@@ -320,6 +324,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
   }
   for (const day of Object.keys(meta.byDay || {})) allDaysSet.add(day);
   for (const day of Object.keys(pin.byDay || {})) allDaysSet.add(day);
+  for (const day of Object.keys(clicksShopeeByDay)) allDaysSet.add(day);
 
   const daily = [...allDaysSet]
     .sort()
@@ -331,7 +336,21 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
       const fat = Number(src.faturamento || 0);
       const com = Number(src.comissao || 0);
       const abatimento = commAbatPct(fat, com);
-      return { ...src, ...fin, abatimento };
+      const cliques_meta = meta.clicksByDay?.[day] || 0;
+      const cliques_pin = pin.clicksByDay?.[day] || 0;
+      const cliques_shopee = clicksShopeeByDay[day] || 0;
+      const cliques_ads = cliques_meta + cliques_pin;
+      const abatimento_cliques = clickAbatPct(cliques_shopee, cliques_ads);
+      return {
+        ...src,
+        ...fin,
+        abatimento,
+        abatimento_cliques,
+        cliques_meta,
+        cliques_pin,
+        cliques_shopee,
+        cliques_ads,
+      };
     });
 
   const subIds = (dash.subIds || []).map((r) => {

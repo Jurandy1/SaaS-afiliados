@@ -1173,6 +1173,10 @@ html.dark .light-card {
 .data-table--ops .cell-roi-good { color: #22c55e; font-weight: 700; }
 .data-table--ops .cell-roi-warn { color: #eab308; font-weight: 700; }
 .data-table--ops .cell-roi-bad { color: #ef4444; font-weight: 700; }
+.data-table--ops .cell-abat-good,
+.cell-abat-good { color: #22c55e; font-weight: 700; }
+.data-table--ops .cell-abat-bad,
+.cell-abat-bad { color: #ef4444; font-weight: 700; }
 .data-table--ops tbody td.green { color: #34d399; font-weight: 600; }
 .data-table--ops tbody td.neg { color: #ef4444; font-weight: 600; }
 .data-table--ops tbody td.roi-warn { color: #eab308; font-weight: 700; }
@@ -1200,6 +1204,8 @@ html.dark .light-card {
 .data-table--ops tfoot td.cell-roi-good { color: #34d399; }
 .data-table--ops tfoot td.cell-roi-warn { color: #eab308; }
 .data-table--ops tfoot td.cell-roi-bad { color: #fb7185; }
+.data-table--ops tfoot td.cell-abat-good { color: #34d399; }
+.data-table--ops tfoot td.cell-abat-bad { color: #fb7185; }
 .data-table--ops tfoot td.neg { color: #fb7185; }
 .data-table--ops tfoot td.muted { color: #94a3b8; }
 .data-table--ops .op-select,
@@ -2347,6 +2353,26 @@ html, body {
 }
 #kpi-grid {
   width: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+@media (min-width: 640px) {
+  #kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* Desktop médio: 3 colunas — evita espremer 5 cards em laptop */
+@media (min-width: 1100px) {
+  #kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+/* Só em telas largas: 5 cards na mesma linha */
+@media (min-width: 1560px) {
+  #kpi-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 }
 #kpi-grid > .kpi-hero,
 #kpi-grid > div {
@@ -2359,7 +2385,7 @@ html, body {
   gap: 0.25rem;
   min-width: 0;
   max-width: 100%;
-  font-size: clamp(1rem, 2.2vw, 2.25rem);
+  font-size: clamp(0.95rem, 1.8vw + 0.35rem, 2.1rem);
   font-weight: 900;
   letter-spacing: -0.02em;
   line-height: 1.15;
@@ -2465,17 +2491,23 @@ html, body {
   #ops-table.data-table--ops { min-width: 520px; }
   #indef-table { min-width: 640px; }
 }
-/* MacBook / laptop estreito com sidebar (Chrome zoom 110ÃÂ¢ÃÂÃÂ125%) */
+/* MacBook / laptop estreito — KPIs de canal em wrap, sem esmagar números */
 @media (max-width: 1366px) {
   .channel-kpi-metrics--8 {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 168px), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  }
+  .channel-kpi-metrics--5 {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
   }
   .channel-hero {
-    padding: 0.85rem 0.95rem;
+    padding: 0.9rem 1rem;
   }
   .channel-hero-value,
   .channel-hero .kpi-hero-value {
-    font-size: clamp(0.95rem, 1.6vw, 1.25rem);
+    font-size: clamp(1rem, 1.5vw + 0.55rem, 1.35rem);
+  }
+  .channel-hero--dual .channel-hero-dual-val {
+    font-size: clamp(1rem, 1.4vw + 0.5rem, 1.35rem);
   }
 }
 @media (max-width: 639px) {
