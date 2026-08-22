@@ -51,7 +51,7 @@ async function listSyncTargets() {
     }));
 }
 
-async function syncOneUser(user, { since, until }) {
+async function syncOneUser(user, { since, until, persistSubIds = false }) {
   const out = { email: user.email, shopee: null, meta: null, error: null };
   await runWithUser({ id: user.id, email: user.email }, async () => {
     const shopee = await credentialsPublic(user.id);
@@ -70,11 +70,13 @@ async function syncOneUser(user, { since, until }) {
       metaResult = { error: e.message || String(e) };
     }
 
+    // daily (7d): grava SubIDs — campanhas/Meta/Pin/Orgânico leem subid_metrics.
+    // recent (3d): só daily_metrics, para não apagar snapshot de janela maior.
     const dash = await buildDashboard({
       startDate: since,
       endDate: until,
       persist: true,
-      persistSubIds: false,
+      persistSubIds: Boolean(persistSubIds),
     });
 
     out.shopee = {
@@ -82,6 +84,7 @@ async function syncOneUser(user, { since, until }) {
       fat: dash.kpis?.faturamento,
       com: dash.kpis?.comissao,
       pedidos: dash.kpis?.pedidos,
+      persistSubIds: Boolean(persistSubIds),
     };
     out.meta = metaResult && !metaResult.error
       ? { gravados: metaResult.gravados, gasto: metaResult.totais?.gasto }
@@ -92,17 +95,19 @@ async function syncOneUser(user, { since, until }) {
 
 async function runAutoSync({ mode = "daily" } = {}) {
   const started = Date.now();
-  const range = rangeForMode(mode === "recent" ? "recent" : "daily");
+  const syncMode = mode === "recent" ? "recent" : "daily";
+  const range = rangeForMode(syncMode);
+  const persistSubIds = syncMode === "daily";
   const users = await listSyncTargets();
   const results = [];
 
   console.log(
-    `[autoSync] ${mode} ${range.since}→${range.until} · ${users.length} conta(s)`,
+    `[autoSync] ${syncMode} ${range.since}→${range.until} · ${users.length} conta(s) · subids=${persistSubIds ? "yes" : "no"}`,
   );
 
   for (const user of users) {
     try {
-      const r = await syncOneUser(user, range);
+      const r = await syncOneUser(user, { ...range, persistSubIds });
       results.push({ ok: !r.error, ...r });
       console.log(
         `[autoSync] ${user.email}: shopee nodes=${r.shopee?.nodes ?? "—"} meta=${r.meta?.gravados ?? r.meta?.error ?? "skip"}`,

@@ -575,9 +575,22 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
         updated_at: now,
       }));
       for (let i = 0; i < rows.length; i += 200) {
-        const { error } = await supabase.from("subid_metrics").upsert(rows.slice(i, i + 200), {
+        let chunk = rows.slice(i, i + 200);
+        let { error } = await supabase.from("subid_metrics").upsert(chunk, {
           onConflict: "user_id,subid",
         });
+        if (error && /unpaid/i.test(error.message || "")) {
+          chunk = chunk.map(({ unpaid, ...rest }) => rest);
+          ({ error } = await supabase.from("subid_metrics").upsert(chunk, {
+            onConflict: "user_id,subid",
+          }));
+        }
+        if (error && /cliques_shopee/i.test(error.message || "")) {
+          chunk = chunk.map(({ cliques_shopee, ...rest }) => rest);
+          ({ error } = await supabase.from("subid_metrics").upsert(chunk, {
+            onConflict: "user_id,subid",
+          }));
+        }
         if (error) throw error;
       }
     }

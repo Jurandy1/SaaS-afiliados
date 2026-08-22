@@ -119,7 +119,6 @@ async function saveDashboardSnapshot(dash, userId = requireUserId(), { persistSu
 
   // Sync automático (janela curta) não pode apagar o snapshot de SubIDs do mês.
   if (persistSubIds) {
-    await supabase.from("subid_metrics").delete().eq("user_id", userId);
     const subRows = (dash.subIds || []).map((r) => ({
       user_id: userId,
       subid: r.subid,
@@ -140,18 +139,44 @@ async function saveDashboardSnapshot(dash, userId = requireUserId(), { persistSu
       roi: r.roi != null ? r.roi : 0,
       updated_at: now,
     }));
-    if (subRows.length) {
-      for (let i = 0; i < subRows.length; i += 200) {
-        const chunk = subRows.slice(i, i + 200);
+
+    async function upsertSubChunks(rows) {
+      for (let i = 0; i < rows.length; i += 200) {
+        let chunk = rows.slice(i, i + 200);
         let { error } = await supabase.from("subid_metrics").upsert(chunk);
+        if (error && /unpaid/i.test(error.message || "")) {
+          chunk = chunk.map(({ unpaid, ...rest }) => rest);
+          ({ error } = await supabase.from("subid_metrics").upsert(chunk));
+        }
         if (error && /cliques_shopee/i.test(error.message || "")) {
-          const stripped = chunk.map(({ cliques_shopee, ...rest }) => rest);
-          ({ error } = await supabase.from("subid_metrics").upsert(stripped));
+          chunk = chunk.map(({ cliques_shopee, ...rest }) => rest);
+          ({ error } = await supabase.from("subid_metrics").upsert(chunk));
           if (!error) {
             console.warn("[store] coluna cliques_shopee ausente — rode npm run setup:db");
           }
         }
         if (error) throw new Error(`subid_metrics: ${error.message}`);
+      }
+    }
+
+    // Grava antes de apagar o snapshot antigo — evita tabela vazia se o upsert falhar.
+    if (subRows.length) {
+      await upsertSubChunks(subRows);
+      const keep = new Set(subRows.map((r) => String(r.subid)));
+      const { data: existing, error: listErr } = await supabase
+        .from("subid_metrics")
+        .select("subid")
+        .eq("user_id", userId);
+      if (listErr) throw new Error(`subid_metrics list: ${listErr.message}`);
+      const stale = (existing || []).map((r) => r.subid).filter((id) => !keep.has(String(id)));
+      for (let i = 0; i < stale.length; i += 200) {
+        const chunk = stale.slice(i, i + 200);
+        const { error } = await supabase
+          .from("subid_metrics")
+          .delete()
+          .eq("user_id", userId)
+          .in("subid", chunk);
+        if (error) throw new Error(`subid_metrics prune: ${error.message}`);
       }
     }
   }

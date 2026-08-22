@@ -59,6 +59,11 @@ create table if not exists push_notify_state (
   primary key (user_id, kind, date_key)
 );
 
+-- Colunas usadas no snapshot de SubIDs (sem elas o sync apaga a tabela e falha ao gravar)
+alter table if exists subid_metrics add column if not exists unpaid integer not null default 0;
+alter table if exists subid_metrics add column if not exists cliques_shopee numeric not null default 0;
+alter table if exists daily_metrics add column if not exists unpaid integer not null default 0;
+
 notify pgrst, 'reload schema';
 `;
 
