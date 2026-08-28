@@ -1,0 +1,1355 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR" class="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#f8fafc" />
+  <title>Shopylitcs</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Shopylitcs" />
+  <link rel="apple-touch-icon" href="/assets/SHOPLUTICS.png" />
+  <link rel="icon" href="/assets/SHOPLUTICS.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="/tailwind.css" />
+  <link rel="stylesheet" href="/gemini-app.css?v=subid-csv-20" />
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen antialiased selection:bg-brand-500 selection:text-white font-sans transition-colors duration-200">
+
+  <!-- AUTH -->
+  <div id="auth-gate" class="auth-gate">
+    <div class="auth-shell">
+      <div class="auth-card" id="auth-card">
+        <div class="brand auth-brand">
+          <img class="auth-brand-logo" src="/assets/SHOPLUTICS.png" alt="Shopylitcs" width="44" height="44" fetchpriority="high" />
+          <div class="brand-text">
+            <div class="brand-name">Shopylitcs</div>
+            <div class="brand-sub">painel · v.1</div>
+          </div>
+        </div>
+        <div class="auth-tabs">
+          <button type="button" class="tab active" id="auth-tab-login">Entrar</button>
+          <button type="button" class="tab" id="auth-tab-register">Criar conta</button>
+        </div>
+        <p class="hint tight" style="margin:-0.35rem 0 0.85rem">
+          Sem acesso ainda? <a href="/#planos" style="font-weight:700;text-decoration:underline">Ver planos e assinar</a>
+        </p>
+        <form id="auth-form" class="form">
+          <div class="auth-grid">
+            <label>Email
+              <input type="email" id="auth-email" required autocomplete="username" />
+            </label>
+            <label>Senha
+              <input type="password" id="auth-password" required minlength="6" autocomplete="current-password" />
+            </label>
+          </div>
+          <div id="register-extra" class="hidden register-block">
+            <div class="auth-section-title">Dados da conta</div>
+            <div class="auth-grid">
+              <label>Nome completo
+                <input type="text" id="auth-name" autocomplete="name" placeholder="Seu nome" />
+              </label>
+              <label>Empresa / operação
+                <input type="text" id="auth-company" autocomplete="organization" placeholder="Nome da operação" />
+              </label>
+            </div>
+            <div class="auth-section-title">Shopee Affiliate <span class="req">obrigatório</span></div>
+            <p class="hint tight">App ID e Secret do painel Open API da Shopee.</p>
+            <div class="auth-grid">
+              <label>App ID
+                <input type="text" id="reg-app-id" autocomplete="off" placeholder="Ex: 18108270013" inputmode="numeric" />
+              </label>
+              <label>Secret
+                <input type="password" id="reg-app-secret" autocomplete="off" placeholder="Cole o secret" />
+              </label>
+            </div>
+            <div class="auth-section-title">Meta Ads <span class="opt">opcional</span></div>
+            <p class="hint tight">Pode preencher agora ou depois em Configurações.</p>
+            <label>Access token
+              <input type="password" id="reg-meta-token" autocomplete="off" placeholder="Token da Marketing API" />
+            </label>
+            <label>Contas de anúncio
+              <input type="text" id="reg-meta-accounts" autocomplete="off" placeholder="IDs separados por vírgula" />
+            </label>
+            <label>Versão da API
+              <input type="text" id="reg-meta-version" value="v19.0" autocomplete="off" />
+            </label>
+          </div>
+          <button type="submit" class="btn primary auth-submit" id="auth-submit">Entrar</button>
+          <div id="auth-status" class="form-status"></div>
+        </form>
+        <div class="auth-foot">
+          <p class="hint">Cada conta usa a própria Shopee e o próprio Meta. Novos cadastros passam por aprovação.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP (layout Gemini) -->
+  <div id="app-shell" class="hidden flex flex-col lg:flex-row min-h-screen w-full max-w-full overflow-x-hidden">
+    <aside id="sidebar" class="sidebar-afiliado w-full lg:w-[252px] lg:max-w-[252px] bg-sidebar text-slate-400 flex flex-col justify-between shrink-0 z-30 border-r border-slate-800/50">
+      <div class="flex flex-col min-h-0 flex-1">
+        <div class="px-4 py-4 flex items-center justify-between border-b border-slate-800/50 sidebar-header">
+          <div class="flex items-center gap-3 min-w-0">
+            <img
+              class="w-10 h-10 rounded-xl object-cover shrink-0 shadow-lg shadow-brand-900/30"
+              src="/assets/SHOPLUTICS.png"
+              alt="Shopylitcs"
+              width="40"
+              height="40"
+              loading="lazy"
+              decoding="async"
+            />
+            <div class="min-w-0">
+              <h1 class="text-white font-semibold text-sm leading-tight flex items-center gap-1.5">
+                <span class="truncate">Shopylitcs</span>
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-brand-400 border border-white/10 shrink-0">v.1</span>
+              </h1>
+              <p class="text-[10px] text-slate-500 font-medium mt-0.5">Painel Executivo</p>
+            </div>
+          </div>
+          <button type="button" id="btn-sidebar-close" class="lg:hidden p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white shrink-0" aria-label="Fechar menu">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+          <button type="button" id="btn-sidebar-collapse" class="hidden lg:block p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white shrink-0" aria-label="Recolher menu">
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+        </div>
+
+        <div class="px-4 py-3 border-b border-slate-800/50">
+          <div class="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.04] border border-slate-800/80">
+            <div class="relative shrink-0">
+              <div class="account-avatar account-avatar--sidebar">AF</div>
+              <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-sidebar rounded-full"></span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-semibold text-slate-200 truncate" id="user-email-label">Conta</p>
+              <p class="text-[10px] text-slate-500 truncate" id="team-plan">Shopee · Meta conectados</p>
+            </div>
+          </div>
+        </div>
+
+        <nav class="flex-1 py-3 overflow-y-auto px-3 space-y-5" id="sidebar-nav">
+          <div>
+            <div class="nav-sec-title">Operação</div>
+            <div class="space-y-1">
+              <button type="button" class="nav-item active" data-view="dashboard">
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/dashboard.png" alt="" loading="lazy" decoding="async" /><span class="nav-label">Dashboard</span></span>
+                <span class="nav-badge" id="nav-subid-count"></span>
+              </button>
+              <button type="button" class="nav-item" data-view="campanhas-meta">
+                <span class="nav-left"><img class="nav-logo" src="/assets/meta.png" alt="Meta" /><span class="nav-label">Campanhas Meta</span></span>
+                <span class="nav-badge" id="nav-count-meta"></span>
+              </button>
+              <button type="button" class="nav-item" data-view="campanhas-pinterest">
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/pinterest.png" alt="Pinterest" /><span class="nav-label">Campanhas Pinterest</span></span>
+                <span class="nav-badge" id="nav-count-pin"></span>
+              </button>
+              <button type="button" class="nav-item" data-view="campanhas-organicas">
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/shopee.png" alt="Shopee" /><span class="nav-label">Campanhas Orgânicas</span></span>
+                <span class="nav-badge" id="nav-count-org"></span>
+              </button>
+              <button type="button" class="nav-item" data-view="produtos">
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/produtos.png" alt="" /><span class="nav-label">Backup</span></span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <div class="nav-sec-title">Mineração</div>
+            <div class="space-y-1">
+              <button type="button" class="nav-item" data-view="supercomissoes">
+                <span class="nav-left"><img class="nav-logo is-square nav-logo--radar" src="/assets/radar.png?v=2" alt="" /><span class="nav-label">Radar de Supercomissões</span></span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <div class="nav-sec-title">Inteligência</div>
+            <div class="space-y-1">
+              <button type="button" class="nav-item" data-view="analise-ia">
+                <span class="nav-left"><img class="nav-logo is-square nav-logo--ia" src="/assets/ia.png?v=3" alt="IA" /><span class="nav-label">Análise IA</span></span>
+                <span class="nav-badge" id="nav-count-ia"></span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <div class="nav-sec-title">Sistema</div>
+            <div class="space-y-1">
+              <button type="button" class="nav-item" data-view="canais">
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/tag.png" alt="" /><span class="nav-label">Canais e Status</span></span>
+              </button>
+              <button type="button" class="nav-item" data-view="config">
+                <span class="nav-left"><img class="nav-logo is-square" src="/assets/configuracao.png" alt="" /><span class="nav-label">Configurações</span></span>
+              </button>
+            </div>
+          </div>
+        </nav>
+      </div>
+
+      <div class="p-4 border-t border-slate-800/80 space-y-3 shrink-0">
+        <div class="rounded-xl p-3 border border-slate-800/80 bg-white/[0.03]" id="api-status">
+          <div class="flex items-center justify-between text-xs mb-1">
+            <span class="text-slate-400 flex items-center gap-2">
+              <span class="api-dot"></span>
+              <b class="text-slate-300" id="api-state-label">API Backend</b>
+            </span>
+            <span class="text-emerald-400 font-bold text-[11px]">Online</span>
+          </div>
+          <p class="text-[10px] text-slate-500 truncate" id="sidebar-status">Shopee • Meta • Pinterest</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <a href="/admin" id="admin-entry" class="hidden text-xs bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 py-2 rounded-xl font-medium text-center border border-slate-800">
+            <i class="fa-solid fa-shield-halved mr-1 text-slate-500"></i> Admin
+          </a>
+          <button type="button" id="btn-logout" class="text-xs bg-red-500/10 hover:bg-red-500/15 text-red-400 border border-red-500/20 py-2 rounded-xl font-medium text-center col-span-2">
+            <i class="fa-solid fa-right-from-bracket mr-1"></i> Sair
+          </button>
+        </div>
+        <div class="hidden">
+          <div id="team-name">Minha conta</div>
+        </div>
+      </div>
+    </aside>
+
+    <div id="sidebar-backdrop" class="hidden" hidden></div>
+
+    <main class="flex-1 flex flex-col min-w-0 max-w-full page-main overflow-y-auto overflow-x-hidden">
+      <header class="bg-white/90 dark:bg-slate-900/80 sticky top-0 z-20 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-center gap-3">
+          <button type="button" id="btn-sidebar-open" class="lg:hidden p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200" aria-label="Abrir menu">
+            <i class="fa-solid fa-bars text-lg"></i>
+          </button>
+          <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+              <span>Painel</span>
+              <i class="fa-solid fa-chevron-right text-[10px]"></i>
+              <span class="text-slate-800 dark:text-slate-200 font-semibold" id="crumb-label">Dashboard</span>
+            </div>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span class="text-xs text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider" id="dash-live-text">Ao vivo</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 sm:gap-2.5 topbar-actions">
+          <div class="relative hidden md:block">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+            <input id="global-search" type="search" placeholder="Buscar SubID, produto, tag..." class="bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 w-56" />
+          </div>
+          <div class="text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:block" id="topbar-range">—</div>
+          <button type="button" id="btn-meta-sync-top" class="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-meta-500/15 hover:bg-blue-100 dark:hover:bg-meta-500/25 border border-blue-200 dark:border-meta-500/30 text-meta-600 dark:text-meta-400 text-xs font-bold flex items-center gap-2">
+            <img class="icon-btn-img" src="/assets/meta.png" alt="" /><span>Sincronizar Meta</span>
+          </button>
+          <button type="button" id="btn-sync" class="px-3 py-1.5 rounded-xl bg-orange-50 dark:bg-shopee-500/15 hover:bg-orange-100 dark:hover:bg-shopee-500/25 border border-orange-200 dark:border-shopee-500/30 text-shopee-600 dark:text-shopee-500 text-xs font-bold flex items-center gap-2">
+            <img class="icon-btn-img" src="/assets/shopee.png" alt="" /><span>Puxar Shopee</span>
+          </button>
+          <button type="button" id="btn-export" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-2">
+            <i class="fa-solid fa-file-csv text-xs text-slate-500"></i><span class="hidden sm:inline">Exportar CSV</span>
+          </button>
+          <button type="button" id="theme-toggle" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-all" title="Alternar modo claro / escuro">
+            <i id="theme-icon" class="fa-solid fa-moon text-xs"></i>
+          </button>
+        </div>
+      </header>
+
+      <div class="p-4 sm:p-6 space-y-6 max-w-[1600px] mx-auto w-full">
+
+        <!-- DASHBOARD / CANAIS -->
+        <section id="view-dashboard" class="view space-y-6">
+          <div class="dash-command space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+              <div>
+                <h1 id="dash-title" class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Dashboard</h1>
+                <p class="page-sub text-xs text-slate-500 mt-0.5" id="page-sub">Dados gerais, faturamento, lucro diário e resumo.</p>
+              </div>
+            </div>
+
+            <section class="surface-card overflow-hidden p-0" id="period-bar" lang="pt-BR">
+              <div class="period-bar-inner px-4 py-3 space-y-2.5">
+                <!-- Mobile: trigger compacto (desktop oculto via CSS ≥768) -->
+                <div class="m-period-bar" id="m-period-bar">
+                  <button type="button" class="m-period-trigger" id="m-period-open" aria-haspopup="dialog" aria-controls="m-period-sheet">
+                    <span class="m-period-trigger-ico" aria-hidden="true"><i class="fa-regular fa-calendar"></i></span>
+                    <span class="m-period-trigger-text">
+                      <span class="m-period-trigger-kicker">Período</span>
+                      <span class="m-period-trigger-label" id="m-period-label">Últimos 7 dias</span>
+                    </span>
+                    <i class="fa-solid fa-chevron-down m-period-trigger-caret" aria-hidden="true"></i>
+                  </button>
+                  <button type="button" class="m-period-refresh" id="m-period-refresh" title="Atualizar dados" aria-label="Atualizar dados">
+                    <i class="fa-solid fa-rotate" aria-hidden="true"></i>
+                  </button>
+                </div>
+
+                <div class="period-bar-desktop">
+                <div class="flex flex-col lg:flex-row lg:items-center gap-2.5 lg:gap-4">
+                  <div class="flex items-center gap-3 min-w-0 shrink-0 lg:w-[220px] xl:w-[240px]">
+                    <div class="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center shrink-0">
+                      <i class="fa-regular fa-calendar text-indigo-600"></i>
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400" id="period-preset-subtitle">Últimos 7 dias</div>
+                      <div class="text-sm font-semibold text-slate-800 truncate" id="period-range-display" title="">—</div>
+                    </div>
+                  </div>
+                  <div class="flex flex-col sm:flex-row sm:items-center gap-2 min-w-0 flex-1">
+                    <div class="period-preset-strip" role="group" aria-label="Atalhos de período">
+                      <button type="button" class="period-preset" data-range="all">Todo período</button>
+                      <button type="button" class="period-preset" data-range="yesterday">Ontem</button>
+                      <button type="button" class="period-preset active" data-range="7d">7 dias</button>
+                      <button type="button" class="period-preset" data-range="14d">14 dias</button>
+                      <button type="button" class="period-preset" data-range="30d">30 dias</button>
+                      <button type="button" class="period-preset" data-range="month">Este mês</button>
+                      <button type="button" class="period-preset" data-range="prev_month">Mês anterior</button>
+                    </div>
+                    <div class="period-bar-actions shrink-0">
+                      <button type="button" class="period-btn-custom" id="btn-period-custom" aria-expanded="false">
+                        <i class="fa-regular fa-calendar-days"></i>
+                        <span class="hidden sm:inline">Personalizado</span>
+                        <i class="fa-solid fa-chevron-down period-custom-caret"></i>
+                      </button>
+                      <button type="button" class="period-btn-refresh" id="btn-period-refresh" title="Atualizar dados">
+                        <i class="fa-solid fa-rotate"></i>
+                        <span class="hidden sm:inline">Atualizar</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                </div>
+                <div class="period-custom-panel hidden" id="period-custom-panel">
+                  <div class="flex flex-wrap items-end gap-3">
+                    <label class="period-date-field">Data inicial
+                      <input type="date" id="start-date" />
+                    </label>
+                    <label class="period-date-field">Data final
+                      <input type="date" id="end-date" />
+                    </label>
+                    <button type="button" class="period-btn-apply" id="btn-period-apply">Aplicar período</button>
+                    <button type="button" class="period-btn-clear hidden" id="btn-period-clear">Limpar</button>
+                    <span class="text-[11px] text-slate-400 sm:ml-auto" id="period-data-hint">Dados disponíveis até —</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <div class="banner hidden" id="sync-banner"></div>
+
+          <!-- KPIs + Progresso Meta -->
+          <div class="dash-only space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 min-w-0 w-full" id="kpi-grid">
+              <div class="skel-card" aria-hidden="true"></div>
+              <div class="skel-card" aria-hidden="true"></div>
+              <div class="skel-card" aria-hidden="true"></div>
+              <div class="skel-card" aria-hidden="true"></div>
+            </div>
+            <div id="meta-progress-card" class="min-w-0 w-full"></div>
+          </div>
+
+          <div class="dash-only">
+            <section class="surface-card overflow-hidden" id="dash-chart-panel">
+              <div class="panel-head px-4 sm:px-5 py-4 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 class="panel-title flex items-center gap-2">
+                    <i class="fa-solid fa-chart-column"></i>
+                    Lucro por dia
+                  </h3>
+                  <p class="dashboard-section-desc" id="dash-chart-sub">período selecionado</p>
+                </div>
+                <div class="preset-segment-track">
+                  <button type="button" id="btn-chart-profit" class="period-preset chip-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-brand-600 text-white shadow-sm" data-chart="profit">Lucro</button>
+                  <button type="button" id="btn-chart-revenue" class="period-preset chip-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900" data-chart="revenue">Faturamento</button>
+                </div>
+              </div>
+              <div class="panel-dark-body px-2 sm:px-4 pt-3 pb-2">
+                <div class="relative w-full h-[250px] sm:h-[280px]" id="daily-chart">
+                  <canvas id="profit-chart-canvas"></canvas>
+                </div>
+              </div>
+              <div class="panel-dark-foot flex items-center justify-between text-xs px-4 sm:px-5 py-3 border-t border-slate-800" id="dash-chart-foot">
+                <span class="flex items-center gap-1.5 font-medium">
+                  <span class="w-3 h-3 rounded-sm bg-emerald-500 inline-block"></span>
+                  Lucro positivo
+                </span>
+                <span class="flex items-center gap-1.5 font-medium">
+                  <span class="w-3 h-3 rounded-sm bg-amber-500 inline-block"></span>
+                  Média do período
+                </span>
+                <span class="chart-peak-label" id="dash-chart-peak">—</span>
+              </div>
+            </section>
+          </div>
+
+          <!-- Resumo diário -->
+          <div class="dash-only">
+            <section class="surface-card overflow-hidden" id="dash-daily-panel">
+              <div class="panel-head px-4 sm:px-5 py-4 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 class="panel-title flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    Resumo diário
+                  </h3>
+                  <p class="dashboard-section-desc" id="dash-daily-sub">Fat · Com · Inv · Lucro · ROI · Abat. cliques</p>
+                </div>
+                <span class="text-xs text-slate-600 bg-slate-100 px-3 py-1 rounded-xl font-medium border border-slate-200/80" id="sync-meta">—</span>
+              </div>
+              <div class="table-scroll table-scroll--dark">
+                <table class="data-table data-table--ops data-table--daily-dark" id="daily-table">
+                  <thead>
+                    <tr>
+                      <th class="th-sort" data-sort="data">Dia</th>
+                      <th class="th-sort num" data-sort="faturamento">Faturamento</th>
+                      <th class="th-sort num" data-sort="comissao">Comissão</th>
+                      <th class="th-sort num" data-sort="inv_meta">Inv. Meta</th>
+                      <th class="th-sort num" data-sort="inv_pin">Inv. Pin</th>
+                      <th class="th-sort num" data-sort="inv_total">Inv. Total</th>
+                      <th class="th-sort num" data-sort="lucro">Lucro</th>
+                      <th class="th-sort num" data-sort="roi">ROI</th>
+                      <th class="th-sort num" data-sort="abatimento_cliques">Abat. cliques</th>
+                    </tr>
+                  </thead>
+                  <tbody id="daily-tbody"></tbody>
+                  <tfoot id="daily-tfoot"></tfoot>
+                </table>
+                <div id="daily-card-list" class="daily-card-list hidden" role="list" aria-label="Resumo diário"></div>
+              </div>
+            </section>
+          </div>
+
+          <!-- SubIDs da campanha -->
+          <div class="channel-only hidden space-y-4">
+            <div class="channel-kpi-grid min-w-0 w-full" id="channel-kpi-grid"></div>
+            <section class="surface-card overflow-hidden" id="dash-subids-panel">
+              <div class="panel-head px-4 sm:px-5 py-4 border-b border-slate-200/80 flex flex-col gap-3">
+                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                  <div class="subid-panel-head">
+                    <h3 class="panel-title flex items-center gap-2 flex-wrap">
+                      Detalhamento por SubID
+                      <span class="count-pill" id="subid-count-pill">0</span>
+                    </h3>
+                    <p class="subid-panel-sub" id="dash-subids-eyebrow">canal Meta · altere o status</p>
+                  </div>
+                  <button type="button" class="btn ghost sm btn-subid-csv" id="btn-subid-csv" title="Baixar CSV dos SubIDs do período (colunas e filtros atuais)">
+                    <i class="fa-solid fa-file-csv" aria-hidden="true"></i>
+                    <span class="btn-subid-csv-label">CSV</span>
+                    <span class="btn-subid-csv-period" id="btn-subid-csv-period"></span>
+                  </button>
+                </div>
+                <div class="subid-filter-bar" id="subid-filter-bar">
+                  <div class="relative flex-1 min-w-0">
+                    <i class="fa-solid fa-magnifying-glass subid-search-ico" aria-hidden="true"></i>
+                    <input type="search" id="subid-search" class="search subid-filter-search" placeholder="Pesquisar SubID…" autocomplete="off" />
+                  </div>
+                  <div class="subid-filter-tools">
+                    <div class="subid-filter-chips" role="group" aria-label="Filtro rápido de resultado">
+                      <button type="button" class="subid-chip is-active" id="btn-subid-todos" data-subid-profit="all" aria-pressed="true">Todos</button>
+                      <button type="button" class="subid-chip" id="btn-subid-prejuizo" data-subid-profit="prejuizo" aria-pressed="false">Só prejuízo</button>
+                      <button type="button" class="subid-chip" id="btn-subid-lucro" data-subid-profit="lucro" aria-pressed="false">Só lucro</button>
+                    </div>
+                    <div class="col-picker-wrap relative">
+                      <button type="button" class="btn ghost sm" id="btn-subid-cols" aria-expanded="false" aria-controls="subid-cols-pop">
+                        <i class="fa-solid fa-columns"></i> Colunas <span class="col-picker-count" id="subid-cols-count"></span>
+                      </button>
+                      <div class="col-picker-pop hidden" id="subid-cols-pop" role="dialog" aria-label="Colunas visíveis"></div>
+                    </div>
+                    <button type="button" class="btn ghost sm subid-sort-dir" id="btn-subid-sort-dir" title="Alternar ordem" aria-label="Alternar ordem crescente ou decrescente">
+                      <i class="fa-solid fa-arrow-down-wide-short" aria-hidden="true"></i>
+                      <span class="sr-only" id="subid-sort-dir-label">↓ Desc</span>
+                    </button>
+                    <label class="subid-sort-select-wrap">
+                      <span class="sr-only">Ordenar por</span>
+                      <select id="subid-sort-key" class="subid-sort-select" aria-label="Ordenar SubIDs">
+                        <option value="comissao">Ordenar: Comissão</option>
+                        <option value="lucro">Ordenar: Lucro</option>
+                        <option value="roi">Ordenar: ROI</option>
+                        <option value="faturamento">Ordenar: Faturamento</option>
+                        <option value="inv_total">Ordenar: Gasto</option>
+                        <option value="pedidos">Ordenar: Vendas</option>
+                        <option value="abatimento_cliques">Ordenar: Abat. cliques</option>
+                        <option value="cliques_meta_link">Ordenar: Cliq. link</option>
+                        <option value="cliques_shopee">Ordenar: Cliques Shopee</option>
+                        <option value="status">Ordenar: Status</option>
+                        <option value="subid">Ordenar: SubID</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div class="table-scroll table-scroll--dark table-scroll--infinite" id="subid-scroll">
+                <table class="data-table data-table--ops" id="subid-table">
+                  <thead id="subid-thead">
+                    <tr>
+                      <th class="th-sort" data-sort="subid">SubID</th>
+                      <th class="th-sort num" data-sort="comissao">Comissão</th>
+                      <th class="th-sort num" data-sort="inv_total">Investimento</th>
+                      <th class="th-sort num" data-sort="lucro">Lucro</th>
+                      <th class="th-sort num" data-sort="roi">ROI</th>
+                      <th class="th-sort num" data-sort="pedidos">Ped.</th>
+                      <th class="th-sort num" data-sort="cliques_meta_link">Cliq. link</th>
+                      <th class="th-sort num" data-sort="cliques_shopee">Cliq Shopee</th>
+                      <th class="th-sort num" data-sort="abatimento_cliques">Abat. cliques</th>
+                      <th class="th-sort num" data-sort="tendencia">Tend.</th>
+                      <th class="th-sort" data-sort="status">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="subid-tbody"></tbody>
+                </table>
+                <div id="subid-card-list" class="subid-card-list hidden" role="list" aria-label="Detalhamento por SubID"></div>
+              </div>
+              <div class="pager" id="subid-pager"></div>
+            </section>
+          </div>
+
+          <footer class="mt-4 border-t border-slate-200 pt-4 text-center text-xs text-slate-500">
+            Shopylitcs · v.1 · <span id="footer-sync">Última sincronização —</span>
+          </footer>
+        </section>
+
+        <!-- RADAR DE SUPERCOMISSÕES -->
+        <section id="view-supercomissoes" class="view hidden radar-view space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 class="text-xl font-bold text-slate-800">Radar de Supercomissões</h1>
+              <p class="text-xs text-slate-500 mt-1">A API identifica bônus de comissão pagos pelos vendedores, acumulando com a comissão Shopee.</p>
+            </div>
+            <span class="radar-scan-pill" id="radar-status">
+              <span class="radar-scan-dot"></span>
+              Sem varredura ainda
+            </span>
+          </div>
+
+          <form id="radar-form" class="radar-filters">
+            <label class="radar-field flex-1 min-w-[200px]">Palavra-chave (opcional)
+              <input type="search" id="radar-keyword" placeholder="Deixe vazio = busca automática" />
+            </label>
+            <label class="radar-field w-48">Comissão total
+              <select id="radar-min">
+                <option value="10">&gt; 10%</option>
+                <option value="15">&gt; 15%</option>
+                <option value="20" selected>&gt; 20%</option>
+                <option value="30">&gt; 30%</option>
+              </select>
+            </label>
+            <button type="submit" class="radar-btn-mine" id="btn-radar-minerar">Minerar</button>
+          </form>
+          <p class="hidden" id="radar-media-pill">Média da lista: —</p>
+
+          <div class="radar-table-wrap">
+            <div class="radar-table-head">
+              <h3 class="radar-table-title">Produtos <span class="count-pill" id="radar-count-pill">0</span></h3>
+              <input type="search" id="radar-filter" class="search max-w-xs" placeholder="Filtrar por produto…" />
+            </div>
+            <div class="radar-table-scroll">
+              <table class="radar-table" id="radar-table">
+                <thead>
+                  <tr>
+                    <th>Produto</th>
+                    <th>Preço</th>
+                    <th class="text-center">Comissão Shopee</th>
+                    <th class="text-center radar-th-bonus">Bônus vendedor</th>
+                    <th class="text-center radar-th-total">Total</th>
+                    <th>Métricas</th>
+                    <th class="text-right">Ações rápidas</th>
+                  </tr>
+                </thead>
+                <tbody id="radar-tbody">
+                  <tr><td colspan="7" class="radar-empty">Clique em Minerar para varrer a Shopee.</td></tr>
+                </tbody>
+              </table>
+              <div id="radar-card-list" class="radar-card-list hidden" role="list" aria-label="Produtos do Radar"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ANÁLISE IA -->
+        <section id="view-analise-ia" class="view hidden">
+          <div class="ia-layout">
+            <header class="ia-topbar">
+              <div class="ia-topbar-left">
+                <img class="ia-topbar-logo" src="/assets/ia.png?v=3" alt="" width="28" height="28" />
+                <div class="ia-topbar-titles min-w-0">
+                  <h1 class="ia-topbar-title">Análise IA</h1>
+                  <p class="ia-topbar-sub">Claude · key da sua conta</p>
+                </div>
+              </div>
+              <div class="ia-topbar-right">
+                <span class="state-chip" id="ia-claude-state">Claude</span>
+                <button type="button" class="btn ghost sm" id="btn-ia-clear">Limpar</button>
+                <button type="button" class="btn ghost sm" id="btn-ia-open-config">API</button>
+              </div>
+            </header>
+
+            <section class="ia-chat-shell" id="ia-chat-panel">
+              <div class="ia-chat-toolbar">
+                <span class="ia-pill" id="ia-period-pill">Período</span>
+                <span class="ia-pill ia-pill--muted" id="ia-pricing-pill">Tokens</span>
+                <div class="ia-token-inline" id="ia-token-board" aria-label="Consumo de tokens">
+                  <span><b id="ia-tok-last">—</b> última</span>
+                  <span><b id="ia-tok-session">0</b> sessão</span>
+                  <span><b id="ia-tok-cost">US$ 0</b></span>
+                  <span class="ia-token-inline-hide-sm"><b id="ia-tok-data">—</b> ctx</span>
+                </div>
+                <span class="hidden" id="ia-tok-last-detail"></span>
+                <span class="hidden" id="ia-tok-session-detail"></span>
+                <span class="hidden" id="ia-tok-cost-detail"></span>
+                <span class="hidden" id="ia-tok-data-detail"></span>
+              </div>
+
+              <div class="ia-chat-messages" id="ia-chat-messages" role="log" aria-live="polite">
+                <div class="ia-welcome" data-welcome="1">
+                  <div class="ia-welcome-icon"><img src="/assets/ia.png?v=3" alt="" width="36" height="36" /></div>
+                  <h2>Conecte sua API do Claude</h2>
+                  <p>Cada conta usa a própria key da Anthropic. Vá em Configurações, Conexões.</p>
+                </div>
+              </div>
+
+              <div class="ia-chat-footer">
+                <form class="ia-chat-composer" id="ia-chat-form">
+                  <textarea id="ia-chat-input" rows="1" placeholder="Pergunte sobre ROI, campanhas, SubIDs…" maxlength="4000"></textarea>
+                  <button type="submit" class="ia-send-btn" id="btn-ia-send" aria-label="Enviar" title="Enviar">
+                    <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+                  </button>
+                </form>
+                <div class="ia-chat-status" id="ia-chat-status"></div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <!-- CANAIS -->
+        <section id="view-canais" class="view hidden space-y-6">
+          <div class="canais-page-head">
+            <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1 canais-eyebrow">Operação</div>
+            <h1 class="text-2xl font-extrabold text-slate-900" id="canais-title">Canais e status</h1>
+            <p class="text-xs text-slate-500 mt-1 canais-page-sub">Você pode mudar canal e status à vontade. O sistema só marca Desativada com confirmação da API Meta (ou status do CSV Pin) — nunca por lucro.</p>
+            <div class="chan-counts" aria-label="Contagem por canal">
+              <span class="chan-count"><img src="/assets/meta.png" alt="" /> Meta <b id="canais-count-meta">0</b></span>
+              <span class="chan-count"><img class="is-square" src="/assets/pinterest.png" alt="" /> Pin <b id="canais-count-pin">0</b></span>
+              <span class="chan-count"><img class="is-square" src="/assets/shopee.png" alt="" /> Org <b id="canais-count-org">0</b></span>
+              <span class="chan-count">Indef. <b id="canais-count-indef">0</b></span>
+            </div>
+          </div>
+          <section class="surface-card overflow-hidden" id="canais-ops-panel">
+            <div class="panel-head px-4 sm:px-5 py-4 border-b border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div class="ops-panel-intro">
+                <h3 class="panel-title flex items-center gap-2">
+                  <i class="fa-solid fa-table-list"></i>
+                  SubIDs
+                  <span class="count-pill" id="ops-count-pill">0</span>
+                </h3>
+                <p class="dashboard-section-desc" id="ops-auto-hint">
+                  <span class="ops-hint-full">Alterações salvam automaticamente · clique para classificar canal e status</span>
+                  <span class="ops-hint-mobile">Alterações salvas automaticamente</span>
+                </p>
+              </div>
+              <div class="ops-panel-tools flex flex-wrap items-center gap-2 justify-end w-full md:w-auto">
+                <button type="button" class="btn ghost sm m-ops-sort-btn" id="m-ops-sort" aria-haspopup="dialog" aria-controls="m-ops-pick-sheet" hidden>
+                  <i class="fa-solid fa-arrow-down-a-z" aria-hidden="true"></i>
+                  <span id="m-ops-sort-label">Ordenar</span>
+                  <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                </button>
+                <input type="search" id="ops-search" class="search max-w-xs w-full sm:w-auto" placeholder="Filtrar por SubID…" enterkeyhint="search" autocomplete="off" />
+              </div>
+            </div>
+            <div class="table-scroll table-scroll--dark table-scroll--infinite" id="ops-scroll">
+              <table class="data-table data-table--ops" id="ops-table">
+                <thead id="ops-thead">
+                  <tr>
+                    <th class="th-sort" data-sort="subid">SubID</th>
+                    <th class="th-sort" data-sort="canal">Canal</th>
+                    <th class="th-sort" data-sort="status">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="ops-tbody"></tbody>
+              </table>
+              <div id="ops-card-list" class="ops-card-list hidden" role="list" aria-label="SubIDs por canal e status"></div>
+            </div>
+            <div class="pager" id="ops-pager"></div>
+          </section>
+        </section>
+
+        <!-- CONFIG -->
+        <section id="view-config" class="view hidden space-y-6">
+          <div>
+            <div class="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase mb-1">Sistema</div>
+            <h1 class="text-2xl font-extrabold text-slate-900">Configurações</h1>
+            <p class="text-xs text-slate-500 mt-1">Organize conexões, impostos, metas e SubIDs indefinidos.</p>
+          </div>
+
+          <nav class="cfg-subnav" id="cfg-subnav" aria-label="Submenus de configurações">
+            <button type="button" class="cfg-subnav-btn active" data-cfg-tab="conexoes">
+              <i class="fa-solid fa-plug" aria-hidden="true"></i>
+              <span>Conexões</span>
+            </button>
+            <button type="button" class="cfg-subnav-btn" data-cfg-tab="impostos">
+              <i class="fa-solid fa-percent" aria-hidden="true"></i>
+              <span>Impostos e equipe</span>
+            </button>
+            <button type="button" class="cfg-subnav-btn" data-cfg-tab="metas">
+              <i class="fa-solid fa-bullseye" aria-hidden="true"></i>
+              <span>Metas e bônus</span>
+            </button>
+            <button type="button" class="cfg-subnav-btn" data-cfg-tab="assinatura">
+              <i class="fa-solid fa-credit-card" aria-hidden="true"></i>
+              <span>Assinatura</span>
+            </button>
+            <button type="button" class="cfg-subnav-btn" data-cfg-tab="indefinidos">
+              <i class="fa-solid fa-circle-question" aria-hidden="true"></i>
+              <span>SubIDs indefinidos</span>
+              <span class="count-pill cfg-subnav-count" id="indef-count-pill">0</span>
+            </button>
+          </nav>
+
+          <div class="cfg-panel hidden" data-cfg-panel="assinatura" id="cfg-panel-assinatura">
+            <div class="cfg-section">
+              <h2 class="cfg-section-title">Assinatura</h2>
+              <p class="cfg-section-sub">Gerencie plano, cartão e faturas no portal seguro da Stripe.</p>
+              <div class="settings-grid">
+                <article class="settings-card">
+                  <header class="settings-card-head">
+                    <div class="settings-card-brand">
+                      <img class="is-square" src="/assets/SHOPLUTICS.png" alt="" width="22" height="22" />
+                      <div>
+                        <div class="settings-card-title">Plano Shopylitcs</div>
+                        <div class="settings-card-sub" id="billing-plan-sub">Status da assinatura</div>
+                      </div>
+                    </div>
+                    <span class="state-chip" id="cfg-billing-state">—</span>
+                  </header>
+                  <div class="form">
+                    <p class="hint" id="billing-plan-detail">Carregando…</p>
+                    <div class="form-actions">
+                      <button type="button" class="btn primary sm" id="btn-billing-portal">Gerenciar assinatura</button>
+                      <a class="btn ghost sm" href="/#planos">Ver planos</a>
+                    </div>
+                    <div id="billing-status" class="form-status"></div>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </div>
+
+          <div class="cfg-panel" data-cfg-panel="conexoes" id="cfg-panel-conexoes">
+            <div class="cfg-section">
+              <h2 class="cfg-section-title">Conexões</h2>
+              <p class="cfg-section-sub">Fontes que alimentam o painel. Salve e teste antes de sincronizar.</p>
+              <div class="settings-grid">
+                <article class="settings-card">
+                  <header class="settings-card-head">
+                    <div class="settings-card-brand">
+                      <img src="/assets/shopee.png" alt="" width="22" height="22" />
+                      <div>
+                        <div class="settings-card-title">Shopee Affiliate</div>
+                        <div class="settings-card-sub">Comissão, pedidos e SubIDs</div>
+                      </div>
+                    </div>
+                    <span class="state-chip" id="cfg-shopee-state">Pendente</span>
+                  </header>
+                  <form id="cred-form" class="form">
+                    <div class="form-grid">
+                      <label>App ID
+                        <input type="text" id="app-id" name="appId" autocomplete="off" placeholder="Ex: 18108270013" required />
+                      </label>
+                      <label>Secret
+                        <input type="password" id="app-secret" name="secret" autocomplete="off" placeholder="Cole o secret" required />
+                      </label>
+                    </div>
+                    <p class="hint">Trocar o App ID reseta métricas Shopee e puxa a nova conta.</p>
+                    <div class="form-actions">
+                      <button type="submit" class="btn primary sm">Salvar</button>
+                      <button type="button" class="btn ghost sm" id="btn-test">Testar</button>
+                    </div>
+                    <div id="cred-status" class="form-status"></div>
+                  </form>
+                </article>
+
+                <article class="settings-card">
+                  <header class="settings-card-head">
+                    <div class="settings-card-brand">
+                      <img src="/assets/meta.png" alt="" width="22" height="22" />
+                      <div>
+                        <div class="settings-card-title">Meta Ads</div>
+                        <div class="settings-card-sub" id="meta-status-sub">Investimento e ROI por SubID</div>
+                      </div>
+                    </div>
+                    <span class="state-chip" id="cfg-meta-state">Pendente</span>
+                  </header>
+                  <form id="meta-form" class="form">
+                    <label>Access token
+                      <input type="password" id="meta-token" autocomplete="off" placeholder="Token da Marketing API" />
+                    </label>
+                    <div class="form-grid">
+                      <label>Contas de anúncio
+                        <input type="text" id="meta-accounts" autocomplete="off" placeholder="IDs separados por vírgula" />
+                      </label>
+                      <label>Versão da API
+                        <input type="text" id="meta-version" value="v19.0" autocomplete="off" />
+                      </label>
+                    </div>
+                    <p class="hint">O token fica seguro no Supabase e não apaga dados da Shopee.</p>
+                    <div class="form-actions">
+                      <button type="submit" class="btn primary sm">Salvar</button>
+                      <button type="button" class="btn ghost sm" id="btn-meta-test">Testar</button>
+                      <button type="button" class="btn ghost sm" id="btn-meta-sync">Sincronizar</button>
+                    </div>
+                    <div id="meta-status" class="form-status"></div>
+                  </form>
+                </article>
+
+                <article class="settings-card">
+                  <header class="settings-card-head">
+                    <div class="settings-card-brand">
+                      <img class="is-square" src="/assets/pinterest.png" alt="" width="22" height="22" />
+                      <div>
+                        <div class="settings-card-title">Pinterest</div>
+                        <div class="settings-card-sub">Investimento via CSV</div>
+                      </div>
+                    </div>
+                    <span class="state-chip is-manual">Manual</span>
+                  </header>
+                  <div class="form">
+                    <label>Arquivo CSV
+                      <input type="file" id="pin-file" accept=".csv,text/csv" />
+                    </label>
+                    <p class="hint">Export do Ads Manager com ativas e desativadas (Date + Ad name + Spend). Status só muda com o status do anúncio no CSV (ACTIVE/PAUSED…). Alteração manual sua não é sobrescrita. Sem chute por gasto zero.</p>
+                    <div class="form-actions">
+                      <button type="button" class="btn primary sm" id="btn-pin-import">Importar CSV</button>
+                    </div>
+                    <div id="pin-status" class="form-status"></div>
+                  </div>
+                </article>
+
+                <article class="settings-card">
+                  <header class="settings-card-head">
+                    <div class="settings-card-brand">
+                      <img class="is-square" src="/assets/shopee.png" alt="" width="22" height="22" />
+                      <div>
+                        <div class="settings-card-title">Cliques Shopee</div>
+                        <div class="settings-card-sub">Relatório de cliques (CSV) · abatimento</div>
+                      </div>
+                    </div>
+                    <span class="state-chip is-manual">Manual</span>
+                  </header>
+                  <div class="form">
+                    <label>Arquivo CSV
+                      <input type="file" id="shopee-clicks-file" accept=".csv,text/csv" />
+                    </label>
+                    <p class="hint">Export do Relatório de cliques da Shopee (Sub_id + Tempo dos Cliques). Pode importar de novo o mesmo arquivo sem duplicar — o sistema substitui os dados do período.</p>
+                    <div class="form-actions">
+                      <button type="button" class="btn primary sm" id="btn-shopee-clicks-import">Importar CSV</button>
+                    </div>
+                    <div id="shopee-clicks-status" class="form-status"></div>
+                  </div>
+                </article>
+
+                <article class="settings-card">
+                  <header class="settings-card-head">
+                    <div class="settings-card-brand">
+                      <img class="rounded" src="/assets/ia.png?v=3" alt="" width="22" height="22" />
+                      <div>
+                        <div class="settings-card-title">Claude (Anthropic)</div>
+                        <div class="settings-card-sub">Key individual · Análise IA</div>
+                      </div>
+                    </div>
+                    <span class="state-chip" id="cfg-claude-state">Pendente</span>
+                  </header>
+                  <form id="claude-form" class="form">
+                    <label>API key
+                      <input type="password" id="claude-api-key" autocomplete="off" placeholder="sk-ant-…" />
+                    </label>
+                    <label>Modelo
+                      <input type="text" id="claude-model" autocomplete="off" placeholder="claude-sonnet-4-6" />
+                    </label>
+                    <p class="hint">Cada usuário cola a própria key da Anthropic (como Shopee/Meta). Fica só na conta dele no Supabase — não use key global no Vercel.</p>
+                    <div class="form-actions">
+                      <button type="submit" class="btn primary sm">Salvar</button>
+                      <button type="button" class="btn ghost sm" id="btn-claude-test">Testar</button>
+                    </div>
+                    <div id="claude-status" class="form-status"></div>
+                  </form>
+                </article>
+              </div>
+            </div>
+          </div>
+
+          <div class="cfg-panel hidden" data-cfg-panel="impostos" id="cfg-panel-impostos">
+            <div class="cfg-section">
+              <h2 class="cfg-section-title">Impostos e equipe</h2>
+              <p class="cfg-section-sub">Alíquotas usadas no lucro/ROI e identidade exibida no painel.</p>
+              <article class="settings-card settings-card--wide">
+                <form id="settings-form-taxes" class="form" data-settings-part="taxes">
+                  <div class="form-grid">
+                    <label>Imposto s/ comissão (%)
+                      <input type="text" id="set-tax" inputmode="decimal" placeholder="11,70" />
+                    </label>
+                    <label>Imposto s/ invest Meta (%)
+                      <input type="text" id="set-meta-tax" inputmode="decimal" placeholder="12,00" />
+                    </label>
+                    <label>Nome da equipe
+                      <input type="text" id="set-team-name" />
+                    </label>
+                    <label>Plano / subtítulo
+                      <input type="text" id="set-team-plan" />
+                    </label>
+                  </div>
+                  <p class="hint cfg-formula">Lucro = comissão × (1 − gov%) − (invest Meta × (1 + taxa Meta%) + invest Pin)</p>
+                  <div class="form-actions">
+                    <button type="submit" class="btn primary sm">Salvar impostos e equipe</button>
+                  </div>
+                  <div id="settings-status-taxes" class="form-status"></div>
+                </form>
+              </article>
+            </div>
+          </div>
+
+          <div class="cfg-panel hidden" data-cfg-panel="metas" id="cfg-panel-metas">
+            <div class="cfg-section">
+              <h2 class="cfg-section-title">Metas e bônus</h2>
+              <p class="cfg-section-sub">Alimenta o bloco “Projeção de Metas e Bônus” no Dashboard.</p>
+              <article class="settings-card settings-card--wide">
+                <form id="settings-form-metas" class="form" data-settings-part="metas">
+                  <div class="cfg-meta-block" style="margin-top:0">
+                    <div class="cfg-meta-block-head">
+                      <h3>Projeção de Metas e Bônus</h3>
+                      <p>Compara o faturamento do mês com a meta 100% e as faixas de bônus (100% / 125% / 150%).</p>
+                    </div>
+                    <div class="form-grid cfg-meta-grid">
+                      <label>Meta 100% — faturamento do mês (R$)
+                        <input type="text" id="set-meta-base" inputmode="decimal" placeholder="863.959,00" />
+                        <span class="field-hint">Alvo base. META 125% = este valor × 1,25 · META 150% = × 1,5</span>
+                      </label>
+                      <label>Dias do mês (opcional)
+                        <input type="number" id="set-meta-dias" min="1" max="31" placeholder="Auto (calendário)" />
+                        <span class="field-hint">Vazio = dias do calendário. Usado no “faturamento diário necessário”</span>
+                      </label>
+                      <label>Bônus META 100% (%)
+                        <input type="text" id="set-bonus-100" inputmode="decimal" placeholder="1" />
+                        <span class="field-hint">% sobre o faturamento-alvo da faixa 100%</span>
+                      </label>
+                      <label>Bônus META 125% (%)
+                        <input type="text" id="set-bonus-125" inputmode="decimal" placeholder="2" />
+                        <span class="field-hint">% sobre o faturamento-alvo da faixa 125%</span>
+                      </label>
+                      <label>Bônus META 150% (%)
+                        <input type="text" id="set-bonus-150" inputmode="decimal" placeholder="3" />
+                        <span class="field-hint">% sobre o faturamento-alvo da faixa 150%</span>
+                      </label>
+                    </div>
+                    <p class="hint cfg-formula">Ex.: meta R$ 100.000 → alvo 125% = R$ 125.000 · bônus 2% = R$ 2.500.</p>
+                  </div>
+                  <div class="form-actions" style="margin-top:1rem">
+                    <button type="submit" class="btn primary sm">Salvar metas e bônus</button>
+                  </div>
+                  <div id="settings-status-metas" class="form-status"></div>
+                </form>
+              </article>
+            </div>
+          </div>
+
+          <div class="cfg-panel hidden" data-cfg-panel="indefinidos" id="cfg-panel-indefinidos">
+            <div class="cfg-section" id="cfg-indefinidos-section">
+              <h2 class="cfg-section-title">SubIDs indefinidos</h2>
+              <p class="cfg-section-sub">Sem gasto Meta/Pin claro — classifique o canal para aparecer na campanha certa.</p>
+              <article class="settings-card settings-card--wide overflow-hidden p-0">
+                <div class="overflow-x-auto">
+                  <table class="data-table" id="indef-table">
+                    <thead>
+                      <tr>
+                        <th>SubID</th>
+                        <th>Canal</th>
+                        <th>Status</th>
+                        <th class="num">Faturamento</th>
+                        <th class="num">Comissão</th>
+                      </tr>
+                    </thead>
+                    <tbody id="indef-tbody"></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <!-- BACKUP & CONTINGÊNCIA PRO -->
+        <section id="view-data" class="view hidden space-y-5">
+          <div class="bk-page-head">
+            <div>
+              <div class="bk-eyebrow">Shopee / Proteção de ofertas</div>
+              <h1 class="text-2xl font-extrabold text-slate-900" id="data-title">Backup</h1>
+              <p class="text-xs text-slate-500 mt-1" id="data-sub">Gerencie produtos principais, reservas e oportunidades de substituição em um único lugar.</p>
+              <div class="bk-status" id="backup-live-status"><span class="bk-dot"></span>Aguardando sincronização</div>
+            </div>
+            <div class="bk-head-actions">
+              <button type="button" class="btn ghost sm" data-goto="dashboard">Voltar ao painel</button>
+              <button type="button" class="btn brand sm js-backup-varrer" id="btn-backup-atualizar">
+                <i class="fa-solid fa-arrows-rotate"></i>
+                <span>Atualizar tudo</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="backup-root" class="bk-pro space-y-4">
+            <section class="bk-summary">
+              <div>
+                <h2>Proteção operacional</h2>
+                <p>O sistema monitora disponibilidade, comissão e desempenho para indicar quando um backup deve assumir o lugar do produto principal.</p>
+              </div>
+              <div class="bk-summary-right">
+                <div class="bk-scan-info" id="backup-scan-info">
+                  <span>Último scan</span>
+                  <strong>—</strong>
+                </div>
+                <button type="button" class="bk-scan-btn js-backup-varrer" id="btn-backup-varrer">
+                  <i class="fa-solid fa-play"></i>
+                  <span>Executar scan</span>
+                </button>
+              </div>
+            </section>
+
+            <div class="bk-kpi-grid" id="backup-kpi-grid">
+              <div class="bk-kpi" data-k="backups">
+                <div class="bk-kpi-top"><span class="bk-kpi-label">Backups ativos</span><i class="fa-solid fa-boxes-stacked"></i></div>
+                <strong>—</strong>
+                <em>—</em>
+              </div>
+              <div class="bk-kpi is-good" data-k="cobertura">
+                <div class="bk-kpi-top"><span class="bk-kpi-label">Cobertura da API</span><i class="fa-solid fa-circle-check"></i></div>
+                <strong>—</strong>
+                <em>—</em>
+              </div>
+              <div class="bk-kpi" data-k="sinais">
+                <div class="bk-kpi-top"><span class="bk-kpi-label">Precisam de atenção</span><i class="fa-solid fa-triangle-exclamation"></i></div>
+                <strong>—</strong>
+                <em>—</em>
+              </div>
+              <div class="bk-kpi" data-k="comissao">
+                <div class="bk-kpi-top"><span class="bk-kpi-label">Comissão média</span><i class="fa-solid fa-chart-line"></i></div>
+                <strong>—</strong>
+                <em>—</em>
+              </div>
+            </div>
+
+            <div class="bk-workspace">
+            <div class="bk-tabs" id="backup-tabs">
+              <button type="button" class="backup-tab is-active" data-backup-tab="grupos">Grupos <span class="count" data-tab-count="grupos">0</span></button>
+              <button type="button" class="backup-tab" data-backup-tab="listagem">Meus backups <span class="count" data-tab-count="listagem">0</span></button>
+              <button type="button" class="backup-tab" data-backup-tab="cadastrar">Adicionar</button>
+              <button type="button" class="backup-tab" data-backup-tab="garimpo">Descoberta</button>
+              <button type="button" class="backup-tab" data-backup-tab="recompra">Recompra <span class="count" data-tab-count="recompra">0</span></button>
+              <button type="button" class="backup-tab" data-backup-tab="similar">Similares</button>
+              <button type="button" class="backup-tab" data-backup-tab="config">Configurações</button>
+            </div>
+
+            <div id="backup-tab-grupos" class="bk-tab-panel space-y-4">
+              <div class="bk-toolbar">
+                <div class="bk-toolbar-search">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input type="search" id="backup-grupo-search" placeholder="Buscar grupo, produto ou loja" />
+                </div>
+                <div class="bk-toolbar-actions">
+                  <select id="backup-grupo-nicho" class="bk-nicho-select">
+                    <option value="todas">Todos os nichos</option>
+                  </select>
+                  <button type="button" class="bk-btn-dark" id="btn-backup-criar-grupo"><i class="fa-solid fa-plus"></i> Novo grupo</button>
+                </div>
+              </div>
+              <div class="bk-section-head">
+                <span class="bk-section-title">Grupos de contingência</span>
+                <span class="bk-section-meta" id="backup-grupos-meta"></span>
+              </div>
+              <div id="backup-grupos-list" class="space-y-3"></div>
+            </div>
+
+            <div id="backup-tab-cadastrar" class="bk-tab-panel hidden space-y-4">
+              <section class="light-card rounded-2xl p-5 shadow-sm">
+                <label class="block text-sm font-semibold text-slate-800 mb-2">Cole o link Shopee</label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <input type="url" id="backup-url" class="search flex-1" placeholder="https://shopee.com.br/product/SHOP_ID/ITEM_ID" />
+                  <button type="button" class="btn brand sm" id="btn-backup-lookup">Consultar</button>
+                </div>
+                <p class="text-xs text-slate-500 mt-2">Aceita link completo (/product/SHOP/ITEM ou -i.SHOP.ITEM) e tenta resolver links curtos (s.shopee.com.br).</p>
+                <p class="form-status mt-2" id="backup-lookup-status"></p>
+              </section>
+              <section class="light-card rounded-2xl p-5 shadow-sm">
+                <label class="block text-sm font-semibold text-slate-800 mb-2">Ou busque por nome na API Shopee</label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                  <input type="search" id="backup-keyword" class="search flex-1" placeholder="Ex: wide jeans, legging canelada…" />
+                  <button type="button" class="btn ghost sm" id="btn-backup-search">Buscar ofertas</button>
+                </div>
+                <div id="backup-search-results" class="mt-3 space-y-2"></div>
+              </section>
+              <div id="backup-lookup-result"></div>
+            </div>
+
+            <div id="backup-tab-listagem" class="bk-tab-panel hidden space-y-4">
+              <section class="bk-toolbar">
+                <div class="bk-toolbar-search">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                  <input type="search" id="backup-search" placeholder="Buscar por produto, loja ou apelido" />
+                </div>
+                <div class="flex gap-2 flex-wrap" id="backup-filters">
+                  <button type="button" class="bk-chip is-active" data-backup-filter="todos">Todos</button>
+                  <button type="button" class="bk-chip" data-backup-filter="alertas">Alertas</button>
+                  <button type="button" class="bk-chip" data-backup-filter="principais">Principais</button>
+                </div>
+              </section>
+              <p class="text-xs text-slate-500" id="backup-list-meta">—</p>
+              <div id="backup-list" class="bk-table-wrap"></div>
+            </div>
+
+            <div id="backup-tab-garimpo" class="bk-tab-panel hidden space-y-4">
+              <div class="bk-subtabs" id="backup-garimpo-subtabs">
+                <button type="button" class="bk-chip is-active" data-garimpo-aba="portfolio">Já vendi</button>
+                <button type="button" class="bk-chip" data-garimpo-aba="descoberta">Descoberta</button>
+              </div>
+              <input type="search" id="backup-garimpo-search" class="search w-full" placeholder="Buscar por nome ou loja…" />
+              <p class="text-xs text-slate-500" id="backup-garimpo-meta">—</p>
+              <div id="backup-garimpo-list" class="space-y-2"></div>
+            </div>
+
+            <div id="backup-tab-recompra" class="bk-tab-panel hidden space-y-4">
+              <input type="search" id="backup-recompra-search" class="search w-full" placeholder="Buscar produto para recompra…" />
+              <p class="text-xs text-slate-500" id="backup-recompra-meta">—</p>
+              <div id="backup-recompra-list" class="space-y-2"></div>
+            </div>
+
+            <div id="backup-tab-similar" class="bk-tab-panel hidden space-y-4">
+              <section class="light-card rounded-2xl p-5 shadow-sm">
+                <label class="block text-sm font-semibold text-slate-800 mb-2">Escolha um produto principal</label>
+                <p class="text-xs text-slate-500 mb-3">Encontre outras ofertas da mesma loja para usar como reserva.</p>
+                <select id="backup-similar-select" class="search w-full"></select>
+              </section>
+              <div id="backup-similar-results"></div>
+            </div>
+
+            <div id="backup-tab-config" class="bk-tab-panel hidden">
+              <div class="bk-settings">
+                <aside class="bk-settings-nav">
+                  <button type="button" class="is-active">Geral</button>
+                </aside>
+                <div class="bk-settings-body">
+                  <h3>Configurações do Backup</h3>
+                  <p>Preferências de operação e visualização. Ficam neste navegador.</p>
+                  <label class="bk-setting">
+                    <span><strong>Abrir Grupos automaticamente</strong><small>Entrar na tela já mostrando os grupos de contingência.</small></span>
+                    <input type="checkbox" id="bk-cfg-default-grupos" checked />
+                  </label>
+                  <label class="bk-setting">
+                    <span><strong>Confirmar varredura completa</strong><small>Evita iniciar um scan de todos os produtos por engano.</small></span>
+                    <input type="checkbox" id="bk-cfg-confirm-varrer" checked />
+                  </label>
+                  <label class="bk-setting">
+                    <span><strong>Mostrar indicadores no topo</strong><small>Exibe os principais números de operação.</small></span>
+                    <input type="checkbox" id="bk-cfg-show-kpi" checked />
+                  </label>
+                  <button type="button" class="btn brand sm mt-3" id="btn-backup-cfg-save">Salvar preferências</button>
+                  <p class="form-status" id="backup-cfg-status"></p>
+                </div>
+              </div>
+            </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- Mobile chrome (visível só ≤767px; desktop intacto) -->
+    <nav id="m-bottom-nav" class="m-bottom-nav" aria-label="Navegação principal" hidden>
+      <button type="button" class="m-tab is-active" data-m-tab="dashboard" aria-current="page">
+        <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
+        <span>Dashboard</span>
+      </button>
+      <button type="button" class="m-tab" data-m-tab="campanhas">
+        <i class="fa-solid fa-bullhorn" aria-hidden="true"></i>
+        <span>Campanhas</span>
+      </button>
+      <button type="button" class="m-tab" data-m-tab="supercomissoes">
+        <i class="fa-solid fa-satellite-dish" aria-hidden="true"></i>
+        <span>Radar</span>
+      </button>
+      <button type="button" class="m-tab" data-m-tab="analise-ia">
+        <i class="fa-solid fa-brain" aria-hidden="true"></i>
+        <span>IA</span>
+      </button>
+      <button type="button" class="m-tab" data-m-tab="menu" aria-haspopup="dialog">
+        <i class="fa-solid fa-bars" aria-hidden="true"></i>
+        <span>Menu</span>
+      </button>
+    </nav>
+
+    <div id="m-sheet-backdrop" class="m-sheet-backdrop" hidden></div>
+
+    <div id="m-campanhas-sheet" class="m-sheet" role="dialog" aria-modal="true" aria-labelledby="m-campanhas-title" hidden>
+      <div class="m-sheet__handle" aria-hidden="true"></div>
+      <div class="m-sheet__head">
+        <h2 id="m-campanhas-title">Campanhas</h2>
+        <button type="button" class="m-sheet__close" data-m-close aria-label="Fechar">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="m-sheet__body">
+        <button type="button" class="m-sheet__item" data-m-view="campanhas-meta">
+          <img src="/assets/meta.png" alt="" width="22" height="22" />
+          <span>Campanhas Meta</span>
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="campanhas-pinterest">
+          <img class="is-square" src="/assets/pinterest.png" alt="" width="22" height="22" />
+          <span>Campanhas Pinterest</span>
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="campanhas-organicas">
+          <img class="is-square" src="/assets/shopee.png" alt="" width="22" height="22" />
+          <span>Campanhas Orgânicas</span>
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="m-menu-sheet" class="m-sheet m-sheet--tall" role="dialog" aria-modal="true" aria-labelledby="m-menu-title" hidden>
+      <div class="m-sheet__handle" aria-hidden="true"></div>
+      <div class="m-sheet__head">
+        <div>
+          <h2 id="m-menu-title">Menu</h2>
+          <p class="m-sheet__email" id="m-user-email"></p>
+        </div>
+        <button type="button" class="m-sheet__close" data-m-close aria-label="Fechar">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="m-sheet__body m-sheet__body--scroll">
+        <div class="m-sheet__sec">Operação</div>
+        <button type="button" class="m-sheet__item" data-m-view="dashboard">
+          <img class="is-square" src="/assets/dashboard.png" alt="" width="22" height="22" />
+          <span>Dashboard</span>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="campanhas-meta">
+          <img src="/assets/meta.png" alt="" width="22" height="22" />
+          <span>Campanhas Meta</span>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="campanhas-pinterest">
+          <img class="is-square" src="/assets/pinterest.png" alt="" width="22" height="22" />
+          <span>Campanhas Pinterest</span>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="campanhas-organicas">
+          <img class="is-square" src="/assets/shopee.png" alt="" width="22" height="22" />
+          <span>Campanhas Orgânicas</span>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="produtos">
+          <img class="is-square" src="/assets/produtos.png" alt="" width="22" height="22" />
+          <span>Backup</span>
+        </button>
+
+        <div class="m-sheet__sec">Mineração</div>
+        <button type="button" class="m-sheet__item" data-m-view="supercomissoes">
+          <img class="is-square" src="/assets/radar.png?v=2" alt="" width="22" height="22" />
+          <span>Radar de Supercomissões</span>
+        </button>
+
+        <div class="m-sheet__sec">Inteligência</div>
+        <button type="button" class="m-sheet__item" data-m-view="analise-ia">
+          <img class="is-square" src="/assets/ia.png?v=3" alt="" width="22" height="22" />
+          <span>Análise IA</span>
+        </button>
+
+        <div class="m-sheet__sec">Sistema</div>
+        <button type="button" class="m-sheet__item" data-m-view="canais">
+          <img class="is-square" src="/assets/tag.png" alt="" width="22" height="22" />
+          <span>Canais e Status</span>
+        </button>
+        <button type="button" class="m-sheet__item" data-m-view="config">
+          <img class="is-square" src="/assets/configuracao.png" alt="" width="22" height="22" />
+          <span>Configurações</span>
+        </button>
+        <button type="button" class="m-sheet__item" id="m-btn-theme" aria-label="Alternar modo claro ou escuro">
+          <i class="fa-solid fa-moon" id="m-theme-icon" aria-hidden="true"></i>
+          <span>Modo claro / escuro</span>
+        </button>
+
+        <div class="m-sheet__sec">Conta</div>
+        <a href="/admin" id="m-admin-entry" class="m-sheet__item hidden">
+          <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+          <span>Admin</span>
+        </a>
+        <button type="button" class="m-sheet__item m-sheet__item--danger" id="m-btn-logout">
+          <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+          <span>Sair</span>
+        </button>
+      </div>
+    </div>
+    <div id="m-info-sheet" class="m-sheet" role="dialog" aria-modal="true" aria-labelledby="m-info-title" hidden>
+      <div class="m-sheet__handle" aria-hidden="true"></div>
+      <div class="m-sheet__head">
+        <h2 id="m-info-title">Informação</h2>
+        <button type="button" class="m-sheet__close" data-m-close aria-label="Fechar">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="m-sheet__body m-sheet__body--scroll">
+        <div id="m-info-body" class="m-info-body"></div>
+      </div>
+    </div>
+
+    <div id="m-ops-pick-sheet" class="m-sheet" role="dialog" aria-modal="true" aria-labelledby="m-ops-pick-title" hidden>
+      <div class="m-sheet__handle" aria-hidden="true"></div>
+      <div class="m-sheet__head">
+        <h2 id="m-ops-pick-title">Selecionar</h2>
+        <button type="button" class="m-sheet__close" data-m-close aria-label="Fechar">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="m-sheet__body" id="m-ops-pick-body"></div>
+    </div>
+
+    <div id="m-period-sheet" class="m-sheet m-sheet--period" role="dialog" aria-modal="true" aria-labelledby="m-period-title" hidden>
+      <div class="m-sheet__handle" aria-hidden="true"></div>
+      <div class="m-sheet__head">
+        <h2 id="m-period-title">Selecionar período</h2>
+        <button type="button" class="m-sheet__close" data-m-close aria-label="Fechar">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="m-period-sheet-body">
+        <div class="m-period-summary">
+          <span class="m-period-summary-kicker">Período selecionado</span>
+          <strong id="m-period-summary-range">—</strong>
+          <span class="m-period-summary-hint" id="m-period-summary-hint">Dados até —</span>
+        </div>
+        <div class="m-period-chips" role="group" aria-label="Atalhos de período" id="m-period-chips">
+          <button type="button" class="m-period-chip" data-m-range="yesterday">Ontem</button>
+          <button type="button" class="m-period-chip" data-m-range="7d">7 dias</button>
+          <button type="button" class="m-period-chip" data-m-range="14d">14 dias</button>
+          <button type="button" class="m-period-chip" data-m-range="30d">30 dias</button>
+          <button type="button" class="m-period-chip" data-m-range="month">Este mês</button>
+          <button type="button" class="m-period-chip" data-m-range="prev_month">Mês anterior</button>
+          <button type="button" class="m-period-chip" data-m-range="all">Todo período</button>
+          <button type="button" class="m-period-chip" data-m-range="custom">Personalizado</button>
+        </div>
+        <div class="m-cal" id="m-cal">
+          <div class="m-cal-head">
+            <button type="button" class="m-cal-nav" id="m-cal-prev" aria-label="Mês anterior"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+            <div class="m-cal-month" id="m-cal-month">—</div>
+            <button type="button" class="m-cal-nav" id="m-cal-next" aria-label="Próximo mês"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+          </div>
+          <div class="m-cal-dows" aria-hidden="true">
+            <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+          </div>
+          <div class="m-cal-grid" id="m-cal-grid" role="grid" aria-label="Calendário"></div>
+        </div>
+      </div>
+      <div class="m-period-sheet-foot">
+        <button type="button" class="btn ghost m-period-cancel" data-m-close>Cancelar</button>
+        <button type="button" class="btn primary m-period-apply" id="m-period-apply">Aplicar período</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js?v=login-race-28"></script>
+</body>
+</html>

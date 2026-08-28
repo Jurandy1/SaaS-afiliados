@@ -1,0 +1,566 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B1220" />
+  <title>Shopylitcs: veja quanto realmente sobra das suas campanhas</title>
+  <meta name="description" content="Shopee, Meta e Pinterest em um só painel. Comissão, investimento, ROI, lucro líquido e SubID, sem planilha." />
+  <link rel="icon" href="/assets/SHOPLUTICS.png" />
+  <link rel="apple-touch-icon" href="/assets/SHOPLUTICS.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/landing.css?v=4" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap site-header__inner">
+      <a class="brand" href="/" aria-label="Shopylitcs">
+        <img src="/assets/SHOPLUTICS.png" alt="" width="38" height="38" />
+        <span class="brand__name">Shopylitcs</span>
+      </a>
+      <nav class="nav-desktop" aria-label="Principal">
+        <a href="#problema">O problema</a>
+        <a href="#subids">SubIDs</a>
+        <a href="#painel">Painel</a>
+        <a href="#planos">Planos</a>
+      </nav>
+      <div class="header-actions">
+        <a class="btn btn-ghost" href="/app">Entrar</a>
+        <a class="btn btn-primary" href="#planos">Assinar</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap hero__grid">
+        <div>
+          <p class="eyebrow">Analytics para afiliados</p>
+          <h1 id="hero-title">Veja quanto realmente sobra das suas campanhas.</h1>
+          <p class="hero__sub">Shopee, Meta e Pinterest em um só painel.</p>
+          <p class="hero__lead">Comissão, investimento, ROI, lucro líquido e SubID, sem depender de planilhas.</p>
+          <div class="hero__chips">
+            <span class="chip"><img src="/assets/shopee.png" alt="" />Shopee</span>
+            <span class="chip"><img src="/assets/meta.png" alt="" />Meta</span>
+            <span class="chip"><img src="/assets/pinterest.png" alt="" />Pinterest</span>
+          </div>
+          <div class="hero__cta">
+            <a class="btn btn-primary" href="#planos">Ver planos</a>
+            <a class="btn btn-secondary" href="/app">Já tenho conta</a>
+          </div>
+          <p class="hero__note">Pagamento seguro via Stripe. Acesso liberado após a confirmação.</p>
+        </div>
+
+        <aside class="dash-frame" aria-label="Prévia do dashboard real da Shopylitcs">
+          <div class="dash-frame__chrome" aria-hidden="true"><i></i><i></i><i></i><span class="dash-frame__label">Dashboard real</span></div>
+          <div class="dash-shell">
+            <div class="dash-side" aria-hidden="true">
+              <div class="dash-side__brand">
+                <img src="/assets/SHOPLUTICS.png" alt="" />
+                <div><strong>Shopylitcs</strong><span>Painel executivo</span></div>
+              </div>
+              <div class="dash-side__sec">Operação</div>
+              <div class="dash-nav-item is-active"><img src="/assets/dashboard.png" alt="" />Dashboard</div>
+              <div class="dash-nav-item"><img src="/assets/meta.png" alt="" />Campanhas Meta</div>
+              <div class="dash-nav-item"><img src="/assets/pinterest.png" alt="" />Campanhas Pinterest</div>
+              <div class="dash-nav-item"><img src="/assets/shopee.png" alt="" />Campanhas orgânicas</div>
+              <div class="dash-nav-item"><img src="/assets/produtos.png" alt="" />Backup</div>
+              <div class="dash-side__sec">Mineração</div>
+              <div class="dash-nav-item"><img src="/assets/radar.png?v=2" alt="" />Radar</div>
+              <div class="dash-side__sec">Sistema</div>
+              <div class="dash-nav-item"><img src="/assets/tag.png" alt="" />Canais e status</div>
+              <div class="dash-nav-item"><img src="/assets/configuracao.png" alt="" />Configurações</div>
+            </div>
+            <div class="dash-main">
+              <h2 class="dash-main__title">Dashboard</h2>
+              <p class="dash-main__sub">Dados gerais, faturamento e lucro diário</p>
+              <div class="period-mock" aria-hidden="true">
+                <span>Ontem</span><span class="is-on">7 dias</span><span>14 dias</span><span>30 dias</span><span>Este mês</span>
+              </div>
+              <div class="kpi-mock">
+                <div class="kpi-card">
+                  <p class="kpi-card__lab">Lucro líquido</p>
+                  <p class="kpi-card__val is-lucro">R$</p>
+                  <p class="kpi-card__hint">após o imposto dos anúncios</p>
+                </div>
+                <div class="kpi-card">
+                  <p class="kpi-card__lab">Comissão Shopee</p>
+                  <p class="kpi-card__val">R$</p>
+                  <p class="kpi-card__hint">validada no período</p>
+                </div>
+                <div class="kpi-card">
+                  <p class="kpi-card__lab">Investimento</p>
+                  <p class="kpi-card__val is-gasto">R$</p>
+                  <p class="kpi-card__hint">Meta e Pinterest</p>
+                </div>
+                <div class="kpi-card">
+                  <p class="kpi-card__lab">ROI</p>
+                  <p class="kpi-card__val is-roi">%</p>
+                  <p class="kpi-card__hint">lucro sobre investimento</p>
+                </div>
+              </div>
+              <div class="chart-mock">
+                <div class="chart-mock__head"><strong>Lucro por dia</strong><span>Lucro</span></div>
+                <div class="chart-mock__body"><div class="bars" aria-hidden="true"><b></b><b></b><b></b><b></b><b></b><b></b><b></b></div></div>
+              </div>
+              <div class="daily-mock">
+                <div class="daily-mock__head">Resumo diário: fat., com., inv., lucro e ROI</div>
+                <table>
+                  <thead><tr><th>Data</th><th class="num">Comissão</th><th class="num">Invest.</th><th class="num">Lucro</th></tr></thead>
+                  <tbody>
+                    <tr><td>Ontem</td><td class="num">R$</td><td class="num">R$</td><td class="num pos">R$</td></tr>
+                    <tr><td>Anteontem</td><td class="num">R$</td><td class="num">R$</td><td class="num pos">R$</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section section--paper" id="problema" aria-labelledby="problem-title">
+      <div class="wrap">
+        <div class="section__head">
+          <p class="eyebrow">O problema</p>
+          <h2 id="problem-title">Hoje os seus números estão espalhados.</h2>
+          <p>Você não precisa mais juntá-los manualmente.</p>
+        </div>
+        <div class="split-story">
+          <article class="story-card story-card--bad">
+            <h3>Hoje</h3>
+            <div class="flow-list">
+              <div class="flow-row"><img src="/assets/shopee.png" alt="" /><strong>Shopee</strong><span>mostra a comissão</span></div>
+              <div class="flow-row"><img src="/assets/meta.png" alt="" /><strong>Meta Ads</strong><span>mostra o investimento</span></div>
+              <div class="flow-row"><img src="/assets/pinterest.png" alt="" /><strong>Pinterest</strong><span>mostra o investimento</span></div>
+              <div class="flow-row"><strong style="grid-column:1/-1">A planilha tenta descobrir o lucro</strong></div>
+            </div>
+          </article>
+          <div class="flow-arrow flow-arrow--mob" aria-hidden="true">COM A SHOPYLITCS ↓</div>
+          <div class="flow-arrow flow-arrow--desk" aria-hidden="true">COM A SHOPYLITCS</div>
+          <article class="story-card story-card--good">
+            <h3>Com a Shopylitcs</h3>
+            <div class="flow-list">
+              <div class="flow-row"><img src="/assets/shopee.png" alt="" /><strong>Shopee</strong><span>comissões</span></div>
+              <div class="flow-row"><img src="/assets/meta.png" alt="" /><strong>Meta</strong><span>gasto e cliques</span></div>
+              <div class="flow-row"><img src="/assets/pinterest.png" alt="" /><strong>Pinterest</strong><span>gasto via CSV</span></div>
+            </div>
+            <div class="story-result">Dados cruzados, SubID, ROI e lucro líquido</div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--cream" id="lucro" aria-labelledby="lucro-title">
+      <div class="wrap" style="text-align:center">
+        <div class="section__head" style="margin-inline:auto">
+          <p class="eyebrow">Diferencial</p>
+          <h2 id="lucro-title">Pare de olhar o faturamento. Comece a olhar o lucro.</h2>
+          <p style="margin-inline:auto">A comissão bruta não é o resultado. O faturamento não conta a história inteira.</p>
+        </div>
+        <div class="formula" aria-label="Cálculo do lucro líquido">
+          <div class="formula__row"><span>Comissão Shopee</span><span>+</span></div>
+          <div class="formula__row is-minus"><span>Investimento Meta e Pin</span><span>−</span></div>
+          <div class="formula__row is-minus"><span>Impostos e abatimentos</span><span>−</span></div>
+          <div class="formula__line"></div>
+          <div class="formula__row is-total"><span>Lucro líquido</span><span>=</span></div>
+        </div>
+        <p>Tudo isso amarrado ao SubID, para você saber o que escalar e o que pausar.</p>
+      </div>
+    </section>
+
+    <section class="section section--slate" id="subids" aria-labelledby="subid-title">
+      <div class="wrap">
+        <div class="section__head">
+          <p class="eyebrow">SubIDs</p>
+          <h2 id="subid-title">Descubra quais SubIDs realmente colocam dinheiro no bolso.</h2>
+          <p>Em vez de três painéis e uma planilha, veja o lucro líquido por SubID.</p>
+        </div>
+        <div class="subid-preview">
+          <div class="subid-preview__scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>SubID</th>
+                  <th>Canal</th>
+                  <th class="num">Comissão</th>
+                  <th class="num">Invest.</th>
+                  <th class="num">Lucro</th>
+                  <th class="num">ROI</th>
+                  <th class="num">Pedidos</th>
+                  <th>Status</th>
+                  <th>Tend.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>camp_meta_a</td>
+                  <td><span class="badge badge--meta">Meta</span></td>
+                  <td class="num">R$</td>
+                  <td class="num">R$</td>
+                  <td class="num pos">R$</td>
+                  <td class="num">%</td>
+                  <td class="num">0</td>
+                  <td><span class="badge badge--ok">Ativa</span></td>
+                  <td class="trend-up">▲</td>
+                </tr>
+                <tr>
+                  <td>pin_catalog_b</td>
+                  <td><span class="badge badge--pin">Pinterest</span></td>
+                  <td class="num">R$</td>
+                  <td class="num">R$</td>
+                  <td class="num">R$</td>
+                  <td class="num">%</td>
+                  <td class="num">0</td>
+                  <td><span class="badge badge--ok">Ativa</span></td>
+                  <td class="trend-down">▼</td>
+                </tr>
+                <tr>
+                  <td>org_bio_c</td>
+                  <td><span class="badge badge--org">Orgânico</span></td>
+                  <td class="num">R$</td>
+                  <td class="num">R$</td>
+                  <td class="num pos">R$</td>
+                  <td class="num">%</td>
+                  <td class="num">0</td>
+                  <td><span class="badge badge--ok">Ativa</span></td>
+                  <td class="trend-up">▲</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--cream" id="painel" aria-labelledby="painel-title">
+      <div class="wrap">
+        <div class="section__head">
+          <p class="eyebrow">O painel</p>
+          <h2 id="painel-title">Veja exatamente o que você recebe.</h2>
+          <p>A mesma interface do produto: menu lateral, período, indicadores, gráfico e operação.</p>
+        </div>
+        <div class="showcase">
+          <article class="shot shot--wide">
+            <div class="shot__cap">
+              <strong>Dashboard geral</strong>
+              <p>Lucro líquido, comissão, investimento, ROI e lucro por dia.</p>
+            </div>
+            <div class="dash-frame">
+              <div class="dash-frame__chrome" aria-hidden="true"><i></i><i></i><i></i></div>
+              <div class="dash-shell">
+                <div class="dash-side" aria-hidden="true">
+                  <div class="dash-side__brand">
+                    <img src="/assets/SHOPLUTICS.png" alt="" />
+                    <div><strong>Shopylitcs</strong><span>Painel executivo</span></div>
+                  </div>
+                  <div class="dash-side__sec">Operação</div>
+                  <div class="dash-nav-item is-active"><img src="/assets/dashboard.png" alt="" />Dashboard</div>
+                  <div class="dash-nav-item"><img src="/assets/meta.png" alt="" />Campanhas Meta</div>
+                  <div class="dash-nav-item"><img src="/assets/pinterest.png" alt="" />Pinterest</div>
+                  <div class="dash-nav-item"><img src="/assets/shopee.png" alt="" />Orgânicas</div>
+                </div>
+                <div class="dash-main">
+                  <h3 class="dash-main__title">Dashboard</h3>
+                  <div class="period-mock"><span class="is-on">7 dias</span><span>14 dias</span><span>30 dias</span></div>
+                  <div class="kpi-mock">
+                    <div class="kpi-card"><p class="kpi-card__lab">Lucro líquido</p><p class="kpi-card__val is-lucro">R$</p></div>
+                    <div class="kpi-card"><p class="kpi-card__lab">Comissão</p><p class="kpi-card__val">R$</p></div>
+                    <div class="kpi-card"><p class="kpi-card__lab">Invest. Meta</p><p class="kpi-card__val is-gasto">R$</p></div>
+                    <div class="kpi-card"><p class="kpi-card__lab">ROI</p><p class="kpi-card__val is-roi">%</p></div>
+                  </div>
+                  <div class="chart-mock">
+                    <div class="chart-mock__head"><strong>Lucro por dia</strong><span>Lucro</span></div>
+                    <div class="chart-mock__body"><div class="bars"><b></b><b></b><b></b><b></b><b></b><b></b><b></b></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="shot">
+            <div class="shot__cap">
+              <strong>Campanhas e SubIDs</strong>
+              <p>Performance, investimento, comissão, lucro e ROI por SubID.</p>
+            </div>
+            <div class="dash-frame">
+              <div class="dash-main" style="background:#f8fafc">
+                <h3 class="dash-main__title">Campanhas Meta</h3>
+                <p class="dash-main__sub">SubID, cliques no link e abatimento</p>
+                <div class="kpi-mock" style="grid-template-columns:1fr 1fr">
+                  <div class="kpi-card"><p class="kpi-card__lab">Investimento</p><p class="kpi-card__val is-gasto">R$</p></div>
+                  <div class="kpi-card"><p class="kpi-card__lab">Lucro</p><p class="kpi-card__val is-lucro">R$</p></div>
+                  <div class="kpi-card"><p class="kpi-card__lab">ROI</p><p class="kpi-card__val is-roi">%</p></div>
+                  <div class="kpi-card"><p class="kpi-card__lab">Abat. cliques</p><p class="kpi-card__val">%</p></div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="shot">
+            <div class="shot__cap">
+              <strong>Operação</strong>
+              <p>Canais, status, sincronização e alertas para decidir o que pausar e o que escalar.</p>
+            </div>
+            <div class="dash-frame">
+              <div class="dash-main" style="background:#f8fafc">
+                <h3 class="dash-main__title">Canais e status</h3>
+                <p class="dash-main__sub">Meta, Pinterest, orgânico e indefinidos</p>
+                <div class="flow-list" style="margin-top:0.5rem">
+                  <div class="flow-row"><img src="/assets/tag.png" alt="" /><strong>Status operacional</strong><span>ativa ou teste</span></div>
+                  <div class="flow-row"><img src="/assets/configuracao.png" alt="" /><strong>Sincronização automática</strong><span>diária</span></div>
+                  <div class="flow-row"><img src="/assets/shopee.png" alt="" /><strong>Alerta de comissão</strong><span>no celular</span></div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--paper" id="recursos" aria-labelledby="feat-title">
+      <div class="wrap">
+        <div class="section__head">
+          <p class="eyebrow">Recursos</p>
+          <h2 id="feat-title">Tudo o que importa, agrupado por tipo de trabalho.</h2>
+        </div>
+        <div class="feat-grid">
+          <article class="feat-block">
+            <h3>Visão financeira</h3>
+            <ul>
+              <li>Faturamento e comissão da Shopee</li>
+              <li>Investimento da Meta e do Pinterest</li>
+              <li>Lucro líquido e ROI</li>
+              <li>Impostos da comissão e dos anúncios</li>
+            </ul>
+          </article>
+          <article class="feat-block">
+            <h3>Operação de campanhas</h3>
+            <ul>
+              <li>Meta Ads, Pinterest Ads e tráfego orgânico</li>
+              <li>SubIDs com canal e status</li>
+              <li>Cliques da Shopee e abatimento pelo clique no link</li>
+            </ul>
+          </article>
+          <article class="feat-block">
+            <h3>Inteligência operacional</h3>
+            <ul>
+              <li>Metas e bônus da equipe</li>
+              <li>Sincronização automática</li>
+              <li>Alertas de comissão no celular</li>
+            </ul>
+          </article>
+          <article class="feat-block">
+            <h3>Ferramentas avançadas</h3>
+            <ul>
+              <li>Radar de Supercomissões</li>
+              <li>Backup de produtos</li>
+              <li>Análise com IA (com a sua chave da Anthropic)</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--dark" id="integracoes" aria-labelledby="integ-title">
+      <div class="wrap">
+        <div class="section__head" style="margin-inline:auto;text-align:center">
+          <p class="eyebrow">Integrações</p>
+          <h2 id="integ-title">Shopee, Meta e Pinterest em uma única visão.</h2>
+        </div>
+        <div class="integ">
+          <div class="integ__row">
+            <span class="integ__pill"><img src="/assets/shopee.png" alt="" />Comissão e conversões</span>
+            <span class="integ__pill"><img src="/assets/meta.png" alt="" />Investimento e cliques</span>
+            <span class="integ__pill"><img src="/assets/pinterest.png" alt="" />Investimento via CSV</span>
+          </div>
+          <div class="integ__down">↓</div>
+          <div class="integ__brand">Shopylitcs</div>
+          <div class="integ__down">↓</div>
+          <div class="integ__result">Lucro líquido por SubID</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--cream" id="para-quem" aria-labelledby="who-title">
+      <div class="wrap">
+        <div class="section__head">
+          <p class="eyebrow">Para quem é</p>
+          <h2 id="who-title">Feita para quem escala afiliados.</h2>
+        </div>
+        <ul class="audience">
+          <li>Já faz tráfego pago para a Shopee</li>
+          <li>Usa Meta Ads, Pinterest ou os dois</li>
+          <li>Gerencia vários SubIDs</li>
+          <li>Quer saber o lucro real, e não só a comissão</li>
+          <li>Ainda depende de planilha no dia a dia</li>
+          <li>Precisa decidir rápido o que pausar ou escalar</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section section--slate" id="planos" aria-labelledby="pricing-title">
+      <div class="wrap">
+        <div class="section__head">
+          <p class="eyebrow">Planos</p>
+          <h2 id="pricing-title">Escolha o ciclo e libere o painel.</h2>
+          <p>Checkout pela Stripe. Gerencie ou cancele no portal do cliente.</p>
+        </div>
+        <div class="plans" id="plans-grid">
+          <article class="plan" data-plan="monthly">
+            <h3 class="plan__name">Mensal</h3>
+            <p class="plan__price">R$&nbsp;69,90</p>
+            <p class="plan__period">por mês</p>
+            <p class="plan__blurb">A entrada mais simples para testar o fluxo completo.</p>
+            <button type="button" class="btn btn-secondary btn-block js-checkout" data-price-id="price_1U87aaLcve75re8rKD3UjDZa">Assinar mensal</button>
+          </article>
+          <article class="plan plan--hot" data-plan="6m">
+            <span class="plan__badge">Recomendado</span>
+            <h3 class="plan__name">6 meses</h3>
+            <p class="plan__price">R$&nbsp;349,90</p>
+            <p class="plan__period">a cada 6 meses</p>
+            <p class="plan__save">cerca de R$ 58,32 por mês</p>
+            <p class="plan__blurb">O melhor equilíbrio entre compromisso e economia.</p>
+            <button type="button" class="btn btn-primary btn-block js-checkout" data-price-id="price_1U87aaLcve75re8rXjAdHqri">Assinar 6 meses</button>
+          </article>
+          <article class="plan" data-plan="12m">
+            <h3 class="plan__name">12 meses</h3>
+            <p class="plan__price">R$&nbsp;599,90</p>
+            <p class="plan__period">por ano</p>
+            <p class="plan__save">cerca de R$ 49,99 por mês, com a maior economia</p>
+            <p class="plan__blurb">Ideal para quem já opera no longo prazo.</p>
+            <button type="button" class="btn btn-navy btn-block js-checkout" data-price-id="price_1U87aZLcve75re8rgdyW6j06">Assinar anual</button>
+          </article>
+        </div>
+        <p class="plan-note">Depois do pagamento, entre ou crie a conta com o mesmo e-mail usado no Checkout.</p>
+        <div class="billing-status" id="billing-status" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="section section--paper" id="transparencia" aria-labelledby="faq-title">
+      <div class="wrap">
+        <div class="section__head">
+          <p class="eyebrow">Transparência</p>
+          <h2 id="faq-title">O que a Shopylitcs não é</h2>
+        </div>
+        <ul class="not-list">
+          <li>Não é um gerenciador de anúncios e não cria campanhas na Meta.</li>
+          <li>Não substitui a conta Shopee Affiliate.</li>
+          <li>O Pinterest depende de CSV em alguns fluxos.</li>
+          <li>A análise com IA usa a chave da Anthropic do próprio cliente.</li>
+        </ul>
+        <div class="faq" style="margin-top:1.5rem">
+          <details>
+            <summary>Como libero o acesso depois de pagar?</summary>
+            <p>Use o mesmo e-mail do Checkout para entrar ou criar a conta. A Stripe libera a assinatura automaticamente.</p>
+          </details>
+          <details>
+            <summary>Posso cancelar ou trocar de plano?</summary>
+            <p>Sim. Em Configurações, Assinatura, Gerenciar assinatura (portal do cliente da Stripe).</p>
+          </details>
+          <details>
+            <summary>Meus dados ficam misturados com os de outros clientes?</summary>
+            <p>Não. Cada conta usa as próprias chaves e os dados ficam isolados por usuário.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--cream">
+      <div class="wrap">
+        <div class="final-cta">
+          <h2>Comissão não é lucro.</h2>
+          <p>Veja o que realmente sobra: Shopee, Meta e Pinterest cruzados por SubID.</p>
+          <a class="btn btn-primary" href="#planos">Ver planos</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer__grid">
+        <div class="footer__brand">
+          <a class="brand" href="/">
+            <img src="/assets/SHOPLUTICS.png" alt="" width="34" height="34" />
+            <span class="brand__name">Shopylitcs</span>
+          </a>
+          <p>Analytics de afiliados para quem precisa ver o lucro, e não só o faturamento.</p>
+        </div>
+        <div class="footer__cols">
+          <div class="footer__col">
+            <h4>Produto</h4>
+            <a href="#problema">O problema</a>
+            <a href="#subids">SubIDs</a>
+            <a href="#painel">Painel</a>
+            <a href="#planos">Planos</a>
+          </div>
+          <div class="footer__col">
+            <h4>Conta</h4>
+            <a href="/app">Entrar</a>
+            <a href="#planos">Assinar</a>
+          </div>
+          <div class="footer__col">
+            <h4>Contato</h4>
+            <a href="mailto:jurandy@metricly.com">jurandy@metricly.com</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <span>© <span id="y"></span> Shopylitcs</span>
+        <span>Pagamentos via Stripe</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var y = document.getElementById("y");
+      if (y) y.textContent = String(new Date().getFullYear());
+      var status = document.getElementById("billing-status");
+      var token = localStorage.getItem("metricly_access_token") || "";
+
+      async function loadPlans() {
+        try {
+          var res = await fetch("/api/billing/plans");
+          var data = await res.json();
+          if (!data.success || !Array.isArray(data.plans)) return;
+          data.plans.forEach(function (plan) {
+            var el = document.querySelector('[data-plan="' + plan.id + '"]');
+            if (!el) return;
+            var btn = el.querySelector(".js-checkout");
+            if (btn && plan.priceId) btn.dataset.priceId = plan.priceId;
+          });
+        } catch (_) {}
+      }
+
+      async function startCheckout(priceId, btn) {
+        if (status) status.textContent = "";
+        if (btn) btn.disabled = true;
+        try {
+          var headers = { "Content-Type": "application/json" };
+          if (token) headers.Authorization = "Bearer " + token;
+          var res = await fetch("/api/billing/checkout", {
+            method: "POST",
+            headers: headers,
+            body: JSON.stringify({ priceId: priceId }),
+          });
+          var data = await res.json();
+          if (!data.success || !data.url) throw new Error(data.error || "Não foi possível iniciar o checkout");
+          window.location.href = data.url;
+        } catch (err) {
+          if (status) status.textContent = err.message || String(err);
+          if (btn) btn.disabled = false;
+        }
+      }
+
+      document.querySelectorAll(".js-checkout").forEach(function (btn) {
+        btn.addEventListener("click", function () { startCheckout(btn.dataset.priceId, btn); });
+      });
+      loadPlans();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Backup — Index Visual & Arquitetura</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+<style>
+  /* ============================================================
+     RESET / BASE — imita o entorno do app (Tailwind-like utilities)
+     ============================================================ */
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family: system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,Helvetica,Arial,sans-serif;
+    background:#f1f5f9;
+    color:#0f172a;
+    line-height:1.4;
+    -webkit-font-smoothing:antialiased;
+  }
+  .hidden{display:none !important}
+  .space-y-3>*+*{margin-top:.75rem}
+  .space-y-4>*+*{margin-top:1rem}
+  .space-y-6>*+*{margin-top:1.5rem}
+  .flex{display:flex}.flex-col{flex-direction:column}
+  .flex-1{flex:1}.items-center{align-items:center}.items-end{align-items:flex-end}
+  .justify-between{justify-content:space-between}.justify-end{justify-content:flex-end}
+  .gap-2{gap:.5rem}.gap-3{gap:.75rem}.flex-wrap{flex-wrap:wrap}
+  .max-w-6xl{max-width:72rem}.w-full{width:100%}
+  .min-w-0{min-width:0}.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .shrink-0{flex-shrink:0}.mt-1{margin-top:.25rem}.mt-2{margin-top:.5rem}.mt-3{margin-top:.75rem}
+  .mb-1{margin-bottom:.25rem}.mb-2{margin-bottom:.5rem}
+  .pt-2{padding-top:.5rem}.text-center{text-align:center}
+  .text-xs{font-size:.75rem}.text-sm{font-size:.875rem}
+  .text-slate-500{color:#64748b}.text-slate-600{color:#475569}.text-slate-800{color:#1e293b}.text-slate-900{color:#0f172a}
+  .text-2xl{font-size:1.5rem}
+  .font-extrabold{font-weight:800}.font-semibold{font-weight:600}
+  .tracking-wider{letter-spacing:.05em}.uppercase{text-transform:uppercase}
+  .rounded-2xl{border-radius:1rem}
+  .p-5{padding:1.25rem}.shadow-sm{box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  .search{border:1px solid #e2e8f0;border-radius:.65rem;padding:.55rem .75rem;font-size:.8rem;background:#fff;outline:none;font-family:inherit}
+  .search:focus{border-color:#f97316}
+  .btn{border:0;border-radius:.65rem;padding:.55rem .95rem;font-size:.75rem;font-weight:800;cursor:pointer;font-family:inherit}
+  .btn.brand{background:#ea580c;color:#fff}
+  .btn.ghost{background:#fff;border:1px solid #e2e8f0;color:#334155}
+  .btn.sm{padding:.45rem .8rem;font-size:.72rem}
+  .light-card{background:#fff}
+  .form-status{font-size:.75rem;margin:0}
+  .form-status.ok{color:#059669}
+  .form-status.err{color:#be123c}
+
+  /* ============================================================
+     COPIA FIEL DE backup.css
+     ============================================================ */
+  .bk-pro { --bk-orange: #ea580c; --bk-navy: #0f172a; }
+  .bk-hero{display:flex;flex-direction:column;gap:1rem;padding:1.25rem 1.5rem;border-radius:1.25rem;background:linear-gradient(105deg,#0f172a 0%,#1e293b 55%,#334155 100%);color:#fff;position:relative;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.18)}
+  @media(min-width:768px){.bk-hero{flex-direction:row;align-items:center;justify-content:space-between}}
+  .bk-hero-title{margin:0;font-size:1.25rem;font-weight:800;display:flex;align-items:center;gap:.5rem}
+  .bk-hero-title i{color:#f97316}
+  .bk-hero-desc{margin:.4rem 0 0;font-size:.75rem;color:#94a3b8;font-weight:500;max-width:36rem;line-height:1.45}
+  .bk-hero-btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;padding:.75rem 1.25rem;border:0;border-radius:.75rem;background:#ea580c;color:#fff;font-size:.75rem;font-weight:800;cursor:pointer;white-space:nowrap;flex-shrink:0}
+  .bk-hero-btn:hover{background:#c2410c}
+  .bk-kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}
+  @media(min-width:640px){.bk-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media(min-width:1024px){.bk-kpi-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
+  .bk-kpi{background:#fff;border:1px solid #e2e8f0;border-radius:.85rem;padding:.75rem .85rem;border-top:3px solid #94a3b8;min-width:0}
+  .bk-kpi[data-k="backups"]{border-top-color:#3b82f6}
+  .bk-kpi[data-k="cobertura"]{border-top-color:#22c55e}
+  .bk-kpi[data-k="fora"]{border-top-color:#ef4444}
+  .bk-kpi[data-k="sinais"]{border-top-color:#f59e0b}
+  .bk-kpi[data-k="scan"]{border-top-color:#8b5cf6}
+  .bk-kpi[data-k="comissao"]{border-top-color:#10b981}
+  .bk-kpi[data-k="trocar"]{border-top-color:#f97316}
+  .bk-kpi[data-k="variantes"]{border-top-color:#0ea5e9}
+  .bk-kpi[data-k="loja"]{border-top-color:#64748b}
+  .bk-kpi-label{display:block;font-size:.62rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#64748b;margin-bottom:.25rem}
+  .bk-kpi strong{display:block;font-size:1.15rem;font-weight:800;color:#0f172a;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bk-kpi em{display:block;margin-top:.2rem;font-size:.65rem;font-style:normal;color:#94a3b8;font-weight:600;line-height:1.3}
+  @media(min-width:1024px){.bk-kpi--wide{grid-column:span 2}}
+  .bk-tabs{display:flex;gap:.15rem;overflow-x:auto;border-bottom:1px solid #e2e8f0}
+  .backup-tab{border:0;background:transparent;padding:.7rem .9rem;font-size:.72rem;font-weight:800;color:#64748b;border-bottom:2px solid transparent;border-radius:.75rem .75rem 0 0;white-space:nowrap;cursor:pointer;font-family:inherit}
+  .backup-tab:hover{color:#0f172a;background:#f8fafc}
+  .backup-tab.is-active{color:#ea580c;border-bottom-color:#ea580c;background:rgba(255,247,237,.7)}
+  .bk-toolbar{display:flex;flex-direction:column;gap:.75rem;background:#fff;border:1px solid #e2e8f0;border-radius:1rem;padding:.9rem;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  @media(min-width:768px){.bk-toolbar{flex-direction:row;align-items:center}}
+  .bk-toolbar-search{position:relative;flex:1;width:100%}
+  .bk-toolbar-search i{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.75rem}
+  .bk-toolbar-search input{width:100%;padding:.65rem .9rem .65rem 2.2rem;border:1px solid #e2e8f0;border-radius:.75rem;font-size:.75rem;font-weight:600;font-family:inherit}
+  .bk-toolbar-actions{display:flex;align-items:center;gap:.5rem;width:100%;flex-wrap:wrap}
+  @media(min-width:768px){.bk-toolbar-actions{width:auto}}
+  .bk-nicho-label{font-size:.7rem;font-weight:800;color:#64748b}
+  .bk-nicho-select{flex:1;min-width:9rem;padding:.65rem .75rem;border:1px solid #e2e8f0;border-radius:.75rem;font-size:.7rem;font-weight:800;text-transform:uppercase;background:#fff;font-family:inherit}
+  .bk-btn-dark{display:inline-flex;align-items:center;gap:.35rem;padding:.65rem .95rem;border:0;border-radius:.75rem;background:#0f172a;color:#fff;font-size:.72rem;font-weight:800;cursor:pointer;white-space:nowrap;font-family:inherit}
+  .bk-btn-dark:hover{background:#1e293b}
+  .bk-chip{border:1px solid #e2e8f0;background:#f8fafc;color:#475569;font-size:.7rem;font-weight:700;padding:.35rem .7rem;border-radius:999px;cursor:pointer;font-family:inherit}
+  .bk-chip.is-active{background:#0f172a;color:#fff;border-color:#0f172a}
+  .bk-gcard{background:#fff;border:1px solid #e2e8f0;border-radius:1rem;overflow:hidden;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  .bk-gcard:hover{border-color:#cbd5e1}
+  .bk-gcard-row{display:flex;flex-direction:column;gap:1rem;padding:1rem 1.1rem}
+  @media(min-width:768px){.bk-gcard-row{flex-direction:row;align-items:center;justify-content:space-between}}
+  .bk-gcard-main{display:flex;align-items:center;gap:1rem;min-width:0;flex:1;cursor:pointer}
+  .bk-gthumb{position:relative;flex-shrink:0}
+  .bk-gthumb-ph{width:4.5rem;height:4.5rem;border-radius:.75rem;border:1px solid #e2e8f0;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#94a3b8}
+  .bk-niche{position:absolute;bottom:-.2rem;right:-.2rem;background:#ea580c;color:#fff;font-size:.5rem;font-weight:800;padding:.15rem .35rem;border-radius:.35rem;border:1px solid #fff;text-transform:uppercase}
+  .bk-gname{margin:0;font-size:.95rem;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:.4rem;min-width:0}
+  .bk-gname i{color:#f97316;flex-shrink:0}
+  .bk-glink{margin-top:.25rem;font-size:.72rem;color:#64748b;font-weight:600;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+  .bk-glink strong{color:#ea580c;font-weight:800}
+  .bk-reservas{background:#f1f5f9;color:#334155;padding:.1rem .45rem;border-radius:.45rem;font-size:.62rem;font-weight:800}
+  .bk-gfin{display:flex;flex-wrap:wrap;gap:.75rem 1rem;margin-top:.45rem;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#94a3b8}
+  .bk-gfin b{font-size:.75rem;margin-left:.2rem}
+  .bk-gfin .is-money{color:#059669}
+  .bk-gfin .is-gmv{color:#0f172a}
+  .bk-gactions{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem;justify-content:flex-start}
+  @media(min-width:768px){.bk-gactions{justify-content:flex-end}}
+  .bk-alert-pill{display:inline-flex;align-items:center;gap:.25rem;background:#fef3c7;color:#78350f;border:1px solid #fcd34d;font-size:.62rem;font-weight:800;padding:.25rem .6rem;border-radius:999px}
+  .bk-btn-vinc{background:#fff7ed;border:1px solid #fed7aa;color:#ea580c;font-size:.72rem;font-weight:800;padding:.4rem .75rem;border-radius:.75rem;cursor:pointer;font-family:inherit}
+  .bk-btn-vinc:hover{background:#ffedd5}
+  .bk-icon-btn{border:0;background:transparent;color:#94a3b8;padding:.45rem;border-radius:.65rem;cursor:pointer;font-family:inherit}
+  .bk-icon-btn:hover{color:#2563eb;background:#f1f5f9}
+  .bk-icon-btn.danger:hover{color:#e11d48}
+  .bk-gbody{border-top:1px solid #f1f5f9;background:rgba(248,250,252,.6);padding:1rem 1.1rem}
+  .bk-advisor{background:linear-gradient(135deg,#fffbeb,#fff7ed);border:1px solid #fde68a;border-radius:1rem;padding:.9rem;margin-bottom:.9rem}
+  .bk-advisor-title{font-size:.7rem;font-weight:800;text-transform:uppercase;color:#92400e;margin-bottom:.55rem;display:flex;align-items:center;gap:.35rem}
+  .bk-insight{background:#fff;border:1px solid #fde68a;border-radius:.75rem;padding:.7rem;margin-top:.45rem;display:flex;flex-direction:column;gap:.5rem}
+  @media(min-width:640px){.bk-insight{flex-direction:row;justify-content:space-between;align-items:center}}
+  .bk-insight b{display:block;font-size:.75rem;color:#0f172a}
+  .bk-insight p{margin:.2rem 0 0;font-size:.72rem;color:#475569}
+  .bk-insight button{border:0;background:#0f172a;color:#fff;font-size:.65rem;font-weight:800;padding:.45rem .7rem;border-radius:.65rem;cursor:pointer;white-space:nowrap;font-family:inherit}
+  .bk-sort-row{display:flex;flex-wrap:wrap;gap:.35rem;align-items:center;margin-bottom:.75rem;font-size:.72rem;color:#64748b}
+  .bk-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}
+  @media(min-width:640px){.bk-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media(min-width:900px){.bk-tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  @media(min-width:1100px){.bk-tiles{grid-template-columns:repeat(5,minmax(0,1fr))}}
+  .bk-tile{background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;overflow:hidden;position:relative;display:flex;flex-direction:column}
+  .bk-tile.is-main{border:2px solid #f97316}
+  .bk-tile-badge{position:absolute;top:0;left:0;z-index:1;background:#3b82f6;color:#fff;font-size:.58rem;font-weight:700;padding:.15rem .45rem;border-radius:0 0 .4rem 0}
+  .bk-tile.is-main .bk-tile-badge{background:#f97316}
+  .bk-tile-badge.is-sug{background:#16a34a}
+  .bk-tile-ph{width:100%;aspect-ratio:1;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:1.6rem}
+  .bk-tile-body{padding:.5rem;display:flex;flex-direction:column;gap:.25rem;flex:1}
+  .bk-tile-name{font-size:.68rem;color:#0f172a;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:1.75rem}
+  .bk-tile-price{font-size:.8rem;font-weight:800;color:#ee4d2d}
+  .bk-tile-com{display:inline-block;font-size:.6rem;font-weight:700;background:#fff0eb;color:#ee4d2d;padding:.1rem .35rem;border-radius:.3rem}
+  .bk-tile-brl{font-size:.6rem;font-weight:700;color:#16a34a;margin-left:.25rem}
+  .bk-tile-acts{display:flex;gap:.25rem;margin-top:auto;padding-top:.25rem}
+  .bk-tile-acts button{flex:1;border:0;border-radius:.4rem;padding:.35rem;font-size:.65rem;font-weight:700;color:#fff;background:#0f172a;cursor:pointer;font-family:inherit}
+  .bk-tile.is-main .bk-tile-acts button{background:#ee4d2d}
+  .bk-add-tile{border:2px dashed #cbd5e1;border-radius:.75rem;background:transparent;min-height:11rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.35rem;color:#94a3b8;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit}
+  .bk-add-tile:hover{border-color:#fdba74;color:#ea580c;background:rgba(255,247,237,.4)}
+  .bk-card{background:#fff;border:1px solid #e2e8f0;border-radius:1rem;padding:1rem}
+  .bk-card--compact{padding:.85rem}
+  .bk-card-top{display:flex;gap:.85rem}
+  .bk-thumb-ph{width:4.5rem;height:4.5rem;border-radius:.65rem;border:1px solid #e2e8f0;background:#f1f5f9;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:1.4rem}
+  .bk-thumb-ph.sm{width:3.5rem;height:3.5rem;font-size:1.1rem}
+  .bk-title{font-size:.9rem;font-weight:800;color:#0f172a}
+  .bk-meta{font-size:.72rem;color:#64748b;margin-top:.15rem}
+  .bk-line{font-size:.75rem;color:#334155;margin-top:.25rem;font-weight:600}
+  .bk-period{margin-top:.55rem;font-size:.72rem;color:#475569;background:#f8fafc;padding:.35rem .55rem;border-radius:.45rem}
+  .bk-period.is-crit{color:#be123c;background:#fff1f2}
+  .bk-actions{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.65rem}
+  .bk-act{border:1px solid #e2e8f0;background:#fff;border-radius:.5rem;padding:.35rem .55rem;font-size:.68rem;font-weight:700;color:#334155;cursor:pointer;font-family:inherit}
+  .bk-act:hover{background:#f8fafc}
+  .bk-act.danger{color:#e11d48}
+  .bk-alert{font-size:.7rem;padding:.3rem .45rem;border-radius:.4rem;margin-top:.3rem}
+  .bk-alert.is-crit{background:#fff1f2;color:#9f1239}
+  .bk-alert.is-warn{background:#fffbeb;color:#92400e}
+  .bk-empty{text-align:center;padding:2.5rem 1rem;color:#64748b;font-size:.85rem;background:#f8fafc;border:1px dashed #e2e8f0;border-radius:1rem}
+  .bk-empty i{display:block;font-size:1.6rem;color:#cbd5e1;margin-bottom:.4rem}
+  .bk-empty p{margin:.35rem 0 0;font-size:.72rem;color:#94a3b8}
+  .bk-mine-card{display:flex;justify-content:space-between;gap:.75rem;align-items:center;background:#fff;border:1px solid #e2e8f0;border-radius:.85rem;padding:.85rem 1rem}
+  .bk-mine-card .bk-title{font-size:.82rem}
+  .bk-cfg-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;font-size:.8rem;font-weight:600;color:#334155;padding:.55rem 0;border-bottom:1px solid #f1f5f9}
+  .bk-subtabs{display:flex;gap:.35rem;flex-wrap:wrap}
+
+  /* ============================================================
+     PAINEL DE ARQUITETURA (só existe neste index)
+     ============================================================ */
+  :root{
+    --idx-accent:#ea580c;
+    --idx-accent-2:#f97316;
+    --idx-panel-bg:#0f172a;
+    --idx-panel-fg:#e2e8f0;
+  }
+  #idx-fab{
+    position:fixed;bottom:1.25rem;right:1.25rem;z-index:60;
+    background:var(--idx-accent);color:#fff;border:0;border-radius:999px;
+    padding:.85rem 1.15rem;font-weight:800;font-size:.8rem;letter-spacing:.02em;
+    box-shadow:0 12px 30px rgba(234,88,12,.35);cursor:pointer;display:inline-flex;align-items:center;gap:.5rem;
+    font-family:inherit;
+  }
+  #idx-fab:hover{background:#c2410c}
+  #idx-panel{
+    position:fixed;top:0;right:0;bottom:0;width:min(440px,100vw);
+    background:var(--idx-panel-bg);color:var(--idx-panel-fg);
+    box-shadow:-15px 0 40px rgba(0,0,0,.35);z-index:70;
+    transform:translateX(100%);transition:transform .25s ease;
+    display:flex;flex-direction:column;
+  }
+  #idx-panel.is-open{transform:translateX(0) !important}
+  #idx-panel-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:1rem 1.15rem;border-bottom:1px solid rgba(255,255,255,.08);
+    background:linear-gradient(105deg,#0b1220,#1e293b);
+  }
+  #idx-panel-head h3{margin:0;font-size:.9rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:.5rem}
+  #idx-panel-head h3 i{color:var(--idx-accent-2)}
+  #idx-panel-close{background:transparent;border:0;color:#94a3b8;font-size:1.1rem;cursor:pointer}
+  #idx-panel-close:hover{color:#fff}
+  #idx-panel-body{padding:1rem 1.15rem;overflow:auto;flex:1}
+  .idx-section{margin-bottom:1.15rem}
+  .idx-section h4{margin:0 0 .5rem;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--idx-accent-2);font-weight:800}
+  .idx-item{
+    display:block;width:100%;text-align:left;background:rgba(255,255,255,.03);
+    border:1px solid rgba(255,255,255,.06);border-radius:.6rem;padding:.55rem .7rem;
+    margin-bottom:.35rem;color:#e2e8f0;font-family:inherit;font-size:.74rem;
+    cursor:pointer;transition:background .15s,border-color .15s;
+  }
+  .idx-item:hover{background:rgba(234,88,12,.15);border-color:rgba(234,88,12,.5)}
+  .idx-item.is-active{background:rgba(234,88,12,.25);border-color:var(--idx-accent-2)}
+  .idx-item b{color:#fff;font-weight:800}
+  .idx-item small{display:block;color:#94a3b8;font-size:.65rem;margin-top:.15rem;font-weight:500}
+  .idx-code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.7rem;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.08);border-radius:.35rem;padding:.1rem .35rem;color:#fbbf24}
+  .idx-tag{display:inline-block;background:#1f2937;border:1px solid #374151;color:#e5e7eb;border-radius:.35rem;padding:.1rem .35rem;font-size:.62rem;font-weight:700;letter-spacing:.02em;font-family:ui-monospace,monospace;margin-right:.25rem}
+  .idx-tag.get{background:#065f46;border-color:#047857;color:#a7f3d0}
+  .idx-tag.post{background:#7c2d12;border-color:#c2410c;color:#fed7aa}
+
+  /* Modal detalhe */
+  #idx-modal{
+    position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:80;
+    display:none;align-items:center;justify-content:center;padding:1rem;
+  }
+  #idx-modal.is-open{display:flex}
+  #idx-modal .box{
+    background:#fff;border-radius:1rem;max-width:640px;width:100%;
+    max-height:85vh;overflow:auto;padding:1.25rem;
+  }
+  #idx-modal h3{margin:0 0 .5rem;font-size:1.05rem;color:#0f172a;font-weight:800;display:flex;gap:.5rem;align-items:center}
+  #idx-modal h3 i{color:var(--idx-accent)}
+  #idx-modal .row{padding:.55rem 0;border-bottom:1px solid #f1f5f9;font-size:.85rem;color:#334155}
+  #idx-modal .row:last-child{border:0}
+  #idx-modal .row b{display:block;font-size:.7rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem}
+  #idx-modal code{background:#f1f5f9;border-radius:.3rem;padding:.1rem .35rem;font-size:.8rem;color:#0f172a;font-family:ui-monospace,monospace}
+  #idx-modal .close{margin-top:1rem;background:#0f172a;color:#fff;border:0;padding:.55rem 1rem;border-radius:.5rem;font-weight:800;cursor:pointer;font-family:inherit}
+
+  /* Highlight quando um elemento é focado a partir do index */
+  [data-idx-target].is-highlighted{
+    outline:3px solid var(--idx-accent);
+    outline-offset:3px;
+    animation:idxPulse 1.2s ease-out;
+  }
+  @keyframes idxPulse{
+    0%{box-shadow:0 0 0 0 rgba(234,88,12,.55)}
+    100%{box-shadow:0 0 0 30px rgba(234,88,12,0)}
+  }
+
+  /* Layout do index (topo) */
+  .idx-header{
+    background:linear-gradient(105deg,#0f172a 0%,#1e293b 55%,#334155 100%);
+    color:#fff;padding:1.75rem 1.5rem;border-radius:1.25rem;margin:1.25rem 1.25rem 0;
+    box-shadow:0 10px 30px rgba(15,23,42,.2);
+  }
+  .idx-header h1{margin:0;font-size:1.35rem;font-weight:800;display:flex;align-items:center;gap:.5rem}
+  .idx-header h1 i{color:var(--idx-accent-2)}
+  .idx-header p{margin:.4rem 0 0;color:#94a3b8;font-size:.85rem;max-width:60ch;line-height:1.5}
+  .idx-header .idx-legend{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.85rem}
+  .idx-header .idx-legend span{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);padding:.25rem .55rem;border-radius:.5rem;font-size:.72rem}
+  .idx-shell{padding:1.25rem}
+
+  /* wrapper para o clone visual da ferramenta */
+  #stage{
+    background:#f8fafc;border:1px solid #e2e8f0;border-radius:1.25rem;
+    padding:1.25rem;margin-top:1rem;
+  }
+</style>
+</head>
+<body>
+
+<!-- ================================================================
+     TOPO — descrição do documento
+     ================================================================ -->
+<div class="idx-header">
+  <h1><i class="fa-solid fa-briefcase"></i> Backup &amp; Contingência Pro — Index Visual</h1>
+  <p>Espelho fiel do estado atual da ferramenta <b>Backup</b> (aba <code>#view-data</code>). Cada bloco é clicável para revelar como é montado, que endpoint da API alimenta ele e onde mora no código. Use este arquivo como referência de design para pedir melhorias a outra IA sem perder o contexto da lógica atual.</p>
+  <div class="idx-legend">
+    <span>📁 <code>public/index.html</code> — markup (linhas 870–1011)</span>
+    <span>📁 <code>public/backup.js</code> — <code>window.BackupUI</code> (1200 linhas)</span>
+    <span>📁 <code>public/backup.css</code> — todos os estilos <code>.bk-*</code></span>
+    <span>📁 <code>server/backup.js</code> — lógica &amp; Shopee GraphQL (1290 linhas)</span>
+    <span>📁 <code>server/index.js</code> — roteamento <code>/api/backup/*</code> (linhas 689–950)</span>
+  </div>
+</div>
+
+<div class="idx-shell">
+  <div id="stage">
+
+    <!-- ================================================================
+         CLONE FIEL DA FERRAMENTA
+         ================================================================ -->
+    <section id="view-data" class="view space-y-6">
+      <div class="flex flex-col justify-between gap-3" style="flex-direction:row;align-items:flex-end">
+        <div>
+          <div class="text-xs font-extrabold tracking-wider text-slate-500 uppercase mb-1">Shopee</div>
+          <h1 class="text-2xl font-extrabold text-slate-900">Backup</h1>
+          <p class="text-xs text-slate-500 mt-1">Backup &amp; Contingência Pro — proteja links e monitore reservas.</p>
+        </div>
+        <button type="button" class="btn ghost sm">Voltar ao painel</button>
+      </div>
+
+      <div id="backup-root" class="bk-pro space-y-4 max-w-6xl">
+
+        <!-- HERO -->
+        <div class="bk-hero" data-idx-target="hero">
+          <div>
+            <h2 class="bk-hero-title"><i class="fa-solid fa-briefcase"></i> Backup &amp; Contingência Pro</h2>
+            <p class="bk-hero-desc">Proteja links, garimpe por histórico real e radar de recompra. Preço e comissão atualizam automaticamente 3x/dia (6h, 14h e 22h BRT).</p>
+          </div>
+          <button type="button" class="bk-hero-btn" id="btn-backup-varrer" data-idx-target="btn-varrer">
+            <i class="fa-solid fa-rotate"></i>
+            <span>Varrer todas as ofertas</span>
+          </button>
+        </div>
+
+        <!-- KPI GRID -->
+        <div class="bk-kpi-grid" id="backup-kpi-grid" data-idx-target="kpi-grid">
+          <div class="bk-kpi" data-k="backups"    data-idx-target="kpi-backups"><span class="bk-kpi-label">Backups</span><strong>128</strong><em>96 em grupo · 32 livres</em></div>
+          <div class="bk-kpi" data-k="cobertura"  data-idx-target="kpi-cobertura"><span class="bk-kpi-label">Cobertura API</span><strong>112</strong><em>87% retornam no afiliado</em></div>
+          <div class="bk-kpi" data-k="fora"       data-idx-target="kpi-fora"><span class="bk-kpi-label">Fora do afiliado</span><strong>16</strong><em>revisar link</em></div>
+          <div class="bk-kpi" data-k="sinais"     data-idx-target="kpi-sinais"><span class="bk-kpi-label">Sinais críticos</span><strong>9</strong><em>16 fora do afiliado · restante revisar</em></div>
+          <div class="bk-kpi" data-k="scan"       data-idx-target="kpi-scan"><span class="bk-kpi-label">Scan mais antigo</span><strong>há 12h</strong><em>novo há 2 min</em></div>
+          <div class="bk-kpi" data-k="comissao"   data-idx-target="kpi-comissao"><span class="bk-kpi-label">Comissão média</span><strong>R$ 3,42</strong><em>topo R$ 24,90</em></div>
+          <div class="bk-kpi bk-kpi--wide" data-k="trocar"    data-idx-target="kpi-trocar"><span class="bk-kpi-label">Trocar principal</span><strong>4</strong><em>-R$ 62,10 Wide Jeans: backup rendeu mais</em></div>
+          <div class="bk-kpi bk-kpi--wide" data-k="variantes" data-idx-target="kpi-variantes"><span class="bk-kpi-label">Variantes com faixa</span><strong>73</strong><em>57% dos itens (prefixo + sufixo)</em></div>
+          <div class="bk-kpi bk-kpi--wide" data-k="loja"      data-idx-target="kpi-loja"><span class="bk-kpi-label">Loja com mais backups</span><strong>Studio Bella</strong><em>18 itens: Vibe Store 14, Casa Nova 11</em></div>
+        </div>
+
+        <!-- TABS -->
+        <div class="bk-tabs" id="backup-tabs" data-idx-target="tabs">
+          <button type="button" class="backup-tab is-active" data-backup-tab="grupos">Ninhos/Grupos (12)</button>
+          <button type="button" class="backup-tab" data-backup-tab="cadastrar">+ Cadastrar link</button>
+          <button type="button" class="backup-tab" data-backup-tab="listagem">Meus Backups (128)</button>
+          <button type="button" class="backup-tab" data-backup-tab="garimpo">Garimpo inteligente</button>
+          <button type="button" class="backup-tab" data-backup-tab="recompra">Radar de recompra</button>
+          <button type="button" class="backup-tab" data-backup-tab="similar">Rastrear similares</button>
+          <button type="button" class="backup-tab" data-backup-tab="config">Configurações</button>
+        </div>
+
+        <!-- ABA: GRUPOS -->
+        <div id="backup-tab-grupos" class="space-y-4" data-idx-target="tab-grupos">
+          <div class="bk-toolbar" data-idx-target="grupos-toolbar">
+            <div class="bk-toolbar-search">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="search" placeholder="Pesquisar por nicho, nome do grupo ou produto principal…" />
+            </div>
+            <div class="bk-toolbar-actions">
+              <label class="bk-nicho-label">Nicho:</label>
+              <select class="bk-nicho-select">
+                <option>TODOS OS NICHOS</option>
+                <option>MODA FEMININA</option>
+                <option>BELEZA</option>
+                <option>CASA</option>
+              </select>
+              <button type="button" class="bk-btn-dark" data-idx-target="btn-criar-grupo"><i class="fa-solid fa-plus"></i> Criar grupo</button>
+            </div>
+          </div>
+
+          <div id="backup-grupos-list" class="space-y-3">
+
+            <!-- Card grupo 1 (expandido) -->
+            <article class="bk-gcard" data-idx-target="gcard">
+              <div class="bk-gcard-row">
+                <div class="bk-gcard-main">
+                  <div class="bk-gthumb">
+                    <div class="bk-gthumb-ph"><i class="fa-solid fa-box"></i></div>
+                    <span class="bk-niche">MODA FEM.</span>
+                  </div>
+                  <div class="min-w-0">
+                    <h4 class="bk-gname"><i class="fa-solid fa-bullseye"></i><span>Wide Jeans Premium</span></h4>
+                    <div class="bk-glink">
+                      <span>Link ativo: <strong>Wide Jeans Cintura Alta Preto</strong></span>
+                      <span class="bk-reservas">4 reserva(s)</span>
+                    </div>
+                    <div class="bk-gfin">
+                      <span>Lucro histórico: <b class="is-money">R$ 1.847,00</b></span>
+                      <span>GMV: <b class="is-gmv">R$ 18.470,00</b></span>
+                    </div>
+                  </div>
+                </div>
+                <div class="bk-gactions">
+                  <span class="bk-alert-pill"><i class="fa-solid fa-lightbulb"></i> 2 alertas</span>
+                  <button type="button" class="bk-btn-vinc" data-idx-target="btn-vinc">+ Vincular backup</button>
+                  <button type="button" class="bk-icon-btn" title="Atualizar grupo" data-idx-target="btn-refresh-grupo"><i class="fa-solid fa-rotate"></i></button>
+                  <button type="button" class="bk-icon-btn danger" title="Remover grupo" data-idx-target="btn-del-grupo"><i class="fa-solid fa-trash"></i></button>
+                  <button type="button" class="bk-icon-btn" aria-label="Expandir"><i class="fa-solid fa-chevron-down"></i></button>
+                </div>
+              </div>
+              <div class="bk-gbody">
+                <!-- Advisor -->
+                <div class="bk-advisor" data-idx-target="advisor">
+                  <div class="bk-advisor-title"><i class="fa-solid fa-lightbulb"></i> Contingência Advisor</div>
+                  <div class="bk-insight">
+                    <div>
+                      <b>Oportunidade de maior margem</b>
+                      <p>O backup "Wide Jeans Azul Petit" rende R$ 4,20 a mais por venda.</p>
+                    </div>
+                    <button type="button">Rotacionar agora</button>
+                  </div>
+                </div>
+
+                <!-- Sort chips -->
+                <div class="bk-sort-row">
+                  <span>Ordenar por:</span>
+                  <button class="bk-chip is-active">Comissão</button>
+                  <button class="bk-chip">Rating</button>
+                  <button class="bk-chip">Vendas</button>
+                </div>
+
+                <!-- Tiles -->
+                <div class="bk-tiles">
+                  <div class="bk-tile is-main" data-idx-target="tile-principal">
+                    <div class="bk-tile-badge">Principal</div>
+                    <div class="bk-tile-ph"><i class="fa-solid fa-box"></i></div>
+                    <div class="bk-tile-body">
+                      <div class="bk-tile-name">Wide Jeans Cintura Alta Preto Feminino</div>
+                      <div class="bk-tile-price">R$ 89,90</div>
+                      <div><span class="bk-tile-com">14% comissão</span><span class="bk-tile-brl">+R$ 12,58</span></div>
+                      <div class="bk-meta">2.317 vendidos</div>
+                      <div class="bk-tile-acts">
+                        <button>Obter link</button>
+                      </div>
+                      <button class="bk-btn-vinc mt-1 w-full" style="width:100%">Pausar e trocar</button>
+                    </div>
+                  </div>
+
+                  <div class="bk-tile" data-idx-target="tile-backup">
+                    <div class="bk-tile-badge is-sug">Backup 1 · sugerido</div>
+                    <div class="bk-tile-ph"><i class="fa-solid fa-box"></i></div>
+                    <div class="bk-tile-body">
+                      <div class="bk-tile-name">Wide Jeans Azul Petit</div>
+                      <div class="bk-tile-price">R$ 79,90</div>
+                      <div><span class="bk-tile-com">21% comissão</span><span class="bk-tile-brl">+R$ 16,78</span></div>
+                      <div class="bk-meta">1.482 vendidos</div>
+                      <div class="bk-tile-acts">
+                        <button>Obter link</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="bk-tile">
+                    <div class="bk-tile-badge">Backup 2</div>
+                    <div class="bk-tile-ph"><i class="fa-solid fa-box"></i></div>
+                    <div class="bk-tile-body">
+                      <div class="bk-tile-name">Wide Jeans Bege Clássico</div>
+                      <div class="bk-tile-price">R$ 94,50</div>
+                      <div><span class="bk-tile-com">10% comissão</span><span class="bk-tile-brl">+R$ 9,45</span></div>
+                      <div class="bk-meta">876 vendidos</div>
+                      <div class="bk-tile-acts">
+                        <button>Obter link</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button class="bk-add-tile" data-idx-target="tile-add">
+                    <i class="fa-solid fa-plus"></i><span>Adicionar backup</span>
+                  </button>
+                </div>
+              </div>
+            </article>
+
+            <!-- Card grupo 2 (colapsado) -->
+            <article class="bk-gcard">
+              <div class="bk-gcard-row">
+                <div class="bk-gcard-main">
+                  <div class="bk-gthumb">
+                    <div class="bk-gthumb-ph"><i class="fa-solid fa-box"></i></div>
+                    <span class="bk-niche">BELEZA</span>
+                  </div>
+                  <div class="min-w-0">
+                    <h4 class="bk-gname"><i class="fa-solid fa-bullseye"></i><span>Sérum Vitamina C</span></h4>
+                    <div class="bk-glink">
+                      <span>Link ativo: <strong>Sérum Anti-Idade 30ml</strong></span>
+                      <span class="bk-reservas">3 reserva(s)</span>
+                    </div>
+                    <div class="bk-gfin">
+                      <span>Lucro histórico: <b class="is-money">R$ 924,50</b></span>
+                      <span>GMV: <b class="is-gmv">R$ 9.245,00</b></span>
+                    </div>
+                  </div>
+                </div>
+                <div class="bk-gactions">
+                  <button type="button" class="bk-btn-vinc">+ Vincular backup</button>
+                  <button type="button" class="bk-icon-btn"><i class="fa-solid fa-rotate"></i></button>
+                  <button type="button" class="bk-icon-btn danger"><i class="fa-solid fa-trash"></i></button>
+                  <button type="button" class="bk-icon-btn"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+              </div>
+            </article>
+
+          </div>
+        </div>
+
+        <!-- ABA: CADASTRAR (referência visual, colapsada por padrão) -->
+        <div id="backup-tab-cadastrar" class="hidden space-y-4" data-idx-target="tab-cadastrar">
+          <section class="light-card rounded-2xl p-5 shadow-sm">
+            <label class="text-sm font-semibold text-slate-800 mb-2" style="display:block">Cole o link Shopee</label>
+            <div class="flex gap-2">
+              <input type="url" class="search flex-1" placeholder="https://shopee.com.br/product/SHOP_ID/ITEM_ID" />
+              <button class="btn brand sm" data-idx-target="btn-lookup">Buscar</button>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">Aceita link completo (/product/SHOP/ITEM ou -i.SHOP.ITEM) e tenta resolver links curtos (s.shopee.com.br).</p>
+          </section>
+          <section class="light-card rounded-2xl p-5 shadow-sm">
+            <label class="text-sm font-semibold text-slate-800 mb-2" style="display:block">Ou busque por nome na API Shopee</label>
+            <div class="flex gap-2">
+              <input type="search" class="search flex-1" placeholder="Ex: wide jeans, legging canelada…" />
+              <button class="btn ghost sm" data-idx-target="btn-keyword">Buscar ofertas</button>
+            </div>
+          </section>
+        </div>
+
+        <!-- ABA: LISTAGEM -->
+        <div id="backup-tab-listagem" class="hidden space-y-4" data-idx-target="tab-listagem">
+          <section class="light-card rounded-2xl p-5 shadow-sm space-y-3">
+            <input type="search" class="search w-full" placeholder="Buscar por nome ou apelido…" />
+            <div class="flex gap-2 flex-wrap">
+              <button class="bk-chip is-active">Todos (128)</button>
+              <button class="bk-chip">Com alertas (9)</button>
+              <button class="bk-chip">Principais (12)</button>
+            </div>
+          </section>
+          <div class="space-y-3">
+            <article class="bk-card bk-card--compact">
+              <div class="bk-card-top">
+                <div class="bk-thumb-ph sm"><i class="fa-solid fa-box"></i></div>
+                <div>
+                  <div class="bk-title">★ Wide Jeans Cintura Alta Preto</div>
+                  <div class="bk-meta"><i class="fa-solid fa-store"></i> Studio Bella</div>
+                  <div class="bk-line">R$ 89,90 · 14% (R$ 12,58) · 2.317 vendas</div>
+                  <div class="bk-meta">Atualizado há 2 min · Válido por 43 dias</div>
+                </div>
+              </div>
+              <div class="bk-actions">
+                <button class="bk-act"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+                <button class="bk-act"><i class="fa-solid fa-copy"></i> Copiar link</button>
+                <button class="bk-act"><i class="fa-solid fa-star"></i> Desmarcar</button>
+                <button class="bk-act danger"><i class="fa-solid fa-trash"></i> Remover</button>
+              </div>
+            </article>
+            <article class="bk-card bk-card--compact">
+              <div class="bk-card-top">
+                <div class="bk-thumb-ph sm"><i class="fa-solid fa-box"></i></div>
+                <div>
+                  <div class="bk-title">Legging Canelada Preta</div>
+                  <div class="bk-meta"><i class="fa-solid fa-store"></i> Vibe Store</div>
+                  <div class="bk-line">R$ 49,90 · 0% (R$ 0,00) · 5.104 vendas</div>
+                  <div class="bk-meta">Atualizado há 4h · <span style="color:#be123c">Termina em 3 dia(s)</span></div>
+                </div>
+              </div>
+              <div class="bk-alert is-crit">Fora do programa de afiliados — comissão zerada.</div>
+              <div class="bk-actions">
+                <button class="bk-act"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+                <button class="bk-act"><i class="fa-solid fa-copy"></i> Copiar link</button>
+                <button class="bk-act"><i class="fa-solid fa-star"></i> Marcar</button>
+                <button class="bk-act danger"><i class="fa-solid fa-trash"></i> Remover</button>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <!-- ABA: GARIMPO -->
+        <div id="backup-tab-garimpo" class="hidden space-y-4" data-idx-target="tab-garimpo">
+          <div class="bk-subtabs">
+            <button class="bk-chip is-active">Já vendi</button>
+            <button class="bk-chip">Descoberta</button>
+          </div>
+          <input class="search w-full" placeholder="Buscar por nome ou loja…" />
+          <p class="text-xs text-slate-500">Snapshot 2026-08-18 · 34 produto(s) · fonte: histórico de vendas</p>
+          <div class="space-y-3">
+            <div class="bk-mine-card">
+              <div class="min-w-0 flex gap-3 items-center">
+                <div class="bk-thumb-ph sm"><i class="fa-solid fa-box"></i></div>
+                <div class="min-w-0">
+                  <div class="bk-title truncate">Kit Panelas Antiaderente 5 peças</div>
+                  <div class="bk-meta">Casa Nova · 82 pedidos</div>
+                  <div class="bk-line">R$ 149,90 · 12% · R$ 340,52 · GMV R$ 2.837,66</div>
+                </div>
+              </div>
+              <button class="bk-act">Salvar backup</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ABA: RECOMPRA -->
+        <div id="backup-tab-recompra" class="hidden space-y-4" data-idx-target="tab-recompra">
+          <input class="search w-full" placeholder="Buscar produto para recompra…" />
+          <p class="text-xs text-slate-500">18 candidato(s) a recompra (já vendidos, fora do backup)</p>
+          <div class="bk-mine-card">
+            <div class="min-w-0 flex gap-3 items-center">
+              <div class="bk-thumb-ph sm"><i class="fa-solid fa-box"></i></div>
+              <div class="min-w-0">
+                <div class="bk-title truncate">Difusor Elétrico Aromatizador</div>
+                <div class="bk-meta">Casa Nova · 41 pedidos</div>
+                <div class="bk-line">R$ 39,90 · 8% · R$ 130,88</div>
+              </div>
+            </div>
+            <button class="bk-act">Salvar backup</button>
+          </div>
+        </div>
+
+        <!-- ABA: SIMILARES -->
+        <div id="backup-tab-similar" class="hidden space-y-4" data-idx-target="tab-similar">
+          <section class="light-card rounded-2xl p-5 shadow-sm">
+            <label class="text-sm font-semibold text-slate-800 mb-2" style="display:block">Escolha um produto principal</label>
+            <select class="search w-full"><option>— Selecione —</option></select>
+          </section>
+        </div>
+
+        <!-- ABA: CONFIG -->
+        <div id="backup-tab-config" class="hidden space-y-4" data-idx-target="tab-config">
+          <section class="light-card rounded-2xl p-5 shadow-sm space-y-4">
+            <h3 class="text-sm font-extrabold text-slate-900">Configurações do Contingência Pro</h3>
+            <p class="text-xs text-slate-500">Preferências locais deste navegador. A varredura em lote usa a API Shopee.</p>
+            <label class="bk-cfg-row"><span>Auto-abrir Ninhos/Grupos ao entrar</span><input type="checkbox" checked /></label>
+            <label class="bk-cfg-row"><span>Confirmar antes de varrer todas as ofertas</span><input type="checkbox" checked /></label>
+            <label class="bk-cfg-row"><span>Mostrar KPIs no topo</span><input type="checkbox" checked /></label>
+            <button class="btn brand sm">Salvar preferências</button>
+          </section>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ================================================================
+     PAINEL LATERAL — ÍNDICE / ARQUITETURA
+     ================================================================ -->
+<button id="idx-fab" aria-label="Abrir índice de arquitetura">
+  <i class="fa-solid fa-diagram-project"></i> Índice / Arquitetura
+</button>
+
+<aside id="idx-panel" aria-label="Índice">
+  <div id="idx-panel-head">
+    <h3><i class="fa-solid fa-diagram-project"></i> Estrutura da Ferramenta</h3>
+    <button id="idx-panel-close" aria-label="Fechar">✕</button>
+  </div>
+  <div id="idx-panel-body">
+
+    <div class="idx-section">
+      <h4>🗺 Onde mora no código</h4>
+      <button class="idx-item" data-detail="src-html"><b>Markup principal</b><small><code class="idx-code">public/index.html</code> linhas 870–1011</small></button>
+      <button class="idx-item" data-detail="src-js"><b>Lógica de UI</b><small><code class="idx-code">public/backup.js</code> — <code>window.BackupUI.mount()</code></small></button>
+      <button class="idx-item" data-detail="src-css"><b>Estilos</b><small><code class="idx-code">public/backup.css</code> (prefixo <code>.bk-*</code>)</small></button>
+      <button class="idx-item" data-detail="src-server"><b>Rotas HTTP</b><small><code class="idx-code">server/index.js</code> linhas 689–950</small></button>
+      <button class="idx-item" data-detail="src-service"><b>Serviço &amp; Shopee GraphQL</b><small><code class="idx-code">server/backup.js</code> (1290 linhas)</small></button>
+      <button class="idx-item" data-detail="src-loader"><b>Carregamento lazy</b><small><code class="idx-code">public/app.js</code> linha 1067 — <code>ensureBackupUi()</code></small></button>
+    </div>
+
+    <div class="idx-section">
+      <h4>🎯 Elementos da tela (clique para pular)</h4>
+      <button class="idx-item" data-focus="hero"           data-detail="hero"><b>Hero — banner navy</b><small>título, descrição e botão "Varrer"</small></button>
+      <button class="idx-item" data-focus="btn-varrer"     data-detail="btn-varrer"><b>Botão "Varrer todas as ofertas"</b><small><span class="idx-tag post">POST</span> /api/backup/refresh-all</small></button>
+      <button class="idx-item" data-focus="kpi-grid"       data-detail="kpi-grid"><b>Grid de KPIs (9 cards)</b><small><span class="idx-tag get">GET</span> /api/backup/stats</small></button>
+      <button class="idx-item" data-focus="tabs"           data-detail="tabs"><b>Barra de abas (7 abas)</b><small>state.tab · switch por <code>data-backup-tab</code></small></button>
+      <button class="idx-item" data-focus="grupos-toolbar" data-detail="grupos-toolbar"><b>Toolbar de Grupos</b><small>busca + select nicho + Criar grupo</small></button>
+      <button class="idx-item" data-focus="gcard"          data-detail="gcard"><b>Card de Grupo (Ninho)</b><small>thumb + principal + reservas + advisor</small></button>
+      <button class="idx-item" data-focus="advisor"        data-detail="advisor"><b>Contingência Advisor</b><small>insights automáticos (fora do afiliado / margem)</small></button>
+      <button class="idx-item" data-focus="tile-principal" data-detail="tile-principal"><b>Tile do produto principal</b><small>borda laranja + botão "Pausar e trocar"</small></button>
+      <button class="idx-item" data-focus="tile-backup"    data-detail="tile-backup"><b>Tile de backup</b><small>badge azul, verde se sugerido</small></button>
+      <button class="idx-item" data-focus="tile-add"       data-detail="tile-add"><b>Botão "Adicionar backup"</b><small>abre modal de vinculação</small></button>
+    </div>
+
+    <div class="idx-section">
+      <h4>📑 Abas (clique para trocar)</h4>
+      <button class="idx-item" data-tab="grupos"    data-detail="tab-grupos"><b>1. Ninhos/Grupos</b><small>agrupa principal + reservas</small></button>
+      <button class="idx-item" data-tab="cadastrar" data-detail="tab-cadastrar"><b>2. Cadastrar link</b><small>lookup por URL + busca por keyword</small></button>
+      <button class="idx-item" data-tab="listagem"  data-detail="tab-listagem"><b>3. Meus Backups</b><small>lista solta + filtros (alertas/principais)</small></button>
+      <button class="idx-item" data-tab="garimpo"   data-detail="tab-garimpo"><b>4. Garimpo inteligente</b><small>já vendi × descoberta</small></button>
+      <button class="idx-item" data-tab="recompra"  data-detail="tab-recompra"><b>5. Radar de recompra</b><small>candidatos com histórico fora do backup</small></button>
+      <button class="idx-item" data-tab="similar"   data-detail="tab-similar"><b>6. Rastrear similares</b><small>productOfferV2 da mesma loja</small></button>
+      <button class="idx-item" data-tab="config"    data-detail="tab-config"><b>7. Configurações</b><small>preferências salvas em <code>localStorage</code></small></button>
+    </div>
+
+    <div class="idx-section">
+      <h4>🔌 Endpoints da API (21 rotas)</h4>
+      <button class="idx-item" data-detail="ep-stats"><span class="idx-tag get">GET</span> <b>/api/backup/stats</b><small>alimenta os 9 KPIs</small></button>
+      <button class="idx-item" data-detail="ep-list"><span class="idx-tag get">GET</span> <b>/api/backup</b><small>lista completa dos backups</small></button>
+      <button class="idx-item" data-detail="ep-save"><span class="idx-tag post">POST</span> <b>/api/backup</b><small>salva um produto como backup</small></button>
+      <button class="idx-item" data-detail="ep-lookup"><span class="idx-tag post">POST</span> <b>/api/backup/lookup</b><small>resolve URL Shopee → dados do produto</small></button>
+      <button class="idx-item" data-detail="ep-search"><span class="idx-tag post">POST</span> <b>/api/backup/search</b><small>busca productOfferV2 por keyword</small></button>
+      <button class="idx-item" data-detail="ep-refresh"><span class="idx-tag post">POST</span> <b>/api/backup/refresh</b><small>atualiza 1 item</small></button>
+      <button class="idx-item" data-detail="ep-refreshAll"><span class="idx-tag post">POST</span> <b>/api/backup/refresh-all</b><small>varredura em lote (botão hero)</small></button>
+      <button class="idx-item" data-detail="ep-meta"><span class="idx-tag post">POST</span> <b>/api/backup/meta</b><small>apelido / marcadoPrincipal</small></button>
+      <button class="idx-item" data-detail="ep-delete"><span class="idx-tag post">POST</span> <b>/api/backup/delete</b><small>remove do banco</small></button>
+      <button class="idx-item" data-detail="ep-similares"><span class="idx-tag post">POST</span> <b>/api/backup/similares</b><small>ofertas da mesma loja</small></button>
+      <button class="idx-item" data-detail="ep-garimpo"><span class="idx-tag get">GET</span> <b>/api/backup/garimpo</b><small>portfólio + descoberta</small></button>
+      <button class="idx-item" data-detail="ep-recompra"><span class="idx-tag get">GET</span> <b>/api/backup/recompra</b><small>candidatos a recompra</small></button>
+      <button class="idx-item" data-detail="ep-shortlink"><span class="idx-tag post">POST</span> <b>/api/backup/shortlink</b><small>gera link afiliado curto</small></button>
+      <button class="idx-item" data-detail="ep-grupos-list"><span class="idx-tag get">GET</span> <b>/api/backup/grupos</b><small>lista de grupos completos</small></button>
+      <button class="idx-item" data-detail="ep-grupos-post"><span class="idx-tag post">POST</span> <b>/api/backup/grupos</b><small>cria grupo</small></button>
+      <button class="idx-item" data-detail="ep-grupos-add"><span class="idx-tag post">POST</span> <b>/api/backup/grupos/add</b><small>vincula backup ao grupo</small></button>
+      <button class="idx-item" data-detail="ep-grupos-remove"><span class="idx-tag post">POST</span> <b>/api/backup/grupos/remove-item</b><small>desvincula item</small></button>
+      <button class="idx-item" data-detail="ep-grupos-swap"><span class="idx-tag post">POST</span> <b>/api/backup/grupos/swap</b><small>troca produto principal</small></button>
+      <button class="idx-item" data-detail="ep-grupos-refresh"><span class="idx-tag post">POST</span> <b>/api/backup/grupos/refresh</b><small>refetch de um grupo inteiro</small></button>
+      <button class="idx-item" data-detail="ep-grupos-delete"><span class="idx-tag post">POST</span> <b>/api/backup/grupos/delete</b><small>exclui o grupo</small></button>
+    </div>
+
+    <div class="idx-section">
+      <h4>🧠 Estado interno (state)</h4>
+      <button class="idx-item" data-detail="state"><b>Objeto <code>state</code></b><small>tab, filter, backups[], grupos[], stats, garimpo, recompra, criterio…</small></button>
+      <button class="idx-item" data-detail="cfg"><b><code>localStorage["bk_pro_cfg_v1"]</code></b><small>defaultGrupos, confirmVarrer, showKpi</small></button>
+    </div>
+
+    <div class="idx-section">
+      <h4>🎨 Design tokens</h4>
+      <button class="idx-item" data-detail="tokens"><b>Paleta &amp; tipografia</b><small>--bk-orange #ea580c · --bk-navy #0f172a · sans-serif · fonte 0.62–1.25rem</small></button>
+    </div>
+
+  </div>
+</aside>
+
+<!-- Modal detalhe -->
+<div id="idx-modal" role="dialog" aria-modal="true">
+  <div class="box">
+    <h3 id="idx-modal-title"><i class="fa-solid fa-circle-info"></i> <span></span></h3>
+    <div id="idx-modal-content"></div>
+    <button class="close">Fechar</button>
+  </div>
+</div>
+
+<script>
+/* ===================================================================
+   Detalhes de cada item (endpoint, arquivo, linhas, lógica)
+   =================================================================== */
+const DETAILS = {
+  /* Arquivos-fonte */
+  "src-html":    { title:"Markup principal", rows:[
+    ["Arquivo","public/index.html"],
+    ["Linhas","870 – 1011"],
+    ["Contém","hero, KPI grid, tabs, containers de cada aba"],
+    ["Selector raiz","<code>#backup-root.bk-pro</code>"],
+  ]},
+  "src-js":      { title:"public/backup.js — window.BackupUI", rows:[
+    ["Exporta","BackupUI.mount() e BackupUI.setTab(tab)"],
+    ["Padrão","IIFE + estado local em <code>state</code> + <code>wire()</code> registra listeners uma única vez"],
+    ["Funções-chave","refreshStats(), loadBackups(), loadGrupos(), renderGrupos(), renderListagem(), renderGarimpo(), renderRecompra(), varrerTodas()"],
+    ["Modais","openModalCriarGrupo(), openModalAddToGroup(), openModalSwap()"],
+  ]},
+  "src-css":     { title:"public/backup.css", rows:[
+    ["Escopo","tudo com prefixo <code>.bk-*</code> e classe pai <code>.bk-pro</code>"],
+    ["Tokens","--bk-orange #ea580c · --bk-navy #0f172a"],
+    ["Breakpoints","640px, 768px, 900px, 1024px, 1100px (grid de tiles)"],
+    ["Mobile refinements","bloco em <code>@media (max-width:640px)</code> — botões maior toque, tabs sem quebra, modais slide-up"],
+  ]},
+  "src-server":  { title:"server/index.js — roteador HTTP nativo", rows:[
+    ["Framework","<b>Sem Express</b> — <code>http.createServer</code> puro com switch de pathname"],
+    ["Linhas de backup","689 – 950 (21 handlers)"],
+    ["Auth","<code>requireUserId()</code> validado em cada handler via <code>auth.js</code>"],
+    ["Resposta","<code>sendJson(res, 200, { success, ... })</code>"],
+  ]},
+  "src-service": { title:"server/backup.js — serviço", rows:[
+    ["Dependência","Supabase (Postgres) via <code>getSupabase()</code>"],
+    ["Fonte de dados externa","Shopee GraphQL — <code>productOfferV2</code>, <code>shopOfferV2</code>, <code>generateShortLink</code>"],
+    ["Exports","lookupProduto, searchProdutosApi, salvarBackup, listarBackups, atualizarBackupsEmLote, criarGrupo, trocarPrincipal, getBackupDashboardStats, getGarimpoLocal, getRadarRecompra…"],
+    ["Modelo","backups + grupos_backup (relação principal + reservas + histórico)"],
+  ]},
+  "src-loader":  { title:"Carregamento lazy da UI", rows:[
+    ["Local","public/app.js — <code>ensureBackupUi()</code> linha 1067"],
+    ["Como funciona","injeta <code>link rel=stylesheet</code> para backup.css e <code>script</code> para backup.js quando o usuário entra na view Backup"],
+    ["Vantagem","não polui o bundle inicial · roda em qualquer view sem trocar rotas"],
+  ]},
+
+  /* Elementos */
+  "hero": { title:"Hero — banner navy", rows:[
+    ["Estrutura","<code>.bk-hero</code> — gradiente <code>#0f172a → #334155</code>"],
+    ["Título","<code>.bk-hero-title</code> com ícone <code>fa-briefcase</code> laranja"],
+    ["Ação","botão <code>#btn-backup-varrer</code> — dispara <code>varrerTodas()</code>"],
+    ["Estado","<code>.is-spin</code> no botão anima o ícone durante a varredura"],
+  ]},
+  "btn-varrer": { title:"Botão “Varrer todas as ofertas”", rows:[
+    ["Handler JS","<code>varrerTodas()</code> em backup.js"],
+    ["Endpoint","<span class='idx-tag post'>POST</span> <code>/api/backup/refresh-all</code>"],
+    ["Payload","{ } — se <code>itemIds</code> vazio, servidor busca <code>listarBackups()</code> e atualiza todos"],
+    ["UX","opcionalmente pede <code>confirm()</code> conforme <code>cfg.confirmVarrer</code>"],
+    ["Após concluir","chama <code>refreshStats()</code> + re-renderiza a aba atual"],
+  ]},
+  "kpi-grid": { title:"Grid de 9 KPIs", rows:[
+    ["Endpoint","<span class='idx-tag get'>GET</span> <code>/api/backup/stats</code>"],
+    ["Servidor","<code>getBackupDashboardStats()</code> — agrega count/joins do Supabase"],
+    ["Renderer","<code>setKpi(key, strong, em)</code> injeta em <code>[data-k=key]</code>"],
+    ["Cores por card","borda-top: backups azul, cobertura verde, fora vermelho, sinais âmbar, scan roxo, comissão esmeralda, trocar laranja, variantes ciano, loja cinza"],
+    ["Visibilidade","<code>bk-kpi-grid.is-hidden</code> quando <code>cfg.showKpi=false</code>"],
+  ]},
+  "kpi-backups":   { title:"KPI · Backups", rows:[["Chave","<code>data-k=\"backups\"</code>"],["Fonte","<code>stats.backups</code>, <code>stats.emGrupo</code>, <code>stats.livres</code>"]]},
+  "kpi-cobertura": { title:"KPI · Cobertura API", rows:[["Chave","<code>data-k=\"cobertura\"</code>"],["Fonte","<code>stats.coberturaApi</code> + <code>stats.coberturaPct</code>"]]},
+  "kpi-fora":      { title:"KPI · Fora do afiliado", rows:[["Chave","<code>data-k=\"fora\"</code>"],["Fonte","<code>stats.foraAfiliado</code>"]]},
+  "kpi-sinais":    { title:"KPI · Sinais críticos", rows:[["Chave","<code>data-k=\"sinais\"</code>"],["Fonte","<code>stats.sinaisCriticos</code> + <code>stats.foraAlertas</code>"]]},
+  "kpi-scan":      { title:"KPI · Scan mais antigo", rows:[["Chave","<code>data-k=\"scan\"</code>"],["Fonte","<code>stats.scanMaisAntigo</code>, <code>stats.scanMaisNovo</code>"],["Format","<code>formatTempoAtras()</code> converte para “há Xh”"]]},
+  "kpi-comissao":  { title:"KPI · Comissão média", rows:[["Chave","<code>data-k=\"comissao\"</code>"],["Fonte","<code>stats.comissaoMedia</code>, <code>stats.comissaoTopo</code>"]]},
+  "kpi-trocar":    { title:"KPI · Trocar principal (2 col.)", rows:[["Chave","<code>data-k=\"trocar\"</code>"],["Fonte","<code>stats.trocarPrincipal</code>, <code>trocarDiffTotal</code>, <code>trocarTopNome</code>"],["Uso","aponta grupos em que um backup rende mais que o principal"]]},
+  "kpi-variantes": { title:"KPI · Variantes com faixa", rows:[["Chave","<code>data-k=\"variantes\"</code>"],["Fonte","<code>stats.variantesComFaixa</code>, <code>variantesPct</code>"]]},
+  "kpi-loja":      { title:"KPI · Loja com mais backups", rows:[["Chave","<code>data-k=\"loja\"</code>"],["Fonte","<code>stats.lojaMaisBackups</code>, <code>lojaMaisBackupsCount</code>, <code>lojaMaisBackupsExtra</code>"]]},
+
+  "tabs": { title:"Barra de abas", rows:[
+    ["Container","<code>#backup-tabs</code>"],
+    ["Botões","<code>.backup-tab[data-backup-tab]</code>"],
+    ["Estado ativo","<code>.is-active</code> · laranja com borda inferior"],
+    ["Trigger","<code>setTab(tab)</code> alterna a visibilidade dos <code>#backup-tab-*</code>"],
+    ["Labels dinâmicos","<code>updateTabLabels()</code> soma contagens ao vivo"],
+  ]},
+  "grupos-toolbar": { title:"Toolbar de Grupos", rows:[
+    ["Busca","<code>#backup-grupo-search</code> — filtra por nome do grupo, principal ou loja em <code>state.buscaGrupo</code>"],
+    ["Select nicho","<code>#backup-grupo-nicho</code> — preenchido dinamicamente em <code>syncNichoSelect()</code>"],
+    ["Botão dark","<code>#btn-backup-criar-grupo</code> abre <code>openModalCriarGrupo()</code>"],
+  ]},
+  "btn-criar-grupo": { title:"Criar grupo", rows:[
+    ["Modal","<code>openModalCriarGrupo()</code>"],
+    ["Endpoint","<span class='idx-tag post'>POST</span> <code>/api/backup/grupos</code> { nome, principalItemId }"],
+    ["Requisito","só lista backups livres (sem <code>grupoId</code>)"],
+  ]},
+  "gcard": { title:"Card de Grupo (Ninho)", rows:[
+    ["Layout","<code>.bk-gcard</code> → <code>.bk-gcard-row</code> flex desktop, coluna mobile"],
+    ["Thumb","<code>.bk-gthumb</code> 4.5rem + badge <code>.bk-niche</code> laranja"],
+    ["Financeiro","<code>.bk-gfin</code> — Lucro histórico (verde) + GMV (navy)"],
+    ["Reservas","chip cinza <code>.bk-reservas</code>"],
+    ["Expansão","clique em <code>.bk-gcard-main</code> alterna <code>state.grupoExpandido</code>"],
+  ]},
+  "btn-vinc": { title:"Vincular backup", rows:[
+    ["Modal","<code>openModalAddToGroup(grupoId)</code>"],
+    ["Endpoint","<span class='idx-tag post'>POST</span> <code>/api/backup/grupos/add</code> { grupoId, itemId }"],
+  ]},
+  "btn-refresh-grupo": { title:"Atualizar grupo", rows:[
+    ["Endpoint","<span class='idx-tag post'>POST</span> <code>/api/backup/grupos/refresh</code> { grupoId }"],
+    ["Servidor","<code>atualizarGrupoBackup()</code> refetch cada produto via Shopee GraphQL"],
+    ["Loading","classe <code>.is-spin</code> anima o ícone rotate"],
+  ]},
+  "btn-del-grupo": { title:"Remover grupo", rows:[
+    ["Confirmação","<code>confirm()</code> antes da chamada"],
+    ["Endpoint","<span class='idx-tag post'>POST</span> <code>/api/backup/grupos/delete</code> { grupoId }"],
+    ["Nota","não deleta backups — só desfaz o vínculo"],
+  ]},
+  "advisor": { title:"Contingência Advisor", rows:[
+    ["Lógica","<code>analisarInsights(principal, backups)</code>"],
+    ["Regras",'• Se <code>comissao_pct===0</code> ou <code>status_api="produto_nao_encontrado"</code> → insight <b>crítico</b><br>• Se algum backup rende +R$0,50 → insight <b>lucro</b>'],
+    ["Ação","botão \"Rotacionar agora\" reaproveita <code>openModalSwap()</code>"],
+  ]},
+  "tile-principal": { title:"Tile do produto principal", rows:[
+    ["Marca visual","borda 2px <code>#f97316</code> · badge laranja"],
+    ["Botão único","<b>Pausar e trocar</b> → <code>openModalSwap(grupoId)</code>"],
+    ["Endpoint (swap)","<span class='idx-tag post'>POST</span> <code>/api/backup/grupos/swap</code> { grupoId, novoPrincipalItemId, motivo }"],
+  ]},
+  "tile-backup": { title:"Tile de backup (reserva)", rows:[
+    ["Badge","azul por padrão · verde quando <code>sugestao</code> (mais comissão que o principal)"],
+    ["Ações","Obter link (copia <code>linkAfiliado</code>) + botão trash <code>remove-from-group</code>"],
+    ["Endpoint","<span class='idx-tag post'>POST</span> <code>/api/backup/grupos/remove-item</code>"],
+  ]},
+  "tile-add": { title:"Botão Adicionar backup", rows:[
+    ["Visual","dashed <code>#cbd5e1</code>, hover laranja"],
+    ["Ação","abre <code>openModalAddToGroup(grupoId)</code>"],
+  ]},
+
+  /* Abas */
+  "tab-grupos":    { title:"Aba · Ninhos/Grupos", rows:[["Render","<code>renderGrupos()</code>"],["Filtragem","<code>gruposFiltrados()</code> — busca + nicho"],["Ordenação de reservas","por <code>state.criterio</code>: comissao | rating | vendas"]]},
+  "tab-cadastrar": { title:"Aba · + Cadastrar link", rows:[
+    ["Fluxo A · Lookup por URL","<span class='idx-tag post'>POST</span> <code>/api/backup/lookup</code> { url }"],
+    ["Fluxo B · Busca por termo","<span class='idx-tag post'>POST</span> <code>/api/backup/search</code> { keyword, limit }"],
+    ["Suporte a links curtos","<code>resolveShopeeProductUrl()</code> segue redirects e extrai shopId/itemId"],
+    ["Salvar","<span class='idx-tag post'>POST</span> <code>/api/backup</code> { produto, apelido }"],
+  ]},
+  "tab-listagem":  { title:"Aba · Meus Backups", rows:[
+    ["Render","<code>renderListagem()</code>"],
+    ["Endpoint","<span class='idx-tag get'>GET</span> <code>/api/backup</code>"],
+    ["Filtros","chips Todos / Com alertas / Principais"],
+    ["Paginação simples","<code>state.listVisible</code> começa em 30 e cresce ao clicar \"Carregar mais\""],
+  ]},
+  "tab-garimpo":   { title:"Aba · Garimpo inteligente", rows:[
+    ["Endpoint","<span class='idx-tag get'>GET</span> <code>/api/backup/garimpo</code>"],
+    ["Servidor","<code>getGarimpoLocal(80)</code> — usa histórico de vendas do afiliado"],
+    ["Sub-abas","Já vendi × Descoberta (<code>state.garimpoAba</code>)"],
+  ]},
+  "tab-recompra":  { title:"Aba · Radar de recompra", rows:[
+    ["Endpoint","<span class='idx-tag get'>GET</span> <code>/api/backup/recompra</code>"],
+    ["Servidor","<code>getRadarRecompra(40)</code>"],
+    ["Objetivo","produtos com histórico de recompra que ainda não estão nos backups"],
+  ]},
+  "tab-similar":   { title:"Aba · Rastrear similares", rows:[
+    ["Endpoint","<span class='idx-tag post'>POST</span> <code>/api/backup/similares</code> { loja, shopId, excluirItemId }"],
+    ["Servidor","<code>buscarSimilaresDaLoja()</code> — chama <code>shopOfferV2</code> na Shopee GraphQL"],
+  ]},
+  "tab-config":    { title:"Aba · Configurações", rows:[
+    ["Persistência","<code>localStorage[\"bk_pro_cfg_v1\"]</code>"],
+    ["Flags","defaultGrupos, confirmVarrer, showKpi"],
+  ]},
+
+  /* Endpoints (versão detalhada) */
+  "ep-stats":         { title:"GET /api/backup/stats", rows:[["Handler","server/index.js:756"],["Serviço","<code>getBackupDashboardStats()</code>"],["Retorno","{ success, stats: { backups, coberturaApi, coberturaPct, foraAfiliado, sinaisCriticos, foraAlertas, scanMaisAntigo, scanMaisNovo, comissaoMedia, comissaoTopo, trocarPrincipal, trocarDiffTotal, trocarTopNome, variantesComFaixa, variantesPct, lojaMaisBackups, lojaMaisBackupsCount, lojaMaisBackupsExtra } }"]]},
+  "ep-list":          { title:"GET /api/backup", rows:[["Handler","server/index.js:704"],["Serviço","<code>listarBackups()</code>"],["Retorno","{ items: [{ itemId, shopId, nome, apelido, preco, comissao_pct, imagem, loja, alertas[], marcadoPrincipal, grupoId, ultima_verificacao, periodoFim, ... }] }"]]},
+  "ep-save":          { title:"POST /api/backup", rows:[["Handler","server/index.js:714"],["Serviço","<code>salvarBackup(produto, { apelido, marcadoPrincipal })</code>"],["Payload","{ produto: {itemId, shopId, nome, preco, comissao_pct, vendas_shopee, imagem, rating, loja, linkProduto, linkAfiliado}, apelido?, marcadoPrincipal? }"]]},
+  "ep-lookup":        { title:"POST /api/backup/lookup", rows:[["Handler","server/index.js:689"],["Serviço","<code>lookupProduto(url)</code>"],["Retorno","{ produto, historico:{ ja_vendeu, vendas_minhas, comissao_total_minha, gmv_total_meu }, jaSalvoComoBackup }"],["Erros","<code>product_not_found</code> (404), <code>short_url_resolve_failed</code> (400)"]]},
+  "ep-search":        { title:"POST /api/backup/search", rows:[["Handler","server/index.js:838"],["Serviço","<code>searchProdutosApi(keyword, { shopId, limit })</code>"],["GraphQL","<code>productOfferV2</code> por keyword"]]},
+  "ep-refresh":       { title:"POST /api/backup/refresh", rows:[["Handler","server/index.js:728"],["Serviço","<code>atualizarBackup(itemId)</code>"],["Uso","botão “Atualizar” em cada card da listagem"]]},
+  "ep-refreshAll":    { title:"POST /api/backup/refresh-all", rows:[["Handler","server/index.js:739"],["Serviço","<code>atualizarBackupsEmLote(ids)</code>"],["Retorno","{ results, sucesso, total }"]]},
+  "ep-meta":          { title:"POST /api/backup/meta", rows:[["Handler","server/index.js:797"],["Serviço","<code>editarBackupMeta(itemId, { apelido, marcadoPrincipal })</code>"]]},
+  "ep-delete":        { title:"POST /api/backup/delete", rows:[["Handler","server/index.js:811"],["Serviço","<code>removerBackup(itemId)</code>"]]},
+  "ep-similares":     { title:"POST /api/backup/similares", rows:[["Handler","server/index.js:822"],["Serviço","<code>buscarSimilaresDaLoja(loja, excluirItemId, undefined, shopId)</code>"]]},
+  "ep-garimpo":       { title:"GET /api/backup/garimpo", rows:[["Handler","server/index.js:766"],["Serviço","<code>getGarimpoLocal(80)</code>"],["Retorno","{ jaVendo:[], descoberta:[], data }"]]},
+  "ep-recompra":      { title:"GET /api/backup/recompra", rows:[["Handler","server/index.js:776"],["Serviço","<code>getRadarRecompra(40)</code>"],["Retorno","{ produtos:[], data }"]]},
+  "ep-shortlink":     { title:"POST /api/backup/shortlink", rows:[["Handler","server/index.js:876"],["Serviço","<code>generateAffiliateShortLink(originUrl, subIds)</code>"],["GraphQL","<code>generateShortLink</code> da Shopee Affiliate"]]},
+  "ep-grupos-list":   { title:"GET /api/backup/grupos", rows:[["Handler","server/index.js:887"],["Serviço","<code>listarGruposCompletos()</code>"],["Estrutura","cada grupo carrega <code>produtos{}</code> indexado por itemId + <code>backupItemIds[]</code> + <code>principalItemId</code> + <code>historico[]</code>"]]},
+  "ep-grupos-post":   { title:"POST /api/backup/grupos", rows:[["Handler","server/index.js:897"],["Serviço","<code>criarGrupo(nome, principalItemId)</code>"]]},
+  "ep-grupos-add":    { title:"POST /api/backup/grupos/add", rows:[["Handler","server/index.js:908"],["Serviço","<code>adicionarBackupAoGrupo(grupoId, itemId)</code>"]]},
+  "ep-grupos-remove": { title:"POST /api/backup/grupos/remove-item", rows:[["Handler","server/index.js:919"],["Serviço","<code>removerBackupDoGrupo(grupoId, itemId)</code>"]]},
+  "ep-grupos-swap":   { title:"POST /api/backup/grupos/swap", rows:[["Handler","server/index.js:930"],["Serviço","<code>trocarPrincipal(grupoId, novoPrincipalItemId, motivo)</code>"],["Efeito colateral","grava entrada em <code>grupo.historico[]</code>"]]},
+  "ep-grupos-refresh":{ title:"POST /api/backup/grupos/refresh", rows:[["Handler","server/index.js:786"],["Serviço","<code>atualizarGrupoBackup(grupoId)</code>"]]},
+  "ep-grupos-delete": { title:"POST /api/backup/grupos/delete", rows:[["Handler","server/index.js:941"],["Serviço","<code>removerGrupo(grupoId)</code>"]]},
+
+  /* Estado / tokens */
+  "state": { title:"state (objeto in-memory)", rows:[
+    ["Chaves","tab, filter (todos|alertas|principais), backups[], grupos[], stats, listVisible, lookupProduto, lookupHistorico, grupoExpandido, criterio (comissao|rating|vendas), buscaGrupo, filtroNicho, refreshingGrupoId, varrendo, garimpoAba, garimpo{jaVendo,descoberta,data}, recompra{produtos,data}"],
+    ["Ciclo","<code>mount()</code> → <code>wire()</code> uma vez → <code>setTab()</code> alterna renderers"],
+  ]},
+  "cfg": { title:"localStorage bk_pro_cfg_v1", rows:[
+    ["Chave","<code>bk_pro_cfg_v1</code>"],
+    ["Formato","{ defaultGrupos:bool, confirmVarrer:bool, showKpi:bool }"],
+    ["Onde salva","<code>saveCfg()</code> · onde lê: <code>loadCfg()</code>"],
+  ]},
+  "tokens": { title:"Design tokens atuais", rows:[
+    ["Cor de marca","<code>--bk-orange #ea580c</code> (também usado nos badges de KPI, tabs ativas, borda do tile principal)"],
+    ["Cor de estrutura","<code>--bk-navy #0f172a</code> (hero, botão dark, texto forte)"],
+    ["Verde de dinheiro","#059669 (Lucro histórico) · #16a34a (sugerido)"],
+    ["Alertas","crítico rose-100/900 · aviso amber-100/900 · ok emerald-100/900"],
+    ["Border-radius","cards 1rem · botões 0.65–0.75rem · pill 999px"],
+    ["Sombra padrão","<code>0 1px 2px rgba(15,23,42,.04)</code>"],
+    ["Fontes","system-ui — tamanhos 0.62rem (label) até 1.25rem (hero)"],
+  ]},
+};
+
+/* ===================================================================
+   Interações do painel
+   =================================================================== */
+const fab = document.getElementById('idx-fab');
+const panel = document.getElementById('idx-panel');
+const closeBtn = document.getElementById('idx-panel-close');
+const modal = document.getElementById('idx-modal');
+const modalTitle = document.querySelector('#idx-modal-title span');
+const modalContent = document.getElementById('idx-modal-content');
+
+function openPanel(){ panel.classList.add('is-open'); panel.style.transform='translateX(0)'; }
+function closePanel(){ panel.classList.remove('is-open'); panel.style.transform=''; }
+fab.addEventListener('click', openPanel);
+closeBtn.addEventListener('click', closePanel);
+
+/* Troca de aba real */
+function switchTab(id){
+  document.querySelectorAll('[id^="backup-tab-"]').forEach(el=>{
+    el.classList.toggle('hidden', el.id !== 'backup-tab-'+id);
+  });
+  document.querySelectorAll('.backup-tab').forEach(btn=>{
+    btn.classList.toggle('is-active', btn.dataset.backupTab === id);
+  });
+  const target = document.getElementById('backup-tab-'+id);
+  if(target){ target.scrollIntoView({behavior:'smooth', block:'start'}); }
+}
+document.querySelectorAll('.backup-tab').forEach(btn=>{
+  btn.addEventListener('click', ()=> switchTab(btn.dataset.backupTab));
+});
+
+/* Foco + highlight num elemento da tela */
+function focusElement(key){
+  const el = document.querySelector('[data-idx-target="'+key+'"]');
+  if(!el) return;
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+  document.querySelectorAll('[data-idx-target].is-highlighted').forEach(x=> x.classList.remove('is-highlighted'));
+  el.classList.add('is-highlighted');
+  setTimeout(()=> el.classList.remove('is-highlighted'), 1800);
+}
+
+/* Modal de detalhes */
+function openDetail(key){
+  const d = DETAILS[key];
+  if(!d) return;
+  modalTitle.textContent = d.title;
+  modalContent.innerHTML = d.rows.map(([k,v])=> `<div class="row"><b>${k}</b><div>${v}</div></div>`).join('');
+  modal.classList.add('is-open');
+}
+modal.querySelector('.close').addEventListener('click', ()=> modal.classList.remove('is-open'));
+modal.addEventListener('click', (e)=>{ if(e.target===modal) modal.classList.remove('is-open'); });
+
+/* Handlers do painel */
+document.querySelectorAll('.idx-item').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.idx-item.is-active').forEach(x=>x.classList.remove('is-active'));
+    btn.classList.add('is-active');
+    const tab   = btn.dataset.tab;
+    const focus = btn.dataset.focus;
+    const det   = btn.dataset.detail;
+    if(tab)   switchTab(tab);
+    if(focus) focusElement(focus);
+    if(det)   openDetail(det);
+  });
+});
+
+/* Clique direto num elemento da tela abre o detalhe correspondente */
+document.querySelectorAll('[data-idx-target]').forEach(el=>{
+  el.style.cursor = 'help';
+  el.addEventListener('click', (e)=>{
+    if(el.matches('button') || e.target.closest('button, input, select, a')) return;
+    const key = el.dataset.idxTarget;
+    if(DETAILS[key]) { e.preventDefault(); openDetail(key); }
+  }, true);
+});
+</script>
+</body>
+</html>

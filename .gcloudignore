@@ -1,0 +1,10 @@
+node_modules
+.git
+.env
+.env.*
+nOVOdESIGNER
+.claude
+public
+sql
+*.md
+scripts/_*.cjs

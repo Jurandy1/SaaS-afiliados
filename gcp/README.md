@@ -1,0 +1,47 @@
+# Google Cloud — sync automático do SaaS Afiliados
+
+O **Google Cloud puxa** Shopee + Meta (não a Vercel).
+
+Agenda (fuso `America/Sao_Paulo`, igual Afiliadoteste):
+
+| Job | Horário | O que puxa |
+|-----|---------|------------|
+| `saas-afiliados-ontem` | a cada **10 min** das **05h–09h** | **só ontem** + push de lucro |
+| `saas-afiliados-recent` | a cada **15 min** (dia todo) | últimos 3 dias |
+| `saas-afiliados-daily` | 04:00 | últimos 7 dias + SubIDs |
+| `saas-afiliados-morning` | 05:00, 06:00, 07:00, 08:00 | 7 dias + SubIDs (manhã) |
+
+## Pré-requisito
+
+1. [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) (`gcloud`)
+2. Um projeto GCP (pode ser o mesmo do Firebase do Afiliadoteste **ou outro** — o código do Afiliadoteste não é alterado)
+3. APIs: Cloud Run, Cloud Scheduler, Artifact Registry, Cloud Build
+
+```powershell
+gcloud auth login
+gcloud config set project SEU_PROJECT_ID
+gcloud services enable run.googleapis.com cloudscheduler.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com
+```
+
+## Deploy
+
+Na pasta do SaaS:
+
+```powershell
+.\gcp\deploy.ps1 -ProjectId SEU_PROJECT_ID
+```
+
+O script:
+- sobe o worker em Cloud Run (`southamerica-east1`)
+- cria os 2 jobs do Cloud Scheduler
+- lê `SUPABASE_*`, `CRON_SECRET`, `VAPID_*` e `PUBLIC_BASE_URL` do `.env` local (não grava secret no Git)
+
+**Importante para push:** sem `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` no `.env` (iguais à Vercel), o sync roda mas **não envia notificação**.
+
+Timeout do Cloud Run: **15 min** (Shopee com várias contas).
+
+## Teste manual
+
+```powershell
+gcloud scheduler jobs run saas-afiliados-recent --location=southamerica-east1
+```

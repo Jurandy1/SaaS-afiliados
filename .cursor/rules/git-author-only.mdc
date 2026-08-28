@@ -1,0 +1,23 @@
+---
+description: Commits deste repo são exclusivamente de Jurandy1 — sem co-autores de IA
+alwaysApply: true
+---
+
+# Git — autor único (Jurandy1)
+
+Neste repositório **nunca** adicione trailers ou co-autores de ferramentas de IA.
+
+## Obrigatório
+
+- Autor e committer: **Jurandy1** `<jujuba100054@gmail.com>`
+- Use: `git commit --author="Jurandy1 <jujuba100054@gmail.com>" -m "mensagem"`
+- Mensagem de commit curta, em português, sem trailers
+
+## Proibido
+
+- `Co-authored-by: Cursor ...`
+- `Co-authored-by: Claude ...`
+- `git commit --trailer "Co-authored-by: ..."`
+- Qualquer co-autor de cursoragent, claude ou anthropic
+
+Os hooks do projeto removem/bloqueiam isso automaticamente. Não contorne com `--no-verify`.

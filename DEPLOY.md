@@ -1,0 +1,73 @@
+# Deploy — Shopylitcs (Jurandy)
+
+## Conta demonstração
+
+Após `npm run seed:demo` (local) ou seed no ambiente:
+
+- Email: `teste@gmail.com`
+- Senha: `123456789`
+- Admin: `/admin`
+
+## Railway (recomendado)
+
+1. Em [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub** → repo `mestreafil-lgtm/SaaS-afiliados`.
+2. O `railway.toml` já define:
+   - **Build:** `npm run build`
+   - **Start:** `npm start` (Node escuta `PORT` do Railway)
+3. Em **Variables**, cole as chaves de `railway.env.example` (valores reais do seu `.env` / Supabase / Stripe).
+4. Gere o domínio público (Settings → Networking → Generate Domain).
+5. Ajuste `PUBLIC_BASE_URL` para essa URL (ex.: `https://….up.railway.app`).
+6. No Stripe, webhook → `https://SEU-DOMINIO/api/billing/webhook`.
+7. No Supabase Auth → Site URL / Redirect URLs → mesma URL do Railway.
+
+### Variáveis obrigatórias no Railway
+
+| Variável | Uso |
+|---|---|
+| `SUPABASE_URL` | Projeto Supabase |
+| `SUPABASE_ANON_KEY` | Auth cliente |
+| `SUPABASE_SERVICE_ROLE_KEY` | Backend |
+| `SUPABASE_DB_PASSWORD` | `npm run setup:db` / migrations |
+| `PUBLIC_BASE_URL` | Stripe + push + links |
+| `ADMIN_EMAIL` | Acesso `/admin` |
+| `STRIPE_SECRET_KEY` | Billing |
+| `STRIPE_WEBHOOK_SECRET` | Webhook Stripe |
+| `STRIPE_PRICE_MONTHLY` / `_6M` / `_12M` | Planos |
+| `CRON_SECRET` | Auth do sync externo |
+
+Opcionais: `VAPID_*` (push), `CLAUDE_API_KEY` (fallback), Pinterest.
+
+**Não** crie `PORT` — o Railway injeta sozinho.
+
+Lista completa para colar: [`railway.env.example`](railway.env.example).
+
+### Sync Shopee/Meta
+
+O painel no Railway **serve a app**. O sync pesado continua via **Google Cloud** (Cloud Run + Scheduler) ou cron externo batendo em `/api/cron/sync` com `CRON_SECRET`.
+
+```powershell
+gcloud auth login
+gcloud config set project SEU_PROJECT_ID
+.\gcp\deploy.ps1 -ProjectId SEU_PROJECT_ID
+```
+
+Detalhes: `gcp/README.md`.
+
+## Vercel (alternativa)
+
+1. Importe o repo no Vercel (Framework: **Other**).
+2. Configure as mesmas variáveis de ambiente.
+3. App sobe como função serverless (`api/index.js` + `vercel.json`).
+
+## Local
+
+```bash
+cp .env.example .env
+# ou use railway.env.example como checklist
+npm install
+npm run setup:db
+npm run seed:demo
+npm start
+```
+
+http://localhost:3790

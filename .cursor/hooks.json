@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": ".cursor/hooks/install-git-hooks.cjs"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/block-coauthor-trailers.cjs",
+        "matcher": "git\\s+commit"
+      }
+    ]
+  }
+}
