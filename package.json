@@ -12,6 +12,7 @@
     "build": "npm run build:css",
     "postinstall": "node scripts/install-git-hooks.cjs",
     "hooks:install": "node scripts/install-git-hooks.cjs",
+    "contributors:refresh": "node scripts/refresh-github-contributors.cjs",
     "vercel-build": "npm run build:css",
     "setup:db": "node scripts/setup-db.cjs",
     "seed:demo": "node scripts/seed-demo.cjs",
