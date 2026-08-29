@@ -285,6 +285,15 @@ function rowCliquesLink(row) {
   return parseMetaInt(row.inline_link_clicks);
 }
 
+/** SubID: anúncio → conjunto → campanha (muitas contas só colocam o SubID na campanha). */
+function resolveSubIdFromMetaRow(row) {
+  return (
+    normalizeSubId(row?.ad_name || "")
+    || normalizeSubId(row?.adset_name || "")
+    || normalizeSubId(row?.campaign_name || "")
+  );
+}
+
 async function fetchAdInsightsDaily({ token, apiVersion, accountId, since, until, withReach }) {
   // Campos alinhados ao runMetaDailySync do Afiliadoteste (+ inline_link_clicks como fallback)
   const fieldList = [
@@ -352,7 +361,7 @@ async function syncMetaDaily({ daysBack = 7, since, until } = {}, userId = requi
           ad_id: adId,
           data: date,
           ad_name: String(row.ad_name || ""),
-          subid: normalizeSubId(row.ad_name || ""),
+          subid: resolveSubIdFromMetaRow(row),
           adset_name: String(row.adset_name || ""),
           campaign_name: String(row.campaign_name || ""),
           gasto,

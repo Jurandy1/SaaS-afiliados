@@ -477,16 +477,8 @@ async function attachMenuPreviews(dash, startDate, endDate, userId = requireUser
       .sort((a, b) => String(a.data).localeCompare(String(b.data)));
 
     const seen = new Set();
-    const merged = (dash.subIds || []).map((r) => {
-      const key = normalizeShopeeSubId(r.subid);
-      seen.add(key);
-      return { ...r, subid: key, daily: dailyFromMap(key) };
-    });
-
-    for (const key of Object.keys(bySubDay)) {
-      if (seen.has(key)) continue;
-      merged.push({
-        subid: key,
+    function rollupSubPeriod(dailyRows) {
+      const agg = {
         faturamento: 0,
         comissao: 0,
         pedidos: 0,
@@ -494,7 +486,41 @@ async function attachMenuPreviews(dash, startDate, endDate, userId = requireUser
         pendentes: 0,
         cancelados: 0,
         unpaid: 0,
-        daily: dailyFromMap(key),
+      };
+      for (const d of dailyRows || []) {
+        agg.faturamento += Number(d.faturamento || 0);
+        agg.comissao += Number(d.comissao || 0);
+        agg.pedidos += Number(d.pedidos || 0);
+        agg.concluidos += Number(d.concluidos || 0);
+        agg.pendentes += Number(d.pendentes || 0);
+        agg.cancelados += Number(d.cancelados || 0);
+        agg.unpaid += Number(d.unpaid || 0);
+      }
+      return {
+        faturamento: Math.round(agg.faturamento * 100) / 100,
+        comissao: Math.round(agg.comissao * 100) / 100,
+        pedidos: agg.pedidos,
+        concluidos: agg.concluidos,
+        pendentes: agg.pendentes,
+        cancelados: agg.cancelados,
+        unpaid: agg.unpaid,
+      };
+    }
+
+    const merged = (dash.subIds || []).map((r) => {
+      const key = normalizeShopeeSubId(r.subid);
+      seen.add(key);
+      const daily = dailyFromMap(key);
+      return { ...r, subid: key, daily, ...rollupSubPeriod(daily) };
+    });
+
+    for (const key of Object.keys(bySubDay)) {
+      if (seen.has(key)) continue;
+      const daily = dailyFromMap(key);
+      merged.push({
+        subid: key,
+        ...rollupSubPeriod(daily),
+        daily,
       });
     }
     dash.subIds = merged;
@@ -651,8 +677,25 @@ function slimDashForClient(dash) {
 }
 
 async function loadSubidDaily(subid, startDate, endDate, userId = requireUserId()) {
-  const key = String(subid || "").trim();
+  const key = String(subid || "").trim().toLowerCase();
   if (!key) return [];
+
+  const blankDay = (day) => ({
+    data: day,
+    faturamento: 0,
+    comissao: 0,
+    pedidos: 0,
+    concluidos: 0,
+    pendentes: 0,
+    cancelados: 0,
+    unpaid: 0,
+    cliques_shopee: 0,
+    cliques_meta_link: 0,
+    cliques_pin: 0,
+  });
+
+  const byDay = new Map();
+
   const orders = await loadOrders({
     startDate,
     endDate,
@@ -660,25 +703,35 @@ async function loadSubidDaily(subid, startDate, endDate, userId = requireUserId(
     columns: "subid, data, status, faturamento, comissao",
     subid: key,
   }, userId);
-  const byDay = {};
   for (const o of orders || []) {
-    if (String(o.subid || "") !== key && String(o.subid || "").toLowerCase() !== key.toLowerCase()) continue;
+    if (String(o.subid || "").toLowerCase() !== key) continue;
     const day = o.data;
     if (!day) continue;
-    if (!byDay[day]) {
-      byDay[day] = { data: day, faturamento: 0, comissao: 0, pedidos: 0, concluidos: 0, pendentes: 0, cancelados: 0, cliques_shopee: 0 };
-    }
-    const row = byDay[day];
+    if (!byDay.has(day)) byDay.set(day, blankDay(day));
+    const row = byDay.get(day);
     row.pedidos += 1;
-    row.cliques_shopee += 1;
     const st = String(o.status || "");
     if (st === "cancelada") { row.cancelados += 1; continue; }
-    if (st === "unpaid") continue;
+    if (st === "unpaid") { row.unpaid += 1; continue; }
     row.faturamento += Number(o.faturamento || 0);
     row.comissao += Number(o.comissao || 0);
     if (st === "concluida") row.concluidos += 1;
     else row.pendentes += 1;
   }
+
+  let clickRows = [];
+  try {
+    const { loadShopeeClicksByDay } = require("./shopeeClicks");
+    clickRows = await loadShopeeClicksByDay(startDate, endDate, userId);
+  } catch (_) { /* keep */ }
+  for (const r of clickRows) {
+    if (String(r.subid || "").toLowerCase() !== key) continue;
+    const day = r.data;
+    if (!day) continue;
+    if (!byDay.has(day)) byDay.set(day, blankDay(day));
+    byDay.get(day).cliques_shopee += Number(r.cliques || 0);
+  }
+
   let metaRows = [];
   let pinRows = [];
   try {
@@ -689,29 +742,47 @@ async function loadSubidDaily(subid, startDate, endDate, userId = requireUserId(
     const { loadPinSpendByDay } = require("./pinterest");
     pinRows = await loadPinSpendByDay(startDate, endDate, userId);
   } catch (_) { /* keep */ }
-  const lk = key.toLowerCase();
-  const metaByDay = {};
-  const pinByDay = {};
+
   for (const r of metaRows) {
-    if (String(r.subid || "").toLowerCase() !== lk) continue;
-    metaByDay[r.data] = (metaByDay[r.data] || 0) + Number(r.gasto || 0);
+    if (String(r.subid || "").toLowerCase() !== key) continue;
+    const day = r.data;
+    if (!day) continue;
+    if (!byDay.has(day)) byDay.set(day, blankDay(day));
+    const row = byDay.get(day);
+    row.cliques_meta_link += Number(r.cliques_link || 0);
   }
   for (const r of pinRows) {
-    if (String(r.subid || "").toLowerCase() !== lk) continue;
-    pinByDay[r.data] = (pinByDay[r.data] || 0) + Number(r.gasto || 0);
+    if (String(r.subid || "").toLowerCase() !== key) continue;
+    const day = r.data;
+    if (!day) continue;
+    if (!byDay.has(day)) byDay.set(day, blankDay(day));
+    byDay.get(day).cliques_pin += Number(r.cliques || 0);
   }
+
   let tax = { taxRate: 11.7, metaTaxRate: 12 };
   try { tax = await loadSettings(userId); } catch (_) { /* keep */ }
   const { calcLucroRoi } = require("./finance");
-  return Object.values(byDay)
+
+  return [...byDay.values()]
     .sort((a, b) => String(a.data).localeCompare(String(b.data)))
     .map((d) => {
-      const fin = calcLucroRoi(d.comissao, metaByDay[d.data] || 0, pinByDay[d.data] || 0, tax);
+      const invMeta = metaRows
+        .filter((r) => String(r.subid || "").toLowerCase() === key && r.data === d.data)
+        .reduce((a, r) => a + Number(r.gasto || 0), 0);
+      const invPin = pinRows
+        .filter((r) => String(r.subid || "").toLowerCase() === key && r.data === d.data)
+        .reduce((a, r) => a + Number(r.gasto || 0), 0);
+      const fin = calcLucroRoi(d.comissao, invMeta, invPin, tax);
+      const cliquesAds = Number(d.cliques_meta_link || 0) + Number(d.cliques_pin || 0);
+      const abatimento_cliques = cliquesAds > 0
+        ? Math.round((Number(d.cliques_shopee || 0) / cliquesAds) * 10000) / 100
+        : null;
       return {
         ...d,
         faturamento: Math.round(d.faturamento * 100) / 100,
         comissao: Math.round(d.comissao * 100) / 100,
         ...fin,
+        abatimento_cliques,
       };
     });
 }

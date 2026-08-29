@@ -929,6 +929,65 @@
     if (v == null || v === "" || Number.isNaN(Number(v))) return "";
     return Number(v) >= 100 ? "cell-abat-good" : "cell-abat-bad";
   }
+
+  let _copyToastTimer = null;
+  async function copySubIdText(text, btn) {
+    const id = String(text || "").trim();
+    if (!id) return false;
+    try {
+      await navigator.clipboard.writeText(id);
+    } catch {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = id;
+        ta.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+      } catch {
+        return false;
+      }
+    }
+    if (btn) {
+      btn.classList.add("is-copied");
+      const prev = btn.title;
+      btn.title = "Copiado!";
+      setTimeout(() => {
+        btn.classList.remove("is-copied");
+        btn.title = prev || "Copiar SubID";
+      }, 1400);
+    } else {
+      let toast = document.getElementById("subid-copy-toast");
+      if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "subid-copy-toast";
+        toast.className = "subid-copy-toast";
+        document.body.appendChild(toast);
+      }
+      toast.textContent = `SubID "${id}" copiado`;
+      toast.classList.add("is-show");
+      clearTimeout(_copyToastTimer);
+      _copyToastTimer = setTimeout(() => toast.classList.remove("is-show"), 1600);
+    }
+    return true;
+  }
+
+  function sumSubidClickTotals(subs, ch) {
+    let ads = 0;
+    let shopee = 0;
+    let hasShopee = false;
+    for (const r of subs || []) {
+      ads += adsClicksFor(r, ch);
+      if (r.cliques_shopee != null) {
+        hasShopee = true;
+        shopee += Number(r.cliques_shopee || 0);
+      }
+    }
+    const abat = hasShopee && ads > 0 ? Math.round((shopee / ads) * 10000) / 100 : null;
+    return { ads, shopee: hasShopee ? shopee : null, abat };
+  }
+
   /** Aceita "R$ 1.234.567,89" / "1234567.89" / "1234567,89" */
   function parseBrNumber(raw) {
     let s = String(raw ?? "").trim();
@@ -1654,7 +1713,7 @@
       footHtml = `<div class="channel-hero-sub">
         <span class="channel-hero-sub-lab">${escapeHtml(opts.sub.label)}</span>
         <span class="channel-hero-sub-val${subClass}">${escapeHtml(String(opts.sub.value))}</span>
-      </div>`;
+      </div>${opts.sub.extra ? `<p class="channel-hero-hint channel-hero-hint--tight">${escapeHtml(opts.sub.extra)}</p>` : ""}`;
     } else if (hint && !opts.hideHint) {
       footHtml = `<p class="channel-hero-hint">${escapeHtml(hint)}</p>`;
     }
@@ -1745,6 +1804,14 @@
     const abatToneClass = k?.abatimento_cliques == null
       ? ""
       : Number(k.abatimento_cliques) >= 100 ? "is-abat-ok" : "is-abat-bad";
+    const adsDenom = ch === "meta"
+      ? Number(k?.cliques_meta_link || 0)
+      : ch === "pinterest"
+        ? Number(k?.cliques_pin || 0)
+        : Number(k?.cliques_ads || 0);
+    const abatExtra = k?.cliques_shopee != null && adsDenom > 0
+      ? `${fmtNum(k.cliques_shopee)} ÷ ${fmtNum(adsDenom)} cliques`
+      : null;
 
     const fatCard = {
       key: "faturamento",
@@ -1777,7 +1844,7 @@
       tone: "sky",
       icon: "cliques",
       sub: withAbat
-        ? { label: "Abatimento", value: pct(k?.abatimento_cliques), toneClass: abatToneClass }
+        ? { label: "Abatimento", value: pct(k?.abatimento_cliques), toneClass: abatToneClass, extra: abatExtra }
         : null,
     });
 
@@ -3557,7 +3624,11 @@
       : (r.abatimento != null ? Number(r.abatimento) : null);
     switch (col.key) {
       case "subid":
-        return `<td class="subid" title="Expandir dia a dia do periodo" style="cursor:pointer;" data-subid="${escapeHtml(String(r.subid || ""))}">${escapeHtml(String(r.subid || ""))}</td>`;
+        return `<td class="subid is-clickable" data-subid="${escapeHtml(String(r.subid || ""))}" title="Expandir histórico diário">
+          <span class="subid-caret" aria-hidden="true"></span>
+          <span class="subid-label">${escapeHtml(String(r.subid || ""))}</span>
+          <button type="button" class="subid-copy-btn" data-subid-copy="${escapeHtml(String(r.subid || ""))}" title="Copiar SubID" aria-label="Copiar SubID"><i class="fa-solid fa-copy" aria-hidden="true"></i></button>
+        </td>`;
       case "faturamento": return `<td class="num cell-emerald">${fmt(r.faturamento)}</td>`;
       case "comissao": return `<td class="num cell-emerald">${fmt(r.comissao)}</td>`;
       case "inv_total": return `<td class="num cell-gasto">${fmt(inv)}</td>`;
@@ -4202,18 +4273,48 @@
     </tr>`;
   }
 
+  function renderSubidTableFoot(cols, subs, ch) {
+    const totals = sumSubidClickTotals(subs, ch);
+    const cells = cols.map((c) => {
+      if (c.key === "subid") return `<td>Totais · ${fmtNum(subs.length)} SubIDs</td>`;
+      if (c.key === "cliques_meta_link" && ch === "meta") return `<td class="num cell-gasto">${fmtNum(totals.ads)}</td>`;
+      if (c.key === "cliques_pin" && ch === "pinterest") return `<td class="num cell-gasto">${fmtNum(totals.ads)}</td>`;
+      if (c.key === "cliques_shopee") return `<td class="num cell-gasto">${totals.shopee != null ? fmtNum(totals.shopee) : "—"}</td>`;
+      if (c.key === "abatimento_cliques") return `<td class="num ${abatCliquesClass(totals.abat)}">${fmtPct(totals.abat)}</td>`;
+      return `<td></td>`;
+    }).join("");
+    return `<tfoot><tr class="subid-tfoot">${cells}</tr></tfoot>`;
+  }
+
+  function renderSubidMobileTotals(subs, ch) {
+    const totals = sumSubidClickTotals(subs, ch);
+    const adsLabel = ch === "pinterest" ? "Cliq. Pin" : ch === "meta" ? "Cliq. link" : "Cliq. ads";
+    return `<div class="subid-mobile-totals" role="status">
+      <span><b>Totais</b> · ${fmtNum(subs.length)} SubIDs</span>
+      <span>Shopee <b>${totals.shopee != null ? fmtNum(totals.shopee) : "—"}</b></span>
+      <span>${adsLabel} <b>${fmtNum(totals.ads)}</b></span>
+      <span>Abat. <b class="${abatCliquesClass(totals.abat)}">${fmtPct(totals.abat)}</b></span>
+    </div>`;
+  }
+
   function wireSubIdExpand(tbodySel, renderFn) {
     const tb = $(tbodySel);
     if (!tb || tb.dataset.expandWired) return;
     tb.dataset.expandWired = "1";
     tb.addEventListener("click", async (e) => {
-      if (e.target.closest("select, button, input, a, label, .op-select, .op-status-cycle")) return;
+      const copyBtn = e.target.closest("[data-subid-copy]");
+      if (copyBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        copySubIdText(copyBtn.dataset.subidCopy, copyBtn);
+        return;
+      }
+      if (e.target.closest("select, button, input, a, label, .op-select, .op-status-cycle, .subid-copy-btn")) return;
       const cell = e.target.closest("td.subid[data-subid]");
       if (!cell) return;
       e.preventDefault();
       const id = cell.dataset.subid;
       if (!id) return;
-      navigator.clipboard.writeText(id).catch(() => {});
       const opening = !state.expandedSubIds[id];
       state.expandedSubIds[id] = opening;
       const row = (state.dash?.subIds || []).find((r) => String(r.subid || "") === id);
@@ -4308,7 +4409,7 @@
         cardList.classList.remove("hidden");
         const cardsHtml = slice.map((r) => renderSubIdCard(r, ch)).join("")
           || `<div class="subid-card-empty">${emptyMsg}</div>`;
-        cardList.innerHTML = cardsHtml;
+        cardList.innerHTML = cardsHtml + (all.length ? renderSubidMobileTotals(all, ch) : "");
         wireOpsSelects("#subid-card-list");
         wireSubIdCardExpand(cardList, renderSubIdsDash);
       }
@@ -4326,8 +4427,10 @@
         const open = Boolean(state.expandedSubIds[id]);
         const cells = cols.map((c) => {
           if (c.key === "subid") {
-            return `<td class="subid is-clickable" data-subid="${escapeHtml(id)}" title="Ver histórico diário">
-              <span class="subid-caret" aria-hidden="true"></span>${escapeHtml(id)}
+            return `<td class="subid is-clickable" data-subid="${escapeHtml(id)}" title="Expandir histórico diário">
+              <span class="subid-caret" aria-hidden="true"></span>
+              <span class="subid-label">${escapeHtml(id)}</span>
+              <button type="button" class="subid-copy-btn" data-subid-copy="${escapeHtml(id)}" title="Copiar SubID" aria-label="Copiar SubID"><i class="fa-solid fa-copy" aria-hidden="true"></i></button>
             </td>`;
           }
           return cellForSubidCol(r, c, ch);
@@ -4336,6 +4439,9 @@
           open ? subIdDailyHistoryHtml(r, span) : ""
         }`;
       }).join("") || `<tr><td colspan="${span}">${emptyMsg}</td></tr>`;
+      const oldFoot = table?.querySelector("tfoot");
+      if (oldFoot) oldFoot.remove();
+      if (all.length) table?.insertAdjacentHTML("beforeend", renderSubidTableFoot(cols, all, ch));
       wireOpsSelects("#subid-tbody");
       wireSubIdExpand("#subid-tbody", renderSubIdsDash);
     }
@@ -4572,10 +4678,13 @@
 
     return `<article class="subid-card${open || details ? " is-open" : ""}${details ? " is-details" : ""}" data-subid-row="${escapeHtml(id)}" data-subid="${escapeHtml(id)}" role="listitem">
       <header class="subid-card-head">
-        <button type="button" class="subid-card-toggle" data-subid-toggle="${escapeHtml(id)}" aria-expanded="${showHistory ? "true" : "false"}" title="Ver histórico diário">
-          <span class="subid-card-caret" aria-hidden="true"></span>
-          <span class="subid-card-name">${escapeHtml(id)}</span>
-        </button>
+        <div class="subid-card-head-row">
+          <button type="button" class="subid-card-toggle" data-subid-toggle="${escapeHtml(id)}" aria-expanded="${showHistory ? "true" : "false"}" title="Ver histórico diário">
+            <span class="subid-card-caret" aria-hidden="true"></span>
+            <span class="subid-card-name">${escapeHtml(id)}</span>
+          </button>
+          <button type="button" class="subid-copy-btn subid-copy-btn--card" data-subid-copy="${escapeHtml(id)}" title="Copiar SubID" aria-label="Copiar SubID"><i class="fa-solid fa-copy" aria-hidden="true"></i></button>
+        </div>
         <div class="subid-card-status">${statusSelectHtml(id, r.status)}</div>
       </header>
       <div class="subid-card-essentials">
@@ -4674,6 +4783,13 @@
     if (!root || root.dataset.expandWired === "1") return;
     root.dataset.expandWired = "1";
     root.addEventListener("click", async (e) => {
+      const copyBtn = e.target.closest("[data-subid-copy]");
+      if (copyBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        copySubIdText(copyBtn.dataset.subidCopy, copyBtn);
+        return;
+      }
       const detailsBtn = e.target.closest("[data-subid-details]");
       if (detailsBtn) {
         e.preventDefault();
