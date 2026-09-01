@@ -28,6 +28,24 @@ function normalizeStatusSource(source) {
   return STATUS_SOURCES.has(s) ? s : null;
 }
 
+/** Status manual / teste / legado com valor setado — sync Meta/Pin não sobrescreve. */
+function isManualStatusLocked(prev = {}) {
+  if (prev.status_source === "manual" || prev.status === "teste") return true;
+  // Legado: status preenchido antes de status_source existir = escolha do cliente
+  return Boolean(prev.status && !prev.status_source);
+}
+
+/** Status operacional global por SubID — nunca inferido por gasto ou período. */
+function resolveSubidStatus(op = {}, _row = {}) {
+  if (op.status != null && op.status !== "") {
+    let status = op.status;
+    if (status === "pausada") status = "desativada";
+    return normalizeStatus(status);
+  }
+  // Sem registro em subid_ops: conservador (campanha antiga / sem sinal → desativada)
+  return "desativada";
+}
+
 async function loadSubidOps(userId = requireUserId()) {
   return requestCached(`loadSubidOps:${userId}`, async () => {
     const supabase = getSupabase();
@@ -120,18 +138,24 @@ async function upsertSubidOpsMany(rows, userId = requireUserId()) {
   const payload = list.map((r) => {
     const key = String(r.subid).trim();
     const prev = prevMap[key.toLowerCase()] || {};
+    const locked = isManualStatusLocked(prev);
+    let nextStatus = normalizeStatus(prev.status);
+    if (r.status != null && !locked) {
+      nextStatus = normalizeStatus(r.status);
+    }
     let statusSource = normalizeStatusSource(prev.status_source);
-    if (r.status_source !== undefined) {
+    if (locked) {
+      statusSource = normalizeStatusSource(prev.status_source) || "manual";
+    } else if (r.status_source !== undefined) {
       statusSource = normalizeStatusSource(r.status_source);
-    } else if (r.status != null && statusSource !== "manual") {
-      // bulk da API/CSV: marca origem, sem roubar trava manual
+    } else if (r.status != null) {
       statusSource = normalizeStatusSource(r.status_source_hint) || statusSource;
     }
     return {
       user_id: userId,
       subid: key,
       canal: r.canal !== undefined ? normalizeCanal(r.canal) : normalizeCanal(prev.canal),
-      status: r.status != null ? normalizeStatus(r.status) : normalizeStatus(prev.status),
+      status: nextStatus,
       produto: r.produto != null ? r.produto : (prev.produto || null),
       status_source: statusSource,
       updated_at: now,
@@ -217,13 +241,8 @@ function applyOpsToSubIds(subIds, opsMap) {
   return (subIds || []).map((r) => {
     const key = String(r.subid || "").trim().toLowerCase();
     const op = opsMap[key] || {};
-    // Manual (subid_ops) sempre vence; senão inferência por gasto / naming
     const canal = op.canal || inferCanal(r.subid, r.inv_meta, r.inv_pin);
-    // Status só de subid_ops (API Meta / CSV Pin / manual). Sem fonte conhecida,
-    // a campanha é antiga (arquivada/deletada na Meta) e cai em "desativada" —
-    // presumir "ativa" inflava a contagem ao trocar para meses históricos.
-    let status = op.status || r.status || "desativada";
-    if (status === "pausada") status = "desativada";
+    const status = resolveSubidStatus(op, r);
     return {
       ...r,
       canal,
@@ -242,4 +261,6 @@ module.exports = {
   inferCanal,
   persistInferredOps,
   normalizeStatusSource,
+  isManualStatusLocked,
+  resolveSubidStatus,
 };

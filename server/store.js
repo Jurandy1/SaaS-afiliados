@@ -253,7 +253,7 @@ const SUBID_METRIC_COLS = [
   "subid", "faturamento", "comissao", "pedidos", "concluidos", "pendentes", "cancelados",
   "unpaid", "itens", "abatimento", "cliques_shopee", "inv_meta", "inv_pin", "inv_total",
   "lucro", "roi", "cliques_meta", "cliques_pin", "impressoes", "alcance", "ctr_meta",
-  "cpc_meta", "abatimento_cliques", "canal", "status",
+  "cpc_meta", "abatimento_cliques",
 ].join(",");
 
 async function loadDashboardFromDb(startDate, endDate, userId = requireUserId()) {
@@ -393,8 +393,6 @@ async function loadDashboardFromDb(startDate, endDate, userId = requireUserId())
         ctr_meta: r.ctr_meta != null ? Number(r.ctr_meta) : undefined,
         cpc_meta: r.cpc_meta != null ? Number(r.cpc_meta) : undefined,
         abatimento_cliques: r.abatimento_cliques != null ? Number(r.abatimento_cliques) : undefined,
-        canal: r.canal || null,
-        status: r.status || null,
       };
     }),
     syncedAt: lastRun?.synced_at || null,

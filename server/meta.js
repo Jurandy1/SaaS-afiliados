@@ -564,7 +564,7 @@ async function syncMetaAdStatuses({ token, apiVersion, accountIds, userId = requ
     return { total: 0, ativas: 0, desativadas: 0, atualizados: 0, preservadosManual: 0 };
   }
 
-  const { loadSubidOps, upsertSubidOpsMany } = require("./subidOps");
+  const { loadSubidOps, upsertSubidOpsMany, isManualStatusLocked } = require("./subidOps");
   const prevMap = await loadSubidOps(userId);
   const toUpsert = [];
   let ativas = 0;
@@ -577,13 +577,7 @@ async function syncMetaAdStatuses({ token, apiVersion, accountIds, userId = requ
     else desativadas += 1;
 
     const prev = prevMap[subid.toLowerCase()] || {};
-    // Nunca sobrescreve edição manual do cliente nem status "Em teste".
-    if (prev.status_source === "manual" || prev.status === "teste") {
-      preservadosManual += 1;
-      continue;
-    }
-    // Legado sem origem: não mexer (evita apagar escolha antiga)
-    if (prev.status && !prev.status_source) {
+    if (isManualStatusLocked(prev)) {
       preservadosManual += 1;
       continue;
     }

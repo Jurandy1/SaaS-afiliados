@@ -253,16 +253,12 @@ async function sweepStaleActivePinSubIds(userId, referenceDate, skipSubIds = [])
 }
 
 async function applyPinterestCsvOps(rows, userId = requireUserId()) {
-  const { upsertSubidOpsMany, loadSubidOps } = require("./subidOps");
+  const { upsertSubidOpsMany, loadSubidOps, isManualStatusLocked } = require("./subidOps");
   const prevMap = await loadSubidOps(userId);
   const ops = [];
   for (const r of summarizePinSubIds(rows)) {
     const prev = prevMap[String(r.subid || "").toLowerCase()] || {};
-    // Cliente travou status na mão (ou legado sem origem) — só classifica canal se ainda indefinido
-    const isManualOrLegacy = prev.status_source === "manual"
-      || prev.status === "teste"
-      || (prev.status && !prev.status_source);
-    if (isManualOrLegacy) {
+    if (isManualStatusLocked(prev)) {
       if (!prev.canal || prev.canal === "indefinido") {
         ops.push({ subid: r.subid, canal: "pinterest" });
       }

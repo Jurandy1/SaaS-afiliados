@@ -393,9 +393,8 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     if (!canal) {
       canal = inferCanal(r.subid, fin.inv_meta, fin.inv_pin);
     }
-    // Status operacional: Meta API / Pin CSV / manual em subid_ops — nunca por lucro.
-    // Passa r.status cru (pode ser null); applyOpsToSubIds decide o default final.
-    const status = r.status || null;
+    // Status operacional: só subid_ops (global) — enrich não repassa snapshot antigo.
+    const status = null;
     const cliquesMeta = meta.clicksBySub[key] || 0;
     const cliquesMetaLink = meta.linkClicksBySub?.[key] || 0;
     const cliquesPin = pin.clicksBySub[key] || 0;
