@@ -32,17 +32,32 @@ async function loadSubidOps(userId = requireUserId()) {
   return requestCached(`loadSubidOps:${userId}`, async () => {
     const supabase = getSupabase();
     try {
-      const { data, error } = await supabase.from("subid_ops").select("*").eq("user_id", userId);
-      if (error) throw error;
+      // Pagina em blocos: PostgREST corta em 1000 e conta acima disso perdia
+      // op.status/canal manuais, fazendo campanha desativada voltar como ativa.
+      const pageSize = 1000;
+      const maxPages = 50;
       const map = {};
-      for (const r of data || []) {
-        const rawStatus = r.status || null;
-        map[String(r.subid || "").toLowerCase()] = {
-          canal: r.canal || null,
-          status: rawStatus === "pausada" ? "desativada" : rawStatus,
-          produto: r.produto || null,
-          status_source: normalizeStatusSource(r.status_source) || null,
-        };
+      for (let page = 0; page < maxPages; page++) {
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
+        const { data, error } = await supabase
+          .from("subid_ops")
+          .select("*")
+          .eq("user_id", userId)
+          .order("subid", { ascending: true })
+          .range(from, to);
+        if (error) throw error;
+        const rows = data || [];
+        for (const r of rows) {
+          const rawStatus = r.status || null;
+          map[String(r.subid || "").toLowerCase()] = {
+            canal: r.canal || null,
+            status: rawStatus === "pausada" ? "desativada" : rawStatus,
+            produto: r.produto || null,
+            status_source: normalizeStatusSource(r.status_source) || null,
+          };
+        }
+        if (rows.length < pageSize) break;
       }
       return map;
     } catch (e) {
