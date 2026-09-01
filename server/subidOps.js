@@ -204,8 +204,10 @@ function applyOpsToSubIds(subIds, opsMap) {
     const op = opsMap[key] || {};
     // Manual (subid_ops) sempre vence; senão inferência por gasto / naming
     const canal = op.canal || inferCanal(r.subid, r.inv_meta, r.inv_pin);
-    // Status só de subid_ops (API Meta / CSV Pin / manual). Sem fallback por lucro.
-    let status = op.status || r.status || "ativa";
+    // Status só de subid_ops (API Meta / CSV Pin / manual). Sem fonte conhecida,
+    // a campanha é antiga (arquivada/deletada na Meta) e cai em "desativada" —
+    // presumir "ativa" inflava a contagem ao trocar para meses históricos.
+    let status = op.status || r.status || "desativada";
     if (status === "pausada") status = "desativada";
     return {
       ...r,
