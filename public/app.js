@@ -1809,8 +1809,11 @@
       : ch === "pinterest"
         ? Number(k?.cliques_pin || 0)
         : Number(k?.cliques_ads || 0);
-    const abatExtra = k?.cliques_shopee != null && adsDenom > 0
-      ? `${fmtNum(k.cliques_shopee)} ÷ ${fmtNum(adsDenom)} cliques`
+    const abatNum = (ch === "geral" || !ch) && k?.cliques_shopee_pago != null
+      ? Number(k.cliques_shopee_pago)
+      : (k?.cliques_shopee != null ? Number(k.cliques_shopee) : null);
+    const abatExtra = abatNum != null && adsDenom > 0
+      ? `${fmtNum(abatNum)} ÷ ${fmtNum(adsDenom)} cliques`
       : null;
 
     const fatCard = {
@@ -3027,6 +3030,7 @@
     let cliquesMeta = 0, cliquesMetaLink = 0, cliquesPin = 0, cliquesAds = 0;
     let impressoes = 0, alcance = 0;
     let cliquesShopeeRaw = null;
+    let cliquesShopeePago = 0;
     for (const r of list) {
       const a = aggregateSubInPeriod(r, start, end);
       fat += a.faturamento;
@@ -3046,6 +3050,10 @@
       alcance += Number(r.alcance || 0);
       if (a.cliques_shopee != null) {
         cliquesShopeeRaw = (cliquesShopeeRaw == null ? 0 : cliquesShopeeRaw) + Number(a.cliques_shopee);
+        const canal = r.canal || "indefinido";
+        if (canal === "meta" || canal === "pinterest") {
+          cliquesShopeePago += Number(a.cliques_shopee || 0);
+        }
       }
     }
     const spendMeta = invMeta;
@@ -3062,10 +3070,12 @@
     const comissaoLiq = com * (1 - gov);
     const lucro = Math.round((comissaoLiq - invForRoi) * 100) / 100;
     const roi = invForRoi > 0 ? Math.round((lucro / invForRoi) * 10000) / 100 : null;
-    // Agregado no padrão Shopee: soma bruta shopee/ads × 100. Sem clamp, > 100% é válido.
+    // Geral: abatimento só com Shopee de Meta+Pin (orgânico fora do numerador)
+    const ch = state.channel || "geral";
+    const abatNumerador = ch === "geral" ? cliquesShopeePago : cliquesShopeeRaw;
     let abatimentoCliques = null;
-    if (cliquesShopeeRaw != null && cliquesAds > 0) {
-      abatimentoCliques = Math.round((cliquesShopeeRaw / cliquesAds) * 10000) / 100;
+    if (abatNumerador != null && cliquesAds > 0) {
+      abatimentoCliques = Math.round((Number(abatNumerador) / cliquesAds) * 10000) / 100;
     }
     return {
       ...(baseKpis || {}),
@@ -3087,6 +3097,7 @@
       cliques_pin: cliquesPin,
       cliques_ads: cliquesAds,
       cliques_shopee: cliquesShopeeRaw,
+      cliques_shopee_pago: cliquesShopeePago,
       impressoes,
       alcance,
       cpc_meta,
@@ -3332,7 +3343,7 @@
     const chartSub = $("#dash-chart-sub");
     if (chartSub) chartSub.textContent = "todos os canais";
     const dailySub = $("#dash-daily-sub");
-    if (dailySub) dailySub.textContent = "Fat · Com · Inv · Lucro · ROI · Abat. cliques (shopee ÷ ads)";
+    if (dailySub) dailySub.textContent = "Fat · Com · Inv · Lucro · ROI · Abat. cliques (pagos ÷ ads)";
   }
 
   /** Contadores de SubIDs por canal no rail e na página de classificação. */
@@ -3728,6 +3739,7 @@
       if (dash.kpis.cliques_pin != null) k.cliques_pin = dash.kpis.cliques_pin;
       if (dash.kpis.cliques_ads != null) k.cliques_ads = dash.kpis.cliques_ads;
       if (dash.kpis.cliques_shopee != null) k.cliques_shopee = dash.kpis.cliques_shopee;
+      if (dash.kpis.cliques_shopee_pago != null) k.cliques_shopee_pago = dash.kpis.cliques_shopee_pago;
       if (dash.kpis.impressoes != null) k.impressoes = dash.kpis.impressoes;
       if (dash.kpis.alcance != null) k.alcance = dash.kpis.alcance;
       if (dash.kpis.ctr_meta != null) k.ctr_meta = dash.kpis.ctr_meta;

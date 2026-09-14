@@ -14,7 +14,8 @@ function round2(n) {
 
 // Abatimento no padrão da Shopee = (cliques_shopee / cliques_ads) × 100.
 // No Meta, cliques_ads = cliques no link (inline_link_clicks), não "todos os cliques".
-// Valores > 100% são válidos (orgânico inflando shopee). Sem clamp.
+// No dashboard Geral, o numerador é só Shopee de SubIDs Meta+Pin (orgânico não entra).
+// Valores > 100% são válidos. Sem clamp.
 // Se cliques_ads = 0, retorna null (divisão indefinida — UI mostra "—").
 // "% Comissão" (participação da comissão no faturamento) = com/fat × 100.
 function commAbatPct(fat, com) {
@@ -257,9 +258,21 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
 
   const meta = sumSpend(metaRows);
   const pin = sumSpend(pinRows);
+
+  /** Canal do SubID: ops manual → gasto Meta/Pin no período. */
+  function canalForClickSub(sub) {
+    const op = opsMap[sub];
+    if (op?.canal) return op.canal;
+    return inferCanal(sub, meta.bySub[sub] || 0, pin.bySub[sub] || 0);
+  }
+
   const clicksBySubDay = {};
   const clicksBySub = {};
   const clicksShopeeByDay = {};
+  // Só Meta+Pin: abatimento do Geral não pode misturar orgânico no numerador
+  // (senão 50k cliques orgânicos ÷ ads pagos → 300%+ falsos).
+  const clicksShopeePaidByDay = {};
+  let clicksShopeePaidTotal = 0;
   const clickSubDays = new Map();
   for (const r of clickRows) {
     const sub = String(r.subid || "").trim().toLowerCase();
@@ -270,6 +283,11 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     clicksBySubDay[sk] = (clicksBySubDay[sk] || 0) + n;
     clicksBySub[sub] = (clicksBySub[sub] || 0) + n;
     clicksShopeeByDay[day] = (clicksShopeeByDay[day] || 0) + n;
+    const canal = canalForClickSub(sub);
+    if (canal === "meta" || canal === "pinterest") {
+      clicksShopeePaidByDay[day] = (clicksShopeePaidByDay[day] || 0) + n;
+      clicksShopeePaidTotal += n;
+    }
     if (!clickSubDays.has(sub)) clickSubDays.set(sub, new Set());
     clickSubDays.get(sub).add(day);
   }
@@ -368,8 +386,10 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
       const cliques_meta_link = meta.linkClicksByDay?.[day] || 0;
       const cliques_pin = pin.clicksByDay?.[day] || 0;
       const cliques_shopee = clicksShopeeByDay[day] || 0;
+      const cliques_shopee_pago = clicksShopeePaidByDay[day] || 0;
       const cliques_ads = cliques_meta_link + cliques_pin;
-      const abatimento_cliques = clickAbatPct(cliques_shopee, cliques_ads);
+      // Abatimento Geral = cliques Shopee de campanhas pagas ÷ ads (não inclui orgânico)
+      const abatimento_cliques = clickAbatPct(cliques_shopee_pago, cliques_ads);
       return {
         ...src,
         ...fin,
@@ -441,15 +461,15 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
   const alcanceTotal = metaRows.reduce((a, r) => a + Number(r.alcance || 0), 0);
   const cliquesPinTotal = pinRows.reduce((a, r) => a + Number(r.cliques || 0), 0);
   const cliquesShopeeTotal = subIds.reduce((a, r) => a + Number(r.cliques_shopee || 0), 0);
-  // Abatimento Meta = shopee ÷ cliques no link (não "todos os cliques")
+  // Abatimento Geral = Shopee de SubIDs Meta+Pin ÷ ads (exclui orgânico do numerador)
   const cliquesAdsTotal = cliquesMetaLinkTotal + cliquesPinTotal;
   const cpcMeta = cliquesMetaTotal > 0 ? round2(invMeta / cliquesMetaTotal) : null;
   const ctrMeta = impressoesTotal > 0 ? round2((cliquesMetaTotal / impressoesTotal) * 100) : null;
   let abatimentoCliquesKpi = null;
   if (cliquesAdsTotal > 0) {
-    abatimentoCliquesKpi = clickAbatPct(cliquesShopeeTotal, cliquesAdsTotal);
+    abatimentoCliquesKpi = clickAbatPct(clicksShopeePaidTotal, cliquesAdsTotal);
   } else if (cliquesMetaLinkTotal > 0) {
-    abatimentoCliquesKpi = clickAbatPct(cliquesShopeeTotal, cliquesMetaLinkTotal);
+    abatimentoCliquesKpi = clickAbatPct(clicksShopeePaidTotal, cliquesMetaLinkTotal);
   }
 
   const kpis = {
@@ -463,6 +483,7 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     cliques_pin: cliquesPinTotal,
     cliques_ads: cliquesAdsTotal,
     cliques_shopee: cliquesShopeeTotal,
+    cliques_shopee_pago: clicksShopeePaidTotal,
     impressoes: impressoesTotal,
     alcance: alcanceTotal,
     cpc_meta: cpcMeta,
@@ -559,10 +580,11 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
   const kpisAligned = calcLucroRoi(kpis.comissao, kpis.inv_meta, kpis.inv_pin, tax);
   Object.assign(kpis, kpisAligned);
   kpis.abatimento = commAbatPct(kpis.faturamento, kpis.comissao) ?? 0;
+  // Mantém abatimento com numerador só de canais pagos (já calculado acima)
   if (Number(kpis.cliques_ads || 0) > 0) {
-    kpis.abatimento_cliques = clickAbatPct(kpis.cliques_shopee, kpis.cliques_ads);
+    kpis.abatimento_cliques = clickAbatPct(clicksShopeePaidTotal, kpis.cliques_ads);
   } else if (Number(kpis.cliques_meta_link || 0) > 0) {
-    kpis.abatimento_cliques = clickAbatPct(kpis.cliques_shopee, kpis.cliques_meta_link);
+    kpis.abatimento_cliques = clickAbatPct(clicksShopeePaidTotal, kpis.cliques_meta_link);
   } else {
     kpis.abatimento_cliques = null;
   }
