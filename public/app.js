@@ -2701,7 +2701,6 @@
         const fat = Number(d.faturamento || 0);
         const com = Number(d.comissao || 0);
         const abatMeta = d.abatimento_cliques_meta != null ? Number(d.abatimento_cliques_meta) : null;
-        const abatPin = d.abatimento_cliques_pin != null ? Number(d.abatimento_cliques_pin) : null;
         const lucro = isTotal
           ? d.lucro
           : (d.lucro != null ? d.lucro : com - Number(d.inv_total || 0));
@@ -2723,7 +2722,6 @@
               <div class="daily-card-cell"><span class="lab">Inv. Pin</span><span class="val cell-gasto">${fmt(d.inv_pin)}</span></div>
               <div class="daily-card-cell"><span class="lab">Inv. Total</span><span class="val cell-gasto">${fmt(d.inv_total)}</span></div>
               <div class="daily-card-cell"><span class="lab">Abat. Meta</span><span class="val ${abatCliquesClass(abatMeta)}">${fmtPct(abatMeta)}</span></div>
-              <div class="daily-card-cell"><span class="lab">Abat. Pin</span><span class="val ${abatCliquesClass(abatPin)}">${fmtPct(abatPin)}</span></div>
             </div>
           </details>
         </article>`;
@@ -2763,7 +2761,6 @@
       const fat = Number(d.faturamento || 0);
       const com = Number(d.comissao || 0);
       const abatMeta = d.abatimento_cliques_meta != null ? Number(d.abatimento_cliques_meta) : null;
-      const abatPin = d.abatimento_cliques_pin != null ? Number(d.abatimento_cliques_pin) : null;
       const lucro = d.lucro != null ? d.lucro : com - Number(d.inv_total || 0);
       return `<tr>
         <td class="font-medium subid">${shortDay(d.data)}</td>
@@ -2775,13 +2772,11 @@
         <td class="num ${lucroCellClass(lucro)}">${fmt(lucro)}</td>
         <td class="num ${roiTierClass(d.roi)}">${fmtPct(d.roi)}</td>
         <td class="num ${abatCliquesClass(abatMeta)}">${fmtPct(abatMeta)}</td>
-        <td class="num ${abatCliquesClass(abatPin)}">${fmtPct(abatPin)}</td>
       </tr>`;
-    }).join("") || `<tr><td colspan="10">Sem dias no período.</td></tr>`;
+    }).join("") || `<tr><td colspan="9">Sem dias no período.</td></tr>`;
 
     if (state.dailyRows.length) {
       const totAbatMeta = k.abatimento_cliques_meta != null ? Number(k.abatimento_cliques_meta) : null;
-      const totAbatPin = k.abatimento_cliques_pin != null ? Number(k.abatimento_cliques_pin) : null;
       $("#daily-tfoot").innerHTML = `<tr>
         <td class="subid uppercase tracking-wider">TOTAL</td>
         <td class="num cell-emerald">${fmt(k.faturamento)}</td>
@@ -2792,7 +2787,6 @@
         <td class="num ${lucroCellClass(k.lucro)}">${fmt(k.lucro)}</td>
         <td class="num ${roiTierClass(k.roi)}">${fmtPct(k.roi)}</td>
         <td class="num ${abatCliquesClass(totAbatMeta)}">${fmtPct(totAbatMeta)}</td>
-        <td class="num ${abatCliquesClass(totAbatPin)}">${fmtPct(totAbatPin)}</td>
       </tr>`;
     } else $("#daily-tfoot").innerHTML = "";
   }
@@ -3355,7 +3349,7 @@
     const chartSub = $("#dash-chart-sub");
     if (chartSub) chartSub.textContent = "todos os canais";
     const dailySub = $("#dash-daily-sub");
-    if (dailySub) dailySub.textContent = "Fat · Com · Inv · Lucro · ROI · Abat. Meta · Abat. Pin (sem orgânico)";
+    if (dailySub) dailySub.textContent = "Fat · Com · Inv · Lucro · ROI · Abat. Meta (sem Pin e sem orgânico)";
   }
 
   /** Contadores de SubIDs por canal no rail e na página de classificação. */
