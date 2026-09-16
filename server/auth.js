@@ -59,6 +59,18 @@ async function requestCached(key, factory) {
   }
 }
 
+function invalidateRequestCache(keyPrefix = null) {
+  const store = als.getStore();
+  if (!store?.cache) return;
+  if (!keyPrefix) {
+    store.cache.clear();
+    return;
+  }
+  for (const k of store.cache.keys()) {
+    if (String(k).startsWith(keyPrefix)) store.cache.delete(k);
+  }
+}
+
 function requireUserId() {
   const u = getUser();
   if (!u?.id) {
@@ -270,6 +282,7 @@ module.exports = {
   getUser,
   requireUserId,
   requestCached,
+  invalidateRequestCache,
   verifyAccessToken,
   registerUser,
   loginUser,

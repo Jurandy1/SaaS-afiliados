@@ -1,10 +1,11 @@
 "use strict";
 
 const { getSupabase } = require("./supabase");
-const { requireUserId, requestCached } = require("./auth");
+const { requireUserId, requestCached, invalidateRequestCache } = require("./auth");
 
 const CANAIS = new Set(["meta", "pinterest", "organico", "indefinido"]);
 const STATUS_SOURCES = new Set(["manual", "meta", "pinterest"]);
+const CLASSIFIED_CANAIS = new Set(["meta", "pinterest", "organico"]);
 
 function normalizeStatus(status) {
   if (status == null || status === "") return null;
@@ -26,6 +27,28 @@ function normalizeStatusSource(source) {
   if (source == null || source === "") return null;
   const s = String(source).trim().toLowerCase();
   return STATUS_SOURCES.has(s) ? s : null;
+}
+
+function isClassifiedCanal(canal) {
+  return CLASSIFIED_CANAIS.has(normalizeCanal(canal));
+}
+
+/** Canal já classificado pelo cliente — sync não pode rebaixar pra indefinido. */
+function isCanalLocked(prev = {}) {
+  if (isClassifiedCanal(prev.canal)) return true;
+  return isManualStatusLocked(prev);
+}
+
+/** Escolhe o próximo canal sem nunca apagar classificação meta/pin/orgânico. */
+function resolveNextCanal(prev, incoming) {
+  const prevCanal = normalizeCanal(prev.canal);
+  if (incoming === undefined) return prevCanal;
+  const next = normalizeCanal(incoming);
+  // Nunca rebaixa canal classificado para vazio/indefinido (bug que devolvia SubIDs pra Config)
+  if (isClassifiedCanal(prevCanal) && (!next || next === "indefinido")) {
+    return prevCanal;
+  }
+  return next;
 }
 
 /** Status manual / teste / legado com valor setado — sync Meta/Pin não sobrescreve. */
@@ -94,13 +117,17 @@ async function upsertSubidOps(subid, partial, userId = requireUserId()) {
   const nextStatus =
     partial.status != null ? normalizeStatus(partial.status) : normalizeStatus(prev.status);
   const nextCanal =
-    partial.canal !== undefined ? normalizeCanal(partial.canal) : normalizeCanal(prev.canal);
+    partial.canal !== undefined
+      ? normalizeCanal(partial.canal)
+      : normalizeCanal(prev.canal);
 
-  // UI / cliente: status alterado → trava manual (sync da API não sobrescreve)
+  // UI: status OU canal classificado → trava manual (sync não apaga)
   let nextSource = normalizeStatusSource(prev.status_source);
   if (partial.status_source !== undefined) {
     nextSource = normalizeStatusSource(partial.status_source);
   } else if (partial.status != null) {
+    nextSource = "manual";
+  } else if (partial.canal != null && isClassifiedCanal(partial.canal)) {
     nextSource = "manual";
   }
 
@@ -127,6 +154,7 @@ async function upsertSubidOps(subid, partial, userId = requireUserId()) {
     ({ error } = await supabase.from("subid_ops").upsert(legacy, { onConflict: "user_id,subid" }));
   }
   if (error) throw new Error(error.message);
+  invalidateRequestCache(`loadSubidOps:${userId}`);
   return row;
 }
 
@@ -151,10 +179,12 @@ async function upsertSubidOpsMany(rows, userId = requireUserId()) {
     } else if (r.status != null) {
       statusSource = normalizeStatusSource(r.status_source_hint) || statusSource;
     }
+    const nextCanal =
+      r.canal !== undefined ? resolveNextCanal(prev, r.canal) : normalizeCanal(prev.canal);
     return {
       user_id: userId,
       subid: key,
-      canal: r.canal !== undefined ? normalizeCanal(r.canal) : normalizeCanal(prev.canal),
+      canal: nextCanal,
       status: nextStatus,
       produto: r.produto != null ? r.produto : (prev.produto || null),
       status_source: statusSource,
@@ -179,6 +209,7 @@ async function upsertSubidOpsMany(rows, userId = requireUserId()) {
     }
     if (error) throw new Error(error.message);
   }
+  invalidateRequestCache(`loadSubidOps:${userId}`);
   return payload.length;
 }
 
@@ -192,6 +223,7 @@ async function persistInferredOps(subIds, userId = requireUserId()) {
     const subid = String(r.subid || "").trim();
     if (!subid) continue;
     const key = subid.toLowerCase();
+    // Já existe qualquer registro em subid_ops — NÃO mexer (nunca sobrescrever classificação)
     if (opsMap[key]) continue;
     const canal = inferCanal(r.subid, r.inv_meta, r.inv_pin);
     if (canal !== "indefinido") continue;
@@ -207,22 +239,33 @@ async function persistInferredOps(subIds, userId = requireUserId()) {
   }
   if (!rows.length) return 0;
   const supabase = getSupabase();
-  let { error } = await supabase.from("subid_ops").upsert(rows, { onConflict: "user_id,subid" });
+  // ignoreDuplicates: só insere SubIDs novos — nunca sobrescreve meta/pin/orgânico
+  let { error } = await supabase.from("subid_ops").upsert(rows, {
+    onConflict: "user_id,subid",
+    ignoreDuplicates: true,
+  });
   if (error && /status_source|indefinido|canal/i.test(error.message || "")) {
     try {
       const { ensureConfigSchema } = require("./ensureDb");
       await ensureConfigSchema();
     } catch (_) { /* ignore */ }
-    ({ error } = await supabase.from("subid_ops").upsert(rows, { onConflict: "user_id,subid" }));
+    ({ error } = await supabase.from("subid_ops").upsert(rows, {
+      onConflict: "user_id,subid",
+      ignoreDuplicates: true,
+    }));
   }
   if (error && /status_source/i.test(error.message || "")) {
     const legacy = rows.map(({ status_source: _s, ...rest }) => rest);
-    ({ error } = await supabase.from("subid_ops").upsert(legacy, { onConflict: "user_id,subid" }));
+    ({ error } = await supabase.from("subid_ops").upsert(legacy, {
+      onConflict: "user_id,subid",
+      ignoreDuplicates: true,
+    }));
   }
   if (error) {
     console.warn("[subidOps] persist indefinidos:", error.message);
     return 0;
   }
+  invalidateRequestCache(`loadSubidOps:${userId}`);
   return rows.length;
 }
 

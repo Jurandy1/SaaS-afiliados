@@ -3259,6 +3259,11 @@
         if (field === "status") {
           sel.className = `op-select op-status-select st-${normalizeStatus(value)}`;
           await saveSubidOp(subid, { status: value, status_source: "manual" });
+        } else if (field === "canal") {
+          await saveSubidOp(subid, {
+            canal: value,
+            ...(value && value !== "indefinido" ? { status_source: "manual" } : {}),
+          });
         } else {
           await saveSubidOp(subid, { [field]: value });
         }
@@ -4121,7 +4126,9 @@
       try {
         await saveSubidOp(ctx.subid, ctx.mode === "status"
           ? { status: value, status_source: "manual" }
-          : { [ctx.mode]: value });
+          : ctx.mode === "canal" && value && value !== "indefinido"
+            ? { canal: value, status_source: "manual" }
+            : { [ctx.mode]: value });
       } catch (err) {
         alert(err.message || String(err));
       }
