@@ -39,16 +39,41 @@ function isCanalLocked(prev = {}) {
   return isManualStatusLocked(prev);
 }
 
-/** Escolhe o próximo canal sem nunca apagar classificação meta/pin/orgânico. */
+/** Chave canônica em subid_ops — sempre minúscula (evita duplicata Unha001/unha001). */
+function opsSubidKey(subid) {
+  return String(subid || "").trim().toLowerCase();
+}
+
+/**
+ * Escolhe o próximo canal em upserts em massa (CSV/sync).
+ * Nunca apaga nem troca meta/pin/orgânico — só a UI (upsertSubidOps) reclassifica.
+ */
 function resolveNextCanal(prev, incoming) {
   const prevCanal = normalizeCanal(prev.canal);
   if (incoming === undefined) return prevCanal;
   const next = normalizeCanal(incoming);
-  // Nunca rebaixa canal classificado para vazio/indefinido (bug que devolvia SubIDs pra Config)
-  if (isClassifiedCanal(prevCanal) && (!next || next === "indefinido")) {
-    return prevCanal;
+  if (isClassifiedCanal(prevCanal)) {
+    // Não rebaixa pra indefinido nem troca de canal (ex.: CSV Pin roubando Meta/orgânico)
+    if (!next || next === "indefinido" || next !== prevCanal) return prevCanal;
   }
   return next;
+}
+
+/** Em duplicatas por case, preferir classificação real + status manual. */
+function preferOpsRow(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  const aClass = isClassifiedCanal(a.canal);
+  const bClass = isClassifiedCanal(b.canal);
+  if (aClass && !bClass) return a;
+  if (bClass && !aClass) return b;
+  const aManual = a.status_source === "manual" || a.status === "teste";
+  const bManual = b.status_source === "manual" || b.status === "teste";
+  if (aManual && !bManual) return a;
+  if (bManual && !aManual) return b;
+  // Mesmo canal: preferir quem tem status preenchido
+  if (b.status && !a.status) return b;
+  return a;
 }
 
 /** Status manual / teste / legado com valor setado — sync Meta/Pin não sobrescreve. */
@@ -91,12 +116,16 @@ async function loadSubidOps(userId = requireUserId()) {
         const rows = data || [];
         for (const r of rows) {
           const rawStatus = r.status || null;
-          map[String(r.subid || "").toLowerCase()] = {
+          const key = opsSubidKey(r.subid);
+          if (!key) continue;
+          const incoming = {
             canal: r.canal || null,
             status: rawStatus === "pausada" ? "desativada" : rawStatus,
             produto: r.produto || null,
             status_source: normalizeStatusSource(r.status_source) || null,
           };
+          // Duplicata Unha001 vs unha001: não deixar indefinido sobrescrever classificado
+          map[key] = preferOpsRow(map[key], incoming);
         }
         if (rows.length < pageSize) break;
       }
@@ -109,11 +138,11 @@ async function loadSubidOps(userId = requireUserId()) {
 }
 
 async function upsertSubidOps(subid, partial, userId = requireUserId()) {
-  const key = String(subid || "").trim();
+  const key = opsSubidKey(subid);
   if (!key) throw new Error("SubID obrigatório");
   const supabase = getSupabase();
   const prevMap = await loadSubidOps(userId);
-  const prev = prevMap[key.toLowerCase()] || {};
+  const prev = prevMap[key] || {};
   const nextStatus =
     partial.status != null ? normalizeStatus(partial.status) : normalizeStatus(prev.status);
   const nextCanal =
@@ -164,8 +193,8 @@ async function upsertSubidOpsMany(rows, userId = requireUserId()) {
   const prevMap = await loadSubidOps(userId);
   const now = new Date().toISOString();
   const payload = list.map((r) => {
-    const key = String(r.subid).trim();
-    const prev = prevMap[key.toLowerCase()] || {};
+    const key = opsSubidKey(r.subid);
+    const prev = prevMap[key] || {};
     const locked = isManualStatusLocked(prev);
     let nextStatus = normalizeStatus(prev.status);
     if (r.status != null && !locked) {
@@ -190,7 +219,7 @@ async function upsertSubidOpsMany(rows, userId = requireUserId()) {
       status_source: statusSource,
       updated_at: now,
     };
-  });
+  }).filter((r) => r.subid);
   const supabase = getSupabase();
   let error = null;
   for (let i = 0; i < payload.length; i += 200) {
@@ -220,16 +249,15 @@ async function persistInferredOps(subIds, userId = requireUserId()) {
   const now = new Date().toISOString();
   const rows = [];
   for (const r of list) {
-    const subid = String(r.subid || "").trim();
-    if (!subid) continue;
-    const key = subid.toLowerCase();
+    const key = opsSubidKey(r.subid);
+    if (!key) continue;
     // Já existe qualquer registro em subid_ops — NÃO mexer (nunca sobrescrever classificação)
     if (opsMap[key]) continue;
     const canal = inferCanal(r.subid, r.inv_meta, r.inv_pin);
     if (canal !== "indefinido") continue;
     rows.push({
       user_id: userId,
-      subid,
+      subid: key,
       canal: "indefinido",
       status: null,
       status_source: null,

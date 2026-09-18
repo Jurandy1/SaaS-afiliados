@@ -259,26 +259,40 @@ async function applyPinterestCsvOps(rows, userId = requireUserId()) {
   for (const r of summarizePinSubIds(rows)) {
     const prev = prevMap[String(r.subid || "").toLowerCase()] || {};
     if (isManualStatusLocked(prev)) {
+      // Só preenche canal se ainda estiver vazio/indefinido — nunca troca Meta/orgânico
       if (!prev.canal || prev.canal === "indefinido") {
         ops.push({ subid: r.subid, canal: "pinterest" });
       }
       continue;
     }
+    // Canal já decidido pelo cliente (ou Meta): CSV Pin não rouba classificação
+    if (prev.canal === "meta" || prev.canal === "organico") continue;
+
     const fromEntity = pinStatusFromEntity(r.statusRaw);
-    // Só grava status com certeza do CSV (entity status). Sem chute por gasto zero.
-    const row = { subid: r.subid, canal: "pinterest" };
+    // Espelha applyMetaSyncOps: canal só se vazio/indefinido/já-pin; status do entity
+    const row = { subid: r.subid };
+    if (!prev.canal || prev.canal === "indefinido" || prev.canal === "pinterest") {
+      row.canal = "pinterest";
+    }
     if (fromEntity) {
       row.status = fromEntity;
       row.status_source = "pinterest";
     }
-    ops.push(row);
+    if (row.canal || row.status) ops.push(row);
   }
 
   const uploadMaxDate = rows.reduce((m, r) => (r.data > m ? r.data : m), "");
   const seenNow = summarizePinSubIds(rows).map((r) => r.subid);
   const staleSubIds = await sweepStaleActivePinSubIds(userId, uploadMaxDate, seenNow);
   for (const subid of staleSubIds) {
-    ops.push({ subid, canal: "pinterest", status: "desativada", status_source: "pinterest" });
+    const prev = prevMap[String(subid || "").toLowerCase()] || {};
+    if (isManualStatusLocked(prev)) continue;
+    if (prev.canal === "meta" || prev.canal === "organico") continue;
+    const row = { subid, status: "desativada", status_source: "pinterest" };
+    if (!prev.canal || prev.canal === "indefinido" || prev.canal === "pinterest") {
+      row.canal = "pinterest";
+    }
+    ops.push(row);
   }
 
   if (!ops.length) return { total: 0, ativas: 0, desativadas: 0 };
