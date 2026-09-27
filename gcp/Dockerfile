@@ -2,7 +2,7 @@ FROM node:22-slim
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
 COPY server ./server
 COPY gcp/sync-server.js ./gcp/sync-server.js
