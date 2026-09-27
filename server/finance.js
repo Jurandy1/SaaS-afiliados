@@ -5,7 +5,7 @@ const { loadMetaSpendByDay } = require("./meta");
 const { loadPinSpendByDay } = require("./pinterest");
 const { requireUserId } = require("./auth");
 const { loadSettings } = require("./store");
-const { loadSubidOps, applyOpsToSubIds, inferCanal, persistInferredOps } = require("./subidOps");
+const { loadSubidOps, applyOpsToSubIds, inferCanal } = require("./subidOps");
 const { loadShopeeClicksByDay } = require("./shopeeClicks");
 
 function round2(n) {
@@ -687,12 +687,10 @@ async function enrichDashboardWithAds(dash, userId = requireUserId(), { persistS
     console.warn("[finance] persist:", e.message);
   }
 
+  // subid_ops é gravado SÓ pela UI (POST /api/subid-ops). Nenhum sync/upload
+  // escreve mais: SubID sem registro já é tratado como indefinido em
+  // applyOpsToSubIds, então não é preciso pré-criar linhas.
   const subIdsWithOps = applyOpsToSubIds(subIdsAll, opsMap);
-  if (persistDaily || persistSubIds) {
-    persistInferredOps(subIdsWithOps, userId).catch((e) => {
-      console.warn("[finance] persist indefinidos:", e.message);
-    });
-  }
 
   return {
     ...dash,

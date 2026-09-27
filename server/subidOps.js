@@ -205,61 +205,6 @@ async function upsertSubidOps(subid, partial, userId = requireUserId()) {
   return row;
 }
 
-async function persistInferredOps(subIds, userId = requireUserId()) {
-  const list = Array.isArray(subIds) ? subIds : [];
-  if (!list.length) return 0;
-  const opsMap = await loadSubidOps(userId);
-  const now = new Date().toISOString();
-  const rows = [];
-  for (const r of list) {
-    const key = opsSubidKey(r.subid);
-    if (!key) continue;
-    // Já existe qualquer registro em subid_ops — NÃO mexer (nunca sobrescrever classificação)
-    if (opsMap[key]) continue;
-    const canal = inferCanal(r.subid, r.inv_meta, r.inv_pin);
-    if (canal !== "indefinido") continue;
-    rows.push({
-      user_id: userId,
-      subid: key,
-      canal: "indefinido",
-      status: null,
-      status_source: null,
-      produto: r.produto || null,
-      updated_at: now,
-    });
-  }
-  if (!rows.length) return 0;
-  const supabase = getSupabase();
-  // ignoreDuplicates: só insere SubIDs novos — nunca sobrescreve meta/pin/orgânico
-  let { error } = await supabase.from("subid_ops").upsert(rows, {
-    onConflict: "user_id,subid",
-    ignoreDuplicates: true,
-  });
-  if (error && /status_source|indefinido|canal/i.test(error.message || "")) {
-    try {
-      const { ensureConfigSchema } = require("./ensureDb");
-      await ensureConfigSchema();
-    } catch (_) { /* ignore */ }
-    ({ error } = await supabase.from("subid_ops").upsert(rows, {
-      onConflict: "user_id,subid",
-      ignoreDuplicates: true,
-    }));
-  }
-  if (error && /status_source/i.test(error.message || "")) {
-    const legacy = rows.map(({ status_source: _s, ...rest }) => rest);
-    ({ error } = await supabase.from("subid_ops").upsert(legacy, {
-      onConflict: "user_id,subid",
-      ignoreDuplicates: true,
-    }));
-  }
-  if (error) {
-    console.warn("[subidOps] persist indefinidos:", error.message);
-    return 0;
-  }
-  invalidateRequestCache(`loadSubidOps:${userId}`);
-  return rows.length;
-}
-
 function inferCanal(subid, invMeta, invPin) {
   const invM = Number(invMeta || 0);
   const invP = Number(invPin || 0);
@@ -299,7 +244,6 @@ module.exports = {
   upsertSubidOps,
   applyOpsToSubIds,
   inferCanal,
-  persistInferredOps,
   normalizeStatusSource,
   resolveSubidStatus,
 };
