@@ -5364,11 +5364,7 @@
         const tot = r.totais
           ? ` · gasto R$ ${Number(r.totais.gasto || 0).toLocaleString("pt-BR")} · ${Number(r.totais.cliques || 0).toLocaleString("pt-BR")} cliques`
           : "";
-        const st = r.statusSync;
-        const statusMsg = st && st.total
-          ? ` · status API: ${st.ativas || 0} ativas / ${st.desativadas || 0} desativadas (${st.atualizados || 0} atualizados${st.preservadosManual ? `, ${st.preservadosManual} manuais preservados` : ""})`
-          : "";
-        const msg = `Meta sync: ${r.gravados} linhas (${r.range?.since} a ${r.range?.until})${tot}${statusMsg}` +
+        const msg = `Meta sync: ${r.gravados} linhas (${r.range?.since} a ${r.range?.until})${tot}` +
           (r.erros?.length ? ` · avisos: ${r.erros.join("; ")}` : "");
         if (isBanner) {
           status.className = "banner ok keep";
@@ -5991,7 +5987,7 @@
         status.className = "form-status ok";
         const periodo = r.range?.since && r.range?.until ? ` · ${r.range.since} a ${r.range.until}` : "";
         const gasto = r.gasto != null ? ` · gasto ${Number(r.gasto).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "";
-        status.textContent = `Pinterest: ${r.gravados} linhas gravadas${gasto}${periodo}. Canal dos SubIDs não muda no upload — classifique em Indefinidos.`;
+        status.textContent = `Pinterest: ${r.gravados} linhas gravadas${gasto}${periodo}. Canal e status dos SubIDs não mudam no upload — só você altera.`;
         await loadDashboard({ force: false });
       } catch (err) {
         status.className = "form-status err";

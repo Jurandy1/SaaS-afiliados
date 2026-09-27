@@ -146,7 +146,8 @@ async function importPinterestCsv(text, userId = requireUserId()) {
     if (error) throw new Error(error.message);
     gravados += chunk.length;
   }
-  const classificados = await applyPinterestCsvOps(parsed, userId);
+  // Upload só grava gasto/cliques. Canal e Status do SubID são do cliente —
+  // o "Ad entity status" do CSV é do dia do export e sobrescrevia a escolha dele.
   const subids = new Set(rows.map((r) => r.subid));
   const datas = rows.map((r) => r.data).sort();
   const gasto = Math.round(rows.reduce((a, r) => a + Number(r.gasto || 0), 0) * 100) / 100;
@@ -157,139 +158,7 @@ async function importPinterestCsv(text, userId = requireUserId()) {
     subids: subids.size,
     gasto,
     cliques,
-    classificados: classificados.total,
-    ativas: classificados.ativas,
-    desativadas: classificados.desativadas,
     range: { since: datas[0] || null, until: datas[datas.length - 1] || null },
-  };
-}
-
-function pinStatusFromEntity(raw) {
-  const s = String(raw || "").trim().toUpperCase();
-  if (!s) return null;
-  if (["ACTIVE", "ENABLED", "RUNNING"].includes(s)) return "ativa";
-  if (
-    ["PAUSED", "ARCHIVED", "DELETED", "DISABLED", "INACTIVE", "DRAFT", "ADVERTISER_DISABLED"].includes(s)
-  ) {
-    return "desativada";
-  }
-  return null;
-}
-
-function summarizePinSubIds(rows) {
-  const bySub = new Map();
-  for (const r of rows || []) {
-    const subid = String(r.subid || "").trim();
-    if (!subid) continue;
-    const prev = bySub.get(subid) || { subid, gasto: 0, cliques: 0, data: "", statusRaw: "" };
-    prev.gasto += Number(r.gasto || 0);
-    prev.cliques += Number(r.cliques || 0);
-    const day = String(r.data || "");
-    if (!prev.data || day >= prev.data) {
-      prev.data = day;
-      prev.statusRaw = r.status || prev.statusRaw;
-    }
-    bySub.set(subid, prev);
-  }
-  return [...bySub.values()];
-}
-
-// Dias sem aparecer em nenhum upload pra considerar "sumiu do relatório do
-// Pinterest" (provavelmente pausada/arquivada por lá) e não só um dia de
-// atraso/lacuna pontual no CSV.
-const STALE_DAYS = 2;
-
-/**
- * SubIDs marcados "ativa" (origem pinterest) que sumiram do relatório há
- * STALE_DAYS+ dias — o classificador só reage a quem aparece no CSV, então
- * uma campanha pausada/arquivada no Pinterest e removida do export fica
- * "ativa" pra sempre aqui se ninguém corrigir na mão. Aqui a gente corrige
- * sozinho comparando o último dia visto de cada uma contra o dia mais
- * recente do upload atual.
- */
-async function sweepStaleActivePinSubIds(userId, referenceDate, skipSubIds = []) {
-  if (!referenceDate) return [];
-  const { loadSubidOps } = require("./subidOps");
-  const skip = new Set(skipSubIds.map((s) => String(s || "").toLowerCase()));
-  const prevMap = await loadSubidOps(userId);
-  const candidates = Object.entries(prevMap)
-    .filter(([subid, r]) => !skip.has(subid)
-      && String(r.canal || "").toLowerCase() === "pinterest"
-      && String(r.status || "").toLowerCase() === "ativa"
-      && r.status_source === "pinterest")
-    .map(([subid]) => subid);
-  if (!candidates.length) return [];
-
-  // Só precisa saber se cada candidato apareceu na janela recente (não o
-  // histórico inteiro) — janela pequena evita ter que paginar mesmo com
-  // muitos SubIDs, e paginamos mesmo assim como rede de segurança (a REST
-  // do Supabase corta em 1000 linhas por página por padrão).
-  // "visto recentemente" = visto há menos de STALE_DAYS dias (gap < STALE_DAYS).
-  // Um SubID cujo último dia visto é exatamente referenceDate - STALE_DAYS já
-  // conta como sumido, então a janela "recente" vai só até referenceDate - (STALE_DAYS - 1).
-  const cutoff = new Date(`${referenceDate}T00:00:00Z`);
-  cutoff.setUTCDate(cutoff.getUTCDate() - (STALE_DAYS - 1));
-  const cutoffIso = cutoff.toISOString().slice(0, 10);
-
-  const supabase = getSupabase();
-  const seenRecently = new Set();
-  const pageSize = 1000;
-  for (let page = 0; page < 50; page++) {
-    const from = page * pageSize;
-    const { data, error } = await supabase
-      .from("pinterest_ads_daily")
-      .select("subid")
-      .eq("user_id", userId)
-      .in("subid", candidates)
-      .gte("data", cutoffIso)
-      .range(from, from + pageSize - 1);
-    if (error) return [];
-    if (!data || !data.length) break;
-    for (const row of data) seenRecently.add(String(row.subid || "").toLowerCase());
-    if (data.length < pageSize) break;
-  }
-
-  return candidates.filter((subid) => !seenRecently.has(subid));
-}
-
-async function applyPinterestCsvOps(rows, userId = requireUserId()) {
-  const { upsertSubidOpsMany, loadSubidOps, isManualStatusLocked } = require("./subidOps");
-  const prevMap = await loadSubidOps(userId);
-  const ops = [];
-  // CSV (diário ou mensal) NÃO classifica canal — só status de quem JÁ é pinterest.
-  // Indefinidos ficam pra UI; senão a lista muda a cada upload.
-  for (const r of summarizePinSubIds(rows)) {
-    const key = String(r.subid || "").toLowerCase();
-    if (!Object.prototype.hasOwnProperty.call(prevMap, key)) continue;
-    const prev = prevMap[key] || {};
-    if (prev.canal !== "pinterest") continue;
-    if (isManualStatusLocked(prev)) continue;
-    const fromEntity = pinStatusFromEntity(r.statusRaw);
-    if (fromEntity) {
-      ops.push({ subid: r.subid, status: fromEntity, status_source: "pinterest" });
-    }
-  }
-
-  const uploadMaxDate = rows.reduce((m, r) => (r.data > m ? r.data : m), "");
-  const seenNow = summarizePinSubIds(rows).map((r) => r.subid);
-  const staleSubIds = await sweepStaleActivePinSubIds(userId, uploadMaxDate, seenNow);
-  for (const subid of staleSubIds) {
-    const key = String(subid || "").toLowerCase();
-    const prev = prevMap[key] || {};
-    if (prev.canal !== "pinterest") continue;
-    if (isManualStatusLocked(prev)) continue;
-    ops.push({ subid, status: "desativada", status_source: "pinterest" });
-  }
-
-  if (!ops.length) {
-    return { total: 0, ativas: 0, desativadas: 0, desativadasPorSumico: staleSubIds.length };
-  }
-  await upsertSubidOpsMany(ops, userId);
-  return {
-    total: ops.length,
-    ativas: ops.filter((o) => o.status === "ativa").length,
-    desativadas: ops.filter((o) => o.status === "desativada").length,
-    desativadasPorSumico: staleSubIds.length,
   };
 }
 
@@ -319,5 +188,4 @@ module.exports = {
   parsePinterestCsv,
   importPinterestCsv,
   loadPinSpendByDay,
-  sweepStaleActivePinSubIds,
 };

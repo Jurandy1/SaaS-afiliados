@@ -422,17 +422,7 @@ async function syncMetaDaily({ daysBack = 7, since, until } = {}, userId = requi
     errors.push(`Classificação canal="meta": ${e.message || e}`);
   }
 
-  let statusSync = { total: 0, ativas: 0, desativadas: 0, atualizados: 0 };
-  try {
-    statusSync = await syncMetaAdStatuses({
-      token,
-      apiVersion,
-      accountIds,
-      userId,
-    });
-  } catch (e) {
-    errors.push(`Sync status Meta: ${e.message || e}`);
-  }
+  // Status Ativa/Desativada do SubID é só do cliente — sync não grava em subid_ops.
 
   const meta = {
     range: { since: sinceDate, until: untilDate, daysBack: days },
@@ -446,7 +436,6 @@ async function syncMetaDaily({ daysBack = 7, since, until } = {}, userId = requi
       impressoes: sumImpressoes,
     },
     classificados,
-    statusSync,
     erros: errors,
     elapsedMs: Date.now() - started,
   };
@@ -472,99 +461,6 @@ async function syncMetaDaily({ daysBack = 7, since, until } = {}, userId = requi
  */
 async function applyMetaSyncOps(_userId = requireUserId()) {
   return { total: 0, classificados: 0 };
-}
-
-/** Lista anúncios da conta com status de entrega (effective_status). */
-async function fetchAccountAdsStatus({ token, apiVersion, accountId }) {
-  const params = new URLSearchParams({
-    access_token: token,
-    fields: "id,name,effective_status,status",
-    limit: "500",
-  });
-  const url = `https://graph.facebook.com/${apiVersion}/${actId(accountId)}/ads?${params}`;
-  return metaFetchAll(url);
-}
-
-/**
- * ACTIVE / em revisão → ativa. Pausado, arquivado, reprovado, etc. → desativada.
- */
-function statusFromMetaEffective(raw) {
-  const s = String(raw || "").trim().toUpperCase();
-  if (!s) return null;
-  const activeish = new Set([
-    "ACTIVE",
-    "PENDING_REVIEW",
-    "PREAPPROVED",
-    "PENDING_BILLING_INFO",
-    "IN_PROCESS",
-  ]);
-  if (activeish.has(s)) return "ativa";
-  return "desativada";
-}
-
-/**
- * Sincroniza status Ativa/Desativada em subid_ops a partir do effective_status da Meta.
- * Só grava quando a API devolve o anúncio (certeza). Não sobrescreve alteração manual do cliente.
- */
-async function syncMetaAdStatuses({ token, apiVersion, accountIds, userId = requireUserId() }) {
-  const bySub = new Map(); // subid lower → { subid, hasActive }
-
-  for (const accountId of accountIds || []) {
-    const ads = await fetchAccountAdsStatus({ token, apiVersion, accountId });
-    for (const ad of ads || []) {
-      const subid = normalizeSubId(ad.name || "");
-      if (!subid) continue;
-      const key = subid.toLowerCase();
-      const mapped = statusFromMetaEffective(ad.effective_status || ad.status);
-      if (!mapped) continue;
-      const prev = bySub.get(key) || { subid, hasActive: false };
-      if (mapped === "ativa") prev.hasActive = true;
-      bySub.set(key, prev);
-    }
-  }
-
-  if (!bySub.size) {
-    return { total: 0, ativas: 0, desativadas: 0, atualizados: 0, preservadosManual: 0 };
-  }
-
-  const { loadSubidOps, upsertSubidOpsMany, isManualStatusLocked } = require("./subidOps");
-  const prevMap = await loadSubidOps(userId);
-  const toUpsert = [];
-  let ativas = 0;
-  let desativadas = 0;
-  let preservadosManual = 0;
-
-  for (const { subid, hasActive } of bySub.values()) {
-    const status = hasActive ? "ativa" : "desativada";
-    if (status === "ativa") ativas += 1;
-    else desativadas += 1;
-
-    const key = subid.toLowerCase();
-    const hasOps = Object.prototype.hasOwnProperty.call(prevMap, key);
-    const prev = hasOps ? prevMap[key] : {};
-    if (isManualStatusLocked(prev)) {
-      preservadosManual += 1;
-      continue;
-    }
-    // Só atualiza status de quem JÁ é Meta — não cria/promove canal
-    if (!hasOps || prev.canal !== "meta") continue;
-
-    toUpsert.push({
-      subid,
-      status,
-      status_source: "meta",
-    });
-  }
-
-  if (toUpsert.length) await upsertSubidOpsMany(toUpsert, userId);
-
-  return {
-    total: bySub.size,
-    ativas,
-    desativadas,
-    atualizados: toUpsert.length,
-    preservadosManual,
-  };
 }
 
 async function loadMetaSpendByDay(startDate, endDate, userId = requireUserId()) {
@@ -627,8 +523,6 @@ module.exports = {
   testMetaCredentialsPair,
   syncMetaDaily,
   applyMetaSyncOps,
-  syncMetaAdStatuses,
-  statusFromMetaEffective,
   loadMetaSpendByDay,
   loadCampaigns,
   parseAccountIds,

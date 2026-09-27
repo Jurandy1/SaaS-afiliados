@@ -33,30 +33,9 @@ function isClassifiedCanal(canal) {
   return CLASSIFIED_CANAIS.has(normalizeCanal(canal));
 }
 
-/** Canal já classificado pelo cliente — sync não pode rebaixar pra indefinido. */
-function isCanalLocked(prev = {}) {
-  if (isClassifiedCanal(prev.canal)) return true;
-  return isManualStatusLocked(prev);
-}
-
 /** Chave canônica em subid_ops — sempre minúscula (evita duplicata Unha001/unha001). */
 function opsSubidKey(subid) {
   return String(subid || "").trim().toLowerCase();
-}
-
-/**
- * Escolhe o próximo canal em upserts em massa (CSV/sync).
- * Nunca apaga nem troca meta/pin/orgânico — só a UI (upsertSubidOps) reclassifica.
- */
-function resolveNextCanal(prev, incoming) {
-  const prevCanal = normalizeCanal(prev.canal);
-  if (incoming === undefined) return prevCanal;
-  const next = normalizeCanal(incoming);
-  if (isClassifiedCanal(prevCanal)) {
-    // Não rebaixa pra indefinido nem troca de canal (ex.: CSV Pin roubando Meta/orgânico)
-    if (!next || next === "indefinido" || next !== prevCanal) return prevCanal;
-  }
-  return next;
 }
 
 /** Em duplicatas por case, preferir classificação real + status manual. */
@@ -102,13 +81,6 @@ async function deleteCaseVariants(userId, keys) {
         .eq("subid", d.subid);
     }
   } catch (_) { /* ignore */ }
-}
-
-/** Status manual / teste / legado com valor setado — sync Meta/Pin não sobrescreve. */
-function isManualStatusLocked(prev = {}) {
-  if (prev.status_source === "manual" || prev.status === "teste") return true;
-  // Legado: status preenchido antes de status_source existir = escolha do cliente
-  return Boolean(prev.status && !prev.status_source);
 }
 
 /** Status operacional global por SubID — nunca inferido por gasto ou período. */
@@ -233,63 +205,6 @@ async function upsertSubidOps(subid, partial, userId = requireUserId()) {
   return row;
 }
 
-async function upsertSubidOpsMany(rows, userId = requireUserId()) {
-  const list = (rows || []).filter((r) => r && r.subid);
-  if (!list.length) return 0;
-  const prevMap = await loadSubidOps(userId);
-  const now = new Date().toISOString();
-  const payload = list.map((r) => {
-    const key = opsSubidKey(r.subid);
-    const prev = prevMap[key] || {};
-    const locked = isManualStatusLocked(prev);
-    let nextStatus = normalizeStatus(prev.status);
-    if (r.status != null && !locked) {
-      nextStatus = normalizeStatus(r.status);
-    }
-    let statusSource = normalizeStatusSource(prev.status_source);
-    if (locked) {
-      statusSource = normalizeStatusSource(prev.status_source) || "manual";
-    } else if (r.status_source !== undefined) {
-      statusSource = normalizeStatusSource(r.status_source);
-    } else if (r.status != null) {
-      statusSource = normalizeStatusSource(r.status_source_hint) || statusSource;
-    }
-    const nextCanal =
-      r.canal !== undefined ? resolveNextCanal(prev, r.canal) : normalizeCanal(prev.canal);
-    return {
-      user_id: userId,
-      subid: key,
-      canal: nextCanal,
-      status: nextStatus,
-      produto: r.produto != null ? r.produto : (prev.produto || null),
-      status_source: statusSource,
-      updated_at: now,
-    };
-  }).filter((r) => r.subid);
-  const supabase = getSupabase();
-  let error = null;
-  for (let i = 0; i < payload.length; i += 200) {
-    const chunk = payload.slice(i, i + 200);
-    ({ error } = await supabase.from("subid_ops").upsert(chunk, { onConflict: "user_id,subid" }));
-    if (error && /status_source|indefinido|canal/i.test(error.message || "")) {
-      try {
-        const { ensureConfigSchema } = require("./ensureDb");
-        await ensureConfigSchema();
-      } catch (_) { /* ignore */ }
-      ({ error } = await supabase.from("subid_ops").upsert(chunk, { onConflict: "user_id,subid" }));
-    }
-    if (error && /status_source/i.test(error.message || "")) {
-      const legacy = chunk.map(({ status_source: _s, ...rest }) => rest);
-      ({ error } = await supabase.from("subid_ops").upsert(legacy, { onConflict: "user_id,subid" }));
-    }
-    if (error) throw new Error(error.message);
-  }
-  const keys = [...new Set(payload.map((r) => r.subid).filter(Boolean))];
-  await deleteCaseVariants(userId, keys);
-  invalidateRequestCache(`loadSubidOps:${userId}`);
-  return payload.length;
-}
-
 async function persistInferredOps(subIds, userId = requireUserId()) {
   const list = Array.isArray(subIds) ? subIds : [];
   if (!list.length) return 0;
@@ -382,11 +297,9 @@ function applyOpsToSubIds(subIds, opsMap) {
 module.exports = {
   loadSubidOps,
   upsertSubidOps,
-  upsertSubidOpsMany,
   applyOpsToSubIds,
   inferCanal,
   persistInferredOps,
   normalizeStatusSource,
-  isManualStatusLocked,
   resolveSubidStatus,
 };
