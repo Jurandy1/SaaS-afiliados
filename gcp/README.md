@@ -6,8 +6,8 @@ Agenda (fuso `America/Sao_Paulo`, igual Afiliadoteste):
 
 | Job | Horário | O que puxa |
 |-----|---------|------------|
-| `saas-afiliados-ontem` | a cada **10 min** das **05h–09h** | **só ontem** + push de lucro |
-| `saas-afiliados-recent` | a cada **15 min** (dia todo) | últimos 3 dias |
+| `saas-afiliados-ontem` | a cada **10 min** das **05h–09h** | **só ontem** + push de comissão |
+| `saas-afiliados-recent` | a cada **15 min** (dia todo) | últimos 3 dias + push se comissão de ontem **subiu** |
 | `saas-afiliados-daily` | 04:00 | últimos 7 dias + SubIDs |
 | `saas-afiliados-morning` | 05:00, 06:00, 07:00, 08:00 | 7 dias + SubIDs (manhã) |
 

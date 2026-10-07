@@ -3,10 +3,10 @@
 /**
  * Sync automático Shopee + Meta.
  * - ontem:  só o dia fechado (ontem BRT) — rápido, manhã cedo + push
- * - recent: últimos 3 dias até ontem
- * - daily:  últimos 7 dias + grava SubIDs
+ * - recent: últimos 3 dias até ontem + push se comissão de ontem subiu
+ * - daily:  últimos 7 dias + grava SubIDs (sem push)
  *
- * Agenda GCP: ontem a cada 10 min (05–09h); recent 15 min; daily 04h + manhã.
+ * Agenda GCP: ontem a cada 10 min (05–09h); recent 15 min (dia todo); daily 04h + manhã.
  */
 
 const { getSupabaseAdmin, runWithUser } = require("./auth");
@@ -124,8 +124,11 @@ async function runAutoSync({ mode = "daily" } = {}) {
       console.log(
         `[autoSync] ${user.email}: shopee nodes=${r.shopee?.nodes ?? "—"} meta=${r.meta?.gravados ?? r.meta?.error ?? "skip"}`,
       );
-      // Push só no modo "ontem" (conversões do dia fechado). recent/daily não notificam.
-      if (!r.error && syncMode === "ontem") {
+      // Push de comissão de ontem: no "ontem" (manhã) e no "recent" (dia todo,
+      // a cada 15 min). Dedup em pushCommission só reenvia se a comissão SUBIU
+      // (≥ R$1 ou ≥5%) e passou 20 min — assim o celular acompanha conversões
+      // que caem depois das 09h, não só o primeiro aviso ~07h.
+      if (!r.error && (syncMode === "ontem" || syncMode === "recent")) {
         try {
           await notifyYesterdayCommission(user.id, { email: user.email });
         } catch (e) {
