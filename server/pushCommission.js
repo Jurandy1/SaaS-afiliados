@@ -2,8 +2,11 @@
 
 /**
  * Notifica o usuário quando a comissão de ontem (BRT) chega.
- * Dedup por data: envia no máximo uma vez por dia, mesmo que os valores
- * mudem depois (ex.: pedido pendente confirmado, comissão caindo/subindo).
+ *
+ * Dedup: nunca reenvia se a comissão não mexeu ou caiu (pedido cancelado etc.).
+ * Reenvia quando a comissão SUBIU de forma significativa (≥ R$ 1,00 OU ≥ 5%)
+ * e passou o rate limit de 20 min desde o último push, para acompanhar
+ * pedidos pendentes que vão caindo durante a janela da manhã.
  */
 
 const { getSupabaseAdmin, runWithUser } = require("./auth");
@@ -16,11 +19,30 @@ function fingerprint({ com, lucro, pedidos }) {
   return `${Number(com || 0).toFixed(2)}|${Number(lucro || 0).toFixed(2)}|${Number(pedidos || 0)}`;
 }
 
-async function alreadyNotified(userId, dateKey) {
+function parseFp(fp) {
+  const [com, lucro, pedidos] = String(fp || "0|0|0").split("|").map(Number);
+  return {
+    com: Number.isFinite(com) ? com : 0,
+    lucro: Number.isFinite(lucro) ? lucro : 0,
+    pedidos: Number.isFinite(pedidos) ? pedidos : 0,
+  };
+}
+
+const RESEND_MIN_INTERVAL_MS = 20 * 60 * 1000; // 20 min entre reenvios no mesmo dia
+const RESEND_MIN_ABS = 1.0; // reenviar se com subiu ≥ R$ 1,00
+const RESEND_MIN_PCT = 0.05; // ou ≥ 5%
+
+/**
+ * Decide se o push de hoje para `dateKey` pode disparar.
+ * - sem registro ainda: dispara.
+ * - já disparou mas a comissão SUBIU de forma significativa e passou o rate limit: dispara de novo.
+ * - caso contrário: bloqueia.
+ */
+async function alreadyNotified(userId, dateKey, newCom) {
   const sb = getSupabaseAdmin();
   const { data, error } = await sb
     .from("push_notify_state")
-    .select("fingerprint")
+    .select("fingerprint, notified_at")
     .eq("user_id", userId)
     .eq("kind", "comissao-ontem")
     .eq("date_key", dateKey)
@@ -28,11 +50,25 @@ async function alreadyNotified(userId, dateKey) {
   if (error) {
     // Tabela pode não existir ainda — não bloqueia o push
     console.warn("[push] dedup read:", error.message);
-    return false;
+    return { blocked: false, reason: "no_state_table" };
   }
-  // Já existe registro para esse dia: não reenvia, mesmo que os valores
-  // tenham mudado (ex.: comissão caiu de um pedido cancelado depois).
-  return Boolean(data);
+  if (!data) return { blocked: false, reason: "first" };
+
+  const prev = parseFp(data.fingerprint);
+  const nowCom = Number(newCom || 0);
+  const delta = nowCom - prev.com;
+  const grew = delta >= RESEND_MIN_ABS || (prev.com > 0 && delta / prev.com >= RESEND_MIN_PCT);
+  if (!grew) {
+    return { blocked: true, reason: `no_growth prev=${prev.com} new=${nowCom}` };
+  }
+
+  const lastMs = data.notified_at ? Date.parse(data.notified_at) : 0;
+  const sinceMs = Date.now() - lastMs;
+  if (lastMs && sinceMs < RESEND_MIN_INTERVAL_MS) {
+    return { blocked: true, reason: `too_recent ${Math.round(sinceMs / 1000)}s` };
+  }
+
+  return { blocked: false, reason: `grew prev=${prev.com} new=${nowCom} delta=${delta.toFixed(2)}` };
 }
 
 async function markNotified(userId, dateKey, fp) {
@@ -84,9 +120,13 @@ async function notifyYesterdayCommission(userId, opts = {}) {
   }
 
   const fp = fingerprint({ com, lucro, pedidos });
-  if (!force && (await alreadyNotified(userId, yesterday))) {
-    console.log(`[push] skip ${email || userId}: já notificado ${yesterday}`);
-    return { sent: false, reason: "already", date: yesterday, com, lucro, venda, pedidos };
+  if (!force) {
+    const dedup = await alreadyNotified(userId, yesterday, com);
+    if (dedup.blocked) {
+      console.log(`[push] skip ${email || userId}: ${yesterday} ${dedup.reason}`);
+      return { sent: false, reason: dedup.reason, date: yesterday, com, lucro, venda, pedidos };
+    }
+    console.log(`[push] dedup pass ${email || userId}: ${yesterday} ${dedup.reason}`);
   }
 
   const payload = buildCommissionPush({
