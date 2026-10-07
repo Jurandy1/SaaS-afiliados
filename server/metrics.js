@@ -163,12 +163,22 @@ function aggregateReport(nodes) {
       // Preferência: totalCommission do nó (1× por conversão), só em pedido que conta
       let com = 0;
       const countsForRevenue = status !== "cancelada" && status !== "unpaid";
-      if (countsForRevenue && !commissionAssigned && convCommission > 0) {
-        com = convCommission;
-        commissionAssigned = true;
-      } else if (countsForRevenue && comItems > 0) {
+      if (!countsForRevenue) {
+        // cancelado/unpaid — guarda o itemTotalCommission no pedido só pra referência,
+        // não entra no total (o `return` abaixo pula o acumulador).
         com = comItems;
-      } else if (!countsForRevenue) {
+      } else if (convCommission > 0) {
+        // Com totalCommission do nó: 1× por conversão. O primeiro pedido elegível
+        // leva o valor cheio; os demais pedidos da MESMA conversão ficam zerados
+        // pra não duplicar a parte deles no total (o totalCommission já cobre eles).
+        if (!commissionAssigned) {
+          com = convCommission;
+          commissionAssigned = true;
+        } else {
+          com = 0;
+        }
+      } else if (comItems > 0) {
+        // Sem totalCommission (fallback raro): soma por itens de cada pedido.
         com = comItems;
       }
 
